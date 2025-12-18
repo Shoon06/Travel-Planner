@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Welcome Section -->
+    <div class="card-glass p-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h2 class="fw-bold mb-2">Welcome back, {{ user.username }}! 👋</h2>
+                <p class="text-gray mb-0">Ready to plan your next Myanmar adventure?</p>
+            </div>
+            <div>
+                <a href="{% url 'planner:plan' %}" class="btn btn-gold">
+                    <i class="fas fa-plus me-2"></i>Create New Trip
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row mb-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-bg mx-auto mb-3">
+                    <i class="fas fa-suitcase text-white"></i>
+                </div>
+                <h3 class="mb-2">3</h3>
+                <p class="text-gray mb-0">Total Trips</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-teal mx-auto mb-3">
+                    <i class="fas fa-calendar-alt text-white"></i>
+                </div>
+                <h3 class="mb-2">1</h3>
+                <p class="text-gray mb-0">Upcoming</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-gold mx-auto mb-3">
+                    <i class="fas fa-coins text-dark"></i>
+                </div>
+                <h3 class="mb-2">
+                    <span class="price-tag">2,450,000</span>
+                </h3>
+                <p class="text-gray mb-0">Total Spent</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
+                    <i class="fas fa-map-marked-alt text-white"></i>
+                </div>
+                <h3 class="mb-2">5</h3>
+                <p class="text-gray mb-0">Destinations</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Features -->
+    <div class="row mb-5">
+        <div class="col-12 mb-4">
+            <h3 class="section-title">Plan Your Next Adventure</h3>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 text-center h-100">
+                <div class="feature-icon gradient-bg mx-auto mb-4">
+                    <i class="fas fa-robot text-white"></i>
+                </div>
+                <h4 class="mb-3">AI Trip Planner</h4>
+                <p class="text-gray mb-4">Generate personalized itineraries with AI based on your preferences.</p>
+                <a href="{% url 'planner:plan' %}" class="btn btn-primary w-100">
+                    <i class="fas fa-magic me-2"></i>Plan with AI
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 text-center h-100">
+                <div class="feature-icon gradient-teal mx-auto mb-4">
+                    <i class="fas fa-map-marked-alt text-white"></i>
+                </div>
+                <h4 class="mb-3">Interactive Maps</h4>
+                <p class="text-gray mb-4">Visualize your journey with pinned locations and optimal routes.</p>
+                <a href="#" class="btn btn-primary w-100">
+                    <i class="fas fa-map me-2"></i>Explore Maps
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 text-center h-100">
+                <div class="feature-icon gradient-gold mx-auto mb-4">
+                    <i class="fas fa-calculator text-dark"></i>
+                </div>
+                <h4 class="mb-3">Budget Planner</h4>
+                <p class="text-gray mb-4">Plan and track expenses with detailed cost breakdowns in MMK.</p>
+                <a href="#" class="btn btn-primary w-100">
+                    <i class="fas fa-chart-pie me-2"></i>Plan Budget
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Trips -->
+    <div class="card-glass p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="section-title mb-0">Your Upcoming Trips</h3>
+            <a href="#" class="btn btn-outline-light">View All</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card-glass p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0">Yangon Cultural Tour</h5>
+                        <span class="badge gradient-gold text-dark">Upcoming</span>
+                    </div>
+                    <p class="text-gray small mb-2">
+                        <i class="fas fa-calendar me-1"></i>Dec 20-25, 2025
+                    </p>
+                    <p class="text-gray small mb-3">
+                        <i class="fas fa-users me-1"></i>2 Travelers
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="price-tag">850,000</span>
+                        <a href="#" class="btn btn-sm btn-outline-light">View Details</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card-glass p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0">Bagan Temple Exploration</h5>
+                        <span class="badge gradient-teal">Planning</span>
+                    </div>
+                    <p class="text-gray small mb-2">
+                        <i class="fas fa-calendar me-1"></i>Jan 10-15, 2026
+                    </p>
+                    <p class="text-gray small mb-3">
+                        <i class="fas fa-users me-1"></i>4 Travelers
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="price-tag">1,200,000</span>
+                        <a href="#" class="btn btn-sm btn-outline-light">Continue Planning</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card-glass p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0">Inle Lake Relaxation</h5>
+                        <span class="badge bg-secondary">Draft</span>
+                    </div>
+                    <p class="text-gray small mb-2">
+                        <i class="fas fa-calendar me-1"></i>Feb 5-10, 2026
+                    </p>
+                    <p class="text-gray small mb-3">
+                        <i class="fas fa-users me-1"></i>2 Travelers
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="price-tag">950,000</span>
+                        <a href="#" class="btn btn-sm btn-outline-light">Start Planning</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

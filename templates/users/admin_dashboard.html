@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Welcome Section -->
+    <div class="card-glass p-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h2 class="fw-bold mb-2">Admin Management Dashboard</h2>
+                <p class="text-gray mb-0">Welcome back, {{ user.username }} <span class="badge gradient-gold text-dark">Administrator</span></p>
+            </div>
+            <div>
+                <a href="/admin/" class="btn btn-primary">
+                    <i class="fas fa-lock me-2"></i>Full Django Admin
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="row mb-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-bg mx-auto mb-3">
+                    <i class="fas fa-users text-white"></i>
+                </div>
+                <h3 class="mb-2">{{ total_users }}</h3>
+                <p class="text-gray mb-0">Total Users</p>
+                <small class="text-success">+{{ new_users_today }} today</small>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-teal mx-auto mb-3">
+                    <i class="fas fa-suitcase text-white"></i>
+                </div>
+                <h3 class="mb-2">{{ total_trips }}</h3>
+                <p class="text-gray mb-0">Total Trips</p>
+                <small>{{ active_trips }} active</small>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-gold mx-auto mb-3">
+                    <i class="fas fa-coins text-dark"></i>
+                </div>
+                <h3 class="mb-2">{{ total_revenue|floatformat:0 }}</h3>
+                <p class="text-gray mb-0">Total Revenue (MMK)</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card-glass p-4 text-center">
+                <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
+                    <i class="fas fa-map-marked-alt text-white"></i>
+                </div>
+                <h3 class="mb-2">{{ total_destinations }}</h3>
+                <p class="text-gray mb-0">Destinations</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Management Sections -->
+    <div class="row">
+        <!-- User Management -->
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-4 section-title">User Management</h4>
+                <p class="text-gray mb-4">Manage user accounts and roles</p>
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-list me-2"></i>View All Users
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-user-plus me-2"></i>Add New User
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-user-tag me-2"></i>Manage User Roles
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trip Management -->
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-4 section-title">Trip Management</h4>
+                <p class="text-gray mb-4">View and manage user trips</p>
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-list-alt me-2"></i>View All Trips
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-chart-line me-2"></i>Trip Analytics
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-edit me-2"></i>Edit Trip Content
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Management -->
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-4 section-title">Content Management</h4>
+                <p class="text-gray mb-4">Manage destinations, hotels, and activities</p>
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-map-marked-alt me-2"></i>Manage Destinations
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-hotel me-2"></i>Manage Hotels
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-bus me-2"></i>Manage Transportation
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Settings -->
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-4 section-title">System Settings</h4>
+                <p class="text-gray mb-4">System configuration and settings</p>
+                <div class="d-grid gap-2">
+                    <a href="/admin/" class="btn btn-outline-light">
+                        <i class="fas fa-cogs me-2"></i>Full Django Admin
+                    </a>
+                    <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light">
+                        <i class="fas fa-eye me-2"></i>View User Dashboard
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="fas fa-database me-2"></i>Database Backup
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

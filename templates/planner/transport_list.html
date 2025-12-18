@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select {{ transport_type|title }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">{{ transport_type|title }} Options</h2>
+                        <p class="text-gray mb-0">Available {{ transport_type }} services to {{ trip.destination.name }}</p>
+                    </div>
+                    <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Options
+                    </a>
+                </div>
+                
+                <!-- Budget Filter -->
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="?type={{ transport_type }}&budget=all" class="btn btn-sm {% if not budget_filter or budget_filter == 'all' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        All Options
+                    </a>
+                    <a href="?type={{ transport_type }}&budget=low" class="btn btn-sm {% if budget_filter == 'low' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        Low Cost
+                    </a>
+                    <a href="?type={{ transport_type }}&budget=medium" class="btn btn-sm {% if budget_filter == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        Medium Cost
+                    </a>
+                    <a href="?type={{ transport_type }}&budget=high" class="btn btn-sm {% if budget_filter == 'high' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        High Cost
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Transport List -->
+            <div class="row">
+                {% for item in transport_items %}
+                <div class="col-md-6 mb-4">
+                    <div class="card-glass p-4 h-100">
+                        <div class="row align-items-center">
+                            <div class="col-3 text-center">
+                                <div class="rounded-circle bg-light p-3 d-inline-block">
+                                    {% if transport_type == 'flight' %}
+                                    <i class="fas fa-plane fa-2x text-primary"></i>
+                                    {% elif transport_type == 'car' %}
+                                    <i class="fas fa-car fa-2x text-primary"></i>
+                                    {% else %}
+                                    <i class="fas fa-bus fa-2x text-primary"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                {% if transport_type == 'flight' %}
+                                <h6 class="fw-bold mb-1">{{ item.airline }}</h6>
+                                <p class="text-gray small mb-1">Flight {{ item.flight_number }}</p>
+                                <p class="text-gray small mb-0">{{ item.departure_time|time:"g:i A" }} - {{ item.arrival_time|time:"g:i A" }}</p>
+                                {% elif transport_type == 'car' %}
+                                <h6 class="fw-bold mb-1">{{ item.car_model }}</h6>
+                                <p class="text-gray small mb-1">{{ item.company }}</p>
+                                <p class="text-gray small mb-0">{{ item.seats }} seats • {{ item.get_car_type_display }}</p>
+                                {% else %}
+                                <h6 class="fw-bold mb-1">{{ item.company }}</h6>
+                                <p class="text-gray small mb-1">{{ item.get_bus_type_display }}</p>
+                                <p class="text-gray small mb-0">{{ item.departure_time|time:"g:i A" }} • {{ item.duration }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="col-3 text-end">
+                                <h6 class="price-tag mb-2">
+                                    {% if transport_type == 'flight' or transport_type == 'bus' %}
+                                    {{ item.price_in_mmk }}
+                                    {% else %}
+                                    {{ item.price_in_mmk }}/day
+                                    {% endif %}
+                                </h6>
+                                <form method="post" action="{% url 'planner:save_transport' trip.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="transport_type" value="{{ transport_type }}">
+                                    <input type="hidden" name="transport_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        Select
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="card-glass p-5 text-center">
+                        <div class="feature-icon gradient-purple mx-auto mb-4">
+                            {% if transport_type == 'flight' %}
+                            <i class="fas fa-plane fa-2x text-white"></i>
+                            {% elif transport_type == 'car' %}
+                            <i class="fas fa-car fa-2x text-white"></i>
+                            {% else %}
+                            <i class="fas fa-bus fa-2x text-white"></i>
+                            {% endif %}
+                        </div>
+                        <h4 class="mb-3">No {{ transport_type }} options available</h4>
+                        <p class="text-gray mb-4">Please try another transport type or adjust your filters.</p>
+                        <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Options
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .price-tag {
+        background: linear-gradient(135deg, #6B47A4, #B79EDC);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    
+    .price-tag:before {
+        content: 'MMK ';
+        font-size: 0.8em;
+        font-weight: 400;
+    }
+</style>
+{% endblock %}

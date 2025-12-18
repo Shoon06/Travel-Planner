@@ -1,0 +1,228 @@
+/* Marble-style Gradient Background */
+body {
+    background: 
+        /* Create marble swirl effect with your colors */
+        radial-gradient(circle at 10% 20%, rgba(107, 71, 164, 0.15) 0%, transparent 25%),
+        radial-gradient(circle at 90% 10%, rgba(183, 158, 220, 0.12) 0%, transparent 20%),
+        radial-gradient(circle at 50% 80%, rgba(145, 179, 224, 0.1) 0%, transparent 30%),
+        radial-gradient(circle at 20% 50%, rgba(216, 182, 216, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 80% 70%, rgba(235, 235, 242, 0.2) 0%, transparent 25%),
+        radial-gradient(circle at 30% 90%, rgba(107, 71, 164, 0.1) 0%, transparent 20%),
+        radial-gradient(circle at 70% 30%, rgba(183, 158, 220, 0.08) 0%, transparent 25%),
+        
+        /* Base gradient */
+        linear-gradient(135deg, 
+            rgba(235, 235, 242, 0.95) 0%, 
+            rgba(216, 182, 216, 0.85) 30%, 
+            rgba(183, 158, 220, 0.8) 60%, 
+            rgba(145, 179, 224, 0.7) 80%, 
+            rgba(107, 71, 164, 0.6) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Animated marble effect */
+@keyframes marbleFloat {
+    0%, 100% {
+        background-position: 0% 0%, 90% 10%, 50% 80%, 20% 50%, 80% 70%, 30% 90%, 70% 30%;
+    }
+    50% {
+        background-position: 10% 20%, 80% 20%, 60% 70%, 30% 60%, 70% 60%, 40% 80%, 60% 40%;
+    }
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 10% 20%, rgba(107, 71, 164, 0.15) 0%, transparent 25%),
+        radial-gradient(circle at 90% 10%, rgba(183, 158, 220, 0.12) 0%, transparent 20%),
+        radial-gradient(circle at 50% 80%, rgba(145, 179, 224, 0.1) 0%, transparent 30%),
+        radial-gradient(circle at 20% 50%, rgba(216, 182, 216, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 80% 70%, rgba(235, 235, 242, 0.2) 0%, transparent 25%),
+        radial-gradient(circle at 30% 90%, rgba(107, 71, 164, 0.1) 0%, transparent 20%),
+        radial-gradient(circle at 70% 30%, rgba(183, 158, 220, 0.08) 0%, transparent 25%);
+    animation: marbleFloat 20s infinite alternate ease-in-out;
+    z-index: -1;
+}
+
+/* Neon text for "Discover Myanmar The Smart Way" */
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, 
+        #ff00ff 0%, 
+        #00ffff 25%, 
+        #ffff00 50%, 
+        #ff00ff 75%, 
+        #00ffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% auto;
+    animation: neonShimmer 2s linear infinite;
+    text-shadow: 
+        0 0 10px rgba(255, 255, 255, 0.8),
+        0 0 20px rgba(255, 0, 255, 0.5),
+        0 0 30px rgba(0, 255, 255, 0.3);
+}
+
+@keyframes neonShimmer {
+    0% {
+        background-position: 0% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
+}
+
+/* Card styling with new colors */
+.card-glass {
+    background: rgba(235, 235, 242, 0.92);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(183, 158, 220, 0.2);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 8px 32px rgba(107, 71, 164, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.card-glass:hover {
+    transform: translateY(-5px);
+    border-color: rgba(145, 179, 224, 0.4);
+    box-shadow: 
+        0 15px 40px rgba(107, 71, 164, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Button styling with new colors */
+.btn-primary {
+    background: linear-gradient(135deg, #6B47A4 0%, #B79EDC 50%, #91B3E0 100%);
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 50px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #91B3E0 0%, #B79EDC 50%, #6B47A4 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(107, 71, 164, 0.3);
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, #D8B6D8 0%, #B79EDC 50%, #6B47A4 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 12px 30px;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+}
+
+.btn-gold:hover {
+    background: linear-gradient(135deg, #6B47A4 0%, #B79EDC 50%, #D8B6D8 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(216, 182, 216, 0.3);
+}
+
+/* Navigation bar with new colors */
+.navbar {
+    background: rgba(235, 235, 242, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(183, 158, 220, 0.2);
+    box-shadow: 0 4px 20px rgba(107, 71, 164, 0.1);
+}
+
+.navbar-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #6B47A4 0%, #B79EDC 50%, #91B3E0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Form controls */
+.form-control, .form-select {
+    background: rgba(235, 235, 242, 0.9);
+    border: 1px solid rgba(183, 158, 220, 0.3);
+    color: #2c3e50;
+    border-radius: 10px;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    background: rgba(235, 235, 242, 0.95);
+    border-color: #B79EDC;
+    box-shadow: 0 0 0 0.25rem rgba(183, 158, 220, 0.25);
+    color: #2c3e50;
+}
+
+/* Footer styling */
+footer {
+    background: rgba(235, 235, 242, 0.95);
+    border-top: 1px solid rgba(183, 158, 220, 0.2);
+    backdrop-filter: blur(10px);
+    color: #2c3e50;
+}
+
+/* Gradient backgrounds for different sections */
+.gradient-bg {
+    background: linear-gradient(135deg, #6B47A4 0%, #B79EDC 100%);
+}
+
+.gradient-teal {
+    background: linear-gradient(135deg, #91B3E0 0%, #B79EDC 100%);
+}
+
+.gradient-purple {
+    background: linear-gradient(135deg, #D8B6D8 0%, #B79EDC 100%);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(235, 235, 242, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #B79EDC, #6B47A4);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #6B47A4, #B79EDC);
+}

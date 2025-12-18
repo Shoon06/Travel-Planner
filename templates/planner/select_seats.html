@@ -1,0 +1,483 @@
+{% extends 'base.html' %}
+{% block title %}Select Seats - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Select Your Seats</h2>
+                        <p class="text-gray mb-0">
+                            {% if trip.transportation_preference == 'flight' %}
+                                {{ transport.airline }} - Flight {{ transport.flight_number }}
+                            {% elif trip.transportation_preference == 'bus' %}
+                                {{ transport.company }} - {{ transport.get_bus_type_display }}
+                            {% elif trip.transportation_preference == 'car' %}
+                                {{ transport.company }} - {{ transport.car_model }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'planner:select_transport' trip.id %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back
+                    </a>
+                </div>
+                
+                {% if trip.transportation_preference == 'car' %}
+                <!-- Car Rental - No seat selection needed -->
+                <div class="card-glass p-5 text-center">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-car fa-2x text-white"></i>
+                    </div>
+                    <h4 class="mb-3">Car Selected!</h4>
+                    <p class="text-gray mb-4">No seat selection needed for car rental.</p>
+                    <form method="post" action="{% url 'planner:select_seats' trip.id transport.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="selected_seats" value='[]'>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Confirm Car Selection
+                        </button>
+                    </form>
+                </div>
+                
+                {% else %}
+                <!-- Seat Selection for Flight/Bus -->
+                <div class="card-glass p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h4 class="mb-2">Available Seats: {{ transport.available_seats }}</h4>
+                            <p class="text-gray mb-0">
+                                {% if trip.transportation_preference == 'flight' %}
+                                    {{ transport.departure.name }} → {{ transport.arrival.name }}
+                                {% elif trip.transportation_preference == 'bus' %}
+                                    {{ transport.departure.name }} → {{ transport.arrival.name }} ({{ transport.duration }})
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <h4 class="price-tag mb-2">
+                                {% if trip.transportation_preference == 'flight' %}
+                                    {{ transport.price_in_mmk }}
+                                {% elif trip.transportation_preference == 'bus' %}
+                                    {{ transport.price_in_mmk }}
+                                {% endif %}
+                            </h4>
+                            <p class="text-gray small mb-0">per seat</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Seat Legend -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="mb-3">Seat Legend</h5>
+                    <div class="d-flex flex-wrap gap-3">
+                        <div class="d-flex align-items-center">
+                            <div class="seat seat-available me-2"></div>
+                            <span class="text-gray">Available</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="seat seat-selected me-2"></div>
+                            <span class="text-gray">Selected</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="seat seat-occupied me-2"></div>
+                            <span class="text-gray">Occupied</span>
+                        </div>
+                        {% if trip.transportation_preference == 'flight' %}
+                        <div class="d-flex align-items-center">
+                            <div class="seat seat-premium me-2"></div>
+                            <span class="text-gray">Premium/Extra Legroom</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Seat Map -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="mb-4">Select Your Seats</h5>
+                    
+                    <!-- Bus Seat Layout -->
+                    {% if trip.transportation_preference == 'bus' %}
+                    <div class="seat-map-bus">
+                        <!-- Driver Area -->
+                        <div class="driver-area text-center mb-4">
+                            <div class="driver-icon mx-auto mb-2">
+                                <i class="fas fa-steering-wheel fa-2x text-gray"></i>
+                            </div>
+                            <p class="text-gray small mb-0">Driver</p>
+                        </div>
+                        
+                        <!-- Bus Seats (2-2 configuration) -->
+                        <div class="bus-seats">
+                            {% for row in "123456789"|make_list %}
+                            <div class="row mb-3">
+                                <!-- Left side seats -->
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        {% for seat_num in "AB"|make_list %}
+                                        {% with seat_number=row|add:seat_num %}
+                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
+                                            {{ seat_number }}
+                                        </div>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Aisle -->
+                                <div class="col-1 text-center">
+                                    <div class="aisle"></div>
+                                </div>
+                                
+                                <!-- Right side seats -->
+                                <div class="col-5">
+                                    <div class="d-flex gap-2">
+                                        {% for seat_num in "CD"|make_list %}
+                                        {% with seat_number=row|add:seat_num %}
+                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
+                                            {{ seat_number }}
+                                        </div>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Flight Seat Layout -->
+                    {% elif trip.transportation_preference == 'flight' %}
+                    <div class="seat-map-flight">
+                        <!-- First Class / Business Class -->
+                        {% if transport.category == 'high' %}
+                        <div class="premium-section mb-5">
+                            <h6 class="text-center mb-3 text-teal">
+                                <i class="fas fa-crown me-2"></i>Business Class
+                            </h6>
+                            <div class="row justify-content-center mb-4">
+                                {% for seat in "1234"|make_list %}
+                                <div class="col-3 text-center">
+                                    {% for letter in "AB"|make_list %}
+                                    {% with seat_number=seat|add:letter %}
+                                    <div class="seat seat-premium mb-2" data-seat="{{ seat_number }}">
+                                        {{ seat_number }}
+                                    </div>
+                                    {% endwith %}
+                                    {% endfor %}
+                                    <div class="aisle-small d-inline-block mx-1"></div>
+                                    {% for letter in "CD"|make_list %}
+                                    {% with seat_number=seat|add:letter %}
+                                    <div class="seat seat-premium mb-2" data-seat="{{ seat_number }}">
+                                        {{ seat_number }}
+                                    </div>
+                                    {% endwith %}
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Economy Class -->
+                        <div class="economy-section">
+                            <h6 class="text-center mb-3">
+                                <i class="fas fa-users me-2"></i>Economy Class
+                            </h6>
+                            <div class="row mb-4">
+                                {% for row in "567891011"|make_list %}
+                                <div class="col-12 mb-2">
+                                    <div class="d-flex justify-content-center gap-2">
+                                        {% for seat_num in "ABCDEF"|make_list %}
+                                        {% with seat_number=row|add:seat_num %}
+                                        {% if forloop.counter == 3 %}
+                                        <div class="aisle d-inline-block mx-2"></div>
+                                        {% endif %}
+                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
+                                            {{ seat_number }}
+                                        </div>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Selected Seats Summary -->
+                    <div class="selected-seats-summary mt-4">
+                        <h6 class="mb-3">Selected Seats:</h6>
+                        <div id="selectedSeatsList" class="d-flex flex-wrap gap-2 mb-3">
+                            <!-- Selected seats will appear here -->
+                        </div>
+                        <p class="text-gray small mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Click on available seats to select them
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="card-glass p-4">
+                    <form method="post" action="{% url 'planner:select_seats' trip.id transport.id %}" id="seatForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="selected_seats" id="selectedSeatsInput" value='[]'>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'planner:select_transport' trip.id %}" class="btn btn-outline-light">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Options
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="confirmButton" disabled>
+                                <i class="fas fa-check me-2"></i>Confirm Selection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Seat Styling */
+    .seat {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+    
+    .seat-available {
+        background: white;
+        border: 2px solid rgba(139, 92, 246, 0.3);
+        color: var(--text-dark);
+    }
+    
+    .seat-available:hover {
+        background: rgba(139, 92, 246, 0.1);
+        border-color: var(--primary-purple);
+        transform: scale(1.05);
+    }
+    
+    .seat-selected {
+        background: linear-gradient(135deg, var(--primary-purple), var(--secondary-purple));
+        border: 2px solid var(--primary-purple);
+        color: white;
+    }
+    
+    .seat-occupied {
+        background: rgba(107, 114, 128, 0.2);
+        border: 2px solid rgba(107, 114, 128, 0.3);
+        color: var(--text-gray);
+        cursor: not-allowed;
+    }
+    
+    .seat-premium {
+        background: linear-gradient(135deg, #06B6D4, #0891B2);
+        border: 2px solid #06B6D4;
+        color: white;
+    }
+    
+    .seat-premium:hover {
+        background: linear-gradient(135deg, #0891B2, #0D9488);
+    }
+    
+    /* Aisle Styling */
+    .aisle {
+        width: 40px;
+        height: 100%;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 5px;
+    }
+    
+    .aisle-small {
+        width: 20px;
+        height: 20px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 3px;
+    }
+    
+    /* Driver Area */
+    .driver-area {
+        padding: 15px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 10px;
+        max-width: 200px;
+        margin: 0 auto;
+    }
+    
+    .driver-icon {
+        width: 60px;
+        height: 60px;
+        background: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    /* Bus Seats Layout */
+    .bus-seats .row {
+        align-items: center;
+    }
+    
+    /* Selected Seat Badge */
+    .selected-seat-badge {
+        background: linear-gradient(135deg, var(--primary-purple), var(--secondary-purple));
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .selected-seat-badge .remove-seat {
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .selected-seat-badge .remove-seat:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedSeats = new Set();
+        const selectedSeatsInput = document.getElementById('selectedSeatsInput');
+        const selectedSeatsList = document.getElementById('selectedSeatsList');
+        const confirmButton = document.getElementById('confirmButton');
+        
+        // Function to update selected seats display
+        function updateSelectedSeats() {
+            // Update the hidden input
+            selectedSeatsInput.value = JSON.stringify(Array.from(selectedSeats));
+            
+            // Update the displayed list
+            selectedSeatsList.innerHTML = '';
+            
+            if (selectedSeats.size === 0) {
+                selectedSeatsList.innerHTML = '<p class="text-gray">No seats selected</p>';
+                confirmButton.disabled = true;
+            } else {
+                selectedSeats.forEach(seat => {
+                    const badge = document.createElement('div');
+                    badge.className = 'selected-seat-badge';
+                    badge.innerHTML = `
+                        ${seat}
+                        <span class="remove-seat" data-seat="${seat}">
+                            <i class="fas fa-times"></i>
+                        </span>
+                    `;
+                    selectedSeatsList.appendChild(badge);
+                });
+                confirmButton.disabled = false;
+            }
+        }
+        
+        // Seat click handler
+        document.querySelectorAll('.seat.seat-available, .seat.seat-premium').forEach(seat => {
+            seat.addEventListener('click', function() {
+                const seatNumber = this.getAttribute('data-seat');
+                
+                if (selectedSeats.has(seatNumber)) {
+                    // Deselect seat
+                    selectedSeats.delete(seatNumber);
+                    this.classList.remove('seat-selected');
+                    this.classList.add(this.classList.contains('seat-premium') ? 'seat-premium' : 'seat-available');
+                } else {
+                    // Select seat (limit to trip travelers count)
+                    if (selectedSeats.size >= {{ trip.travelers }}) {
+                        alert(`You can only select up to {{ trip.travelers }} seat(s) for your trip.`);
+                        return;
+                    }
+                    
+                    selectedSeats.add(seatNumber);
+                    this.classList.remove('seat-available', 'seat-premium');
+                    this.classList.add('seat-selected');
+                }
+                
+                updateSelectedSeats();
+            });
+        });
+        
+        // Remove seat handler
+        selectedSeatsList.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-seat')) {
+                const seatNumber = e.target.closest('.remove-seat').getAttribute('data-seat');
+                selectedSeats.delete(seatNumber);
+                
+                // Update the seat visual
+                const seatElement = document.querySelector(`.seat[data-seat="${seatNumber}"]`);
+                if (seatElement) {
+                    seatElement.classList.remove('seat-selected');
+                    if (seatElement.classList.contains('premium-seat')) {
+                        seatElement.classList.add('seat-premium');
+                    } else {
+                        seatElement.classList.add('seat-available');
+                    }
+                }
+                
+                updateSelectedSeats();
+            }
+        });
+        
+        // Form submission validation
+        document.getElementById('seatForm').addEventListener('submit', function(e) {
+            if (selectedSeats.size === 0) {
+                e.preventDefault();
+                alert('Please select at least one seat.');
+                return false;
+            }
+            
+            if (selectedSeats.size > {{ trip.travelers }}) {
+                e.preventDefault();
+                alert(`You cannot select more than {{ trip.travelers }} seat(s).`);
+                return false;
+            }
+        });
+        
+        // Initialize
+        updateSelectedSeats();
+        
+        // Mark some seats as occupied for demo
+        setTimeout(() => {
+            // Randomly mark 5 seats as occupied for demo
+            const allSeats = document.querySelectorAll('.seat.seat-available, .seat.seat-premium');
+            const occupiedCount = Math.min(5, allSeats.length);
+            
+            for (let i = 0; i < occupiedCount; i++) {
+                const randomIndex = Math.floor(Math.random() * allSeats.length);
+                const seat = allSeats[randomIndex];
+                
+                if (!selectedSeats.has(seat.getAttribute('data-seat'))) {
+                    seat.classList.remove('seat-available', 'seat-premium');
+                    seat.classList.add('seat-occupied');
+                    seat.style.cursor = 'not-allowed';
+                    seat.onclick = null;
+                }
+            }
+        }, 100);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Create Post - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-edit fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold">Share Your Experience</h2>
+                    <p class="text-gray">Tell the community about your Myanmar adventure</p>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Post Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="Give your post a catchy title" required maxlength="200">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Destination (Optional)</label>
+                        <select name="destination" class="form-select">
+                            <option value="">Select a destination</option>
+                            {% for destination in destinations %}
+                            <option value="{{ destination.id }}">{{ destination.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Your Story</label>
+                        <textarea name="content" class="form-control" rows="8" placeholder="Share your experience in detail..." required></textarea>
+                        <div class="form-text">Tell us about your trip, what you enjoyed, tips for other travelers, etc.</div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Upload Image</label>
+                            <input type="file" name="image" class="form-control" accept="image/*">
+                            <div class="form-text">JPEG, PNG, GIF up to 5MB</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Upload Video (Optional)</label>
+                            <input type="file" name="video" class="form-control" accept="video/*">
+                            <div class="form-text">MP4, AVI up to 50MB</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-paper-plane me-2"></i>Publish Post
+                        </button>
+                        <a href="{% url 'posts:post_list' %}" class="btn btn-outline-light">
+                            <i class="fas fa-arrow-left me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Tips -->
+            <div class="card-glass p-4 mt-4">
+                <h5 class="mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>Posting Tips</h5>
+                <ul class="list-unstyled text-gray">
+                    <li class="mb-2"><i class="fas fa-check me-2 text-success"></i>Be specific about locations and experiences</li>
+                    <li class="mb-2"><i class="fas fa-check me-2 text-success"></i>Include practical tips for other travelers</li>
+                    <li class="mb-2"><i class="fas fa-check me-2 text-success"></i>Share both positive and constructive feedback</li>
+                    <li class="mb-2"><i class="fas fa-check me-2 text-success"></i>Use proper formatting for readability</li>
+                    <li><i class="fas fa-check me-2 text-success"></i>Add relevant photos to illustrate your story</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Preview image before upload
+        const imageInput = document.querySelector('input[name="image"]');
+        const videoInput = document.querySelector('input[name="video"]');
+        
+        imageInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const fileSize = this.files[0].size / 1024 / 1024; // in MB
+                if (fileSize > 5) {
+                    alert('Image size should be less than 5MB');
+                    this.value = '';
+                }
+            }
+        });
+        
+        videoInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const fileSize = this.files[0].size / 1024 / 1024; // in MB
+                if (fileSize > 50) {
+                    alert('Video size should be less than 50MB');
+                    this.value = '';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

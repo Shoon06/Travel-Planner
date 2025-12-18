@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% block title %}Select Transport - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Choose Your Transportation</h2>
+                        <p class="text-gray mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>{{ trip.destination.name }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-users me-2"></i>{{ trip.travelers }} traveler{% if trip.travelers > 1 %}s{% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                    </a>
+                </div>
+                
+                <!-- Transport Category Selection -->
+                <div class="card-glass p-4 mb-4">
+                    <h4 class="mb-4">Select Transport Type</h4>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="card-glass p-4 text-center transport-option" data-type="flight">
+                                <div class="feature-icon gradient-bg mx-auto mb-4">
+                                    <i class="fas fa-plane fa-2x text-white"></i>
+                                </div>
+                                <h5 class="mb-3">Flight</h5>
+                                <p class="text-gray mb-3">Fastest way to travel between cities</p>
+                                <div class="price-range">
+                                    <span class="badge bg-success">Low: MMK 50,000+</span>
+                                    <span class="badge bg-warning">Medium: MMK 100,000+</span>
+                                    <span class="badge bg-danger">High: MMK 200,000+</span>
+                                </div>
+                                <button class="btn btn-primary mt-3 w-100">
+                                    Select Flight
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card-glass p-4 text-center transport-option" data-type="bus">
+                                <div class="feature-icon gradient-purple mx-auto mb-4">
+                                    <i class="fas fa-bus fa-2x text-white"></i>
+                                </div>
+                                <h5 class="mb-3">Bus</h5>
+                                <p class="text-gray mb-3">Comfortable and affordable road travel</p>
+                                <div class="price-range">
+                                    <span class="badge bg-success">Standard: MMK 20,000+</span>
+                                    <span class="badge bg-info">VIP: MMK 40,000+</span>
+                                    <span class="badge bg-warning">Luxury: MMK 60,000+</span>
+                                </div>
+                                <button class="btn btn-primary mt-3 w-100">
+                                    Select Bus
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card-glass p-4 text-center transport-option" data-type="car">
+                                <div class="feature-icon gradient-teal mx-auto mb-4">
+                                    <i class="fas fa-car fa-2x text-white"></i>
+                                </div>
+                                <h5 class="mb-3">Car Rental</h5>
+                                <p class="text-gray mb-3">Flexible travel on your own schedule</p>
+                                <div class="price-range">
+                                    <span class="badge bg-success">Economy: MMK 30,000/day</span>
+                                    <span class="badge bg-warning">SUV: MMK 60,000/day</span>
+                                    <span class="badge bg-danger">Luxury: MMK 120,000/day</span>
+                                </div>
+                                <button class="btn btn-primary mt-3 w-100">
+                                    Select Car
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Transport Options (Will be shown based on selection) -->
+                <div id="transportOptions" style="display: none;">
+                    <!-- Content will be loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .transport-option {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .transport-option:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 15px 35px rgba(52, 152, 219, 0.2);
+    }
+    
+    .transport-option.active {
+        border: 2px solid var(--primary-blue);
+        background: rgba(52, 152, 219, 0.05);
+    }
+    
+    .price-range .badge {
+        margin: 2px;
+        font-size: 0.8rem;
+    }
+    
+    .badge.bg-success {
+        background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+    }
+    
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #f39c12, #d35400) !important;
+        color: white !important;
+    }
+    
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+    }
+    
+    .badge.bg-info {
+        background: linear-gradient(135deg, #3498db, #2980b9) !important;
+    }
+    
+    .badge.bg-purple {
+        background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const transportOptions = document.querySelectorAll('.transport-option');
+        const transportOptionsDiv = document.getElementById('transportOptions');
+        
+        transportOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                const transportType = this.getAttribute('data-type');
+                
+                // Remove active class from all
+                transportOptions.forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                
+                // Add active class to selected
+                this.classList.add('active');
+                
+                // Load transport options for selected type
+                loadTransportOptions(transportType);
+            });
+        });
+        
+        function loadTransportOptions(transportType) {
+            transportOptionsDiv.style.display = 'block';
+            transportOptionsDiv.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading ${transportType} options...</p>
+                </div>
+            `;
+            
+            // Fetch transport options based on type
+            fetch(`/planner/get-transport-options/?trip_id={{ trip.id }}&type=${transportType}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderTransportOptions(data.options, transportType);
+                    } else {
+                        transportOptionsDiv.innerHTML = `
+                            <div class="card-glass p-5 text-center">
+                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-4"></i>
+                                <h4>No ${transportType} options available</h4>
+                                <p class="text-gray mb-4">Please try another transport type.</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    transportOptionsDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            Error loading transport options. Please try again.
+                        </div>
+                    `;
+                });
+        }
+        
+        function renderTransportOptions(options, type) {
+            if (options.length === 0) {
+                transportOptionsDiv.innerHTML = `
+                    <div class="card-glass p-5 text-center">
+                        <i class="fas fa-${getTransportIcon(type)} fa-3x text-gray mb-4"></i>
+                        <h4>No ${type} options available</h4>
+                        <p class="text-gray mb-4">No ${type} services available for your route.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by cost category
+            const lowCost = options.filter(opt => opt.category === 'low');
+            const mediumCost = options.filter(opt => opt.category === 'medium');
+            const highCost = options.filter(opt => opt.category === 'high');
+            
+            let html = `<h4 class="mb-4">Available ${type.charAt(0).toUpperCase() + type.slice(1)} Options</h4>`;
+            
+            // Low Cost Section
+            if (lowCost.length > 0) {
+                html += `
+                    <div class="card-glass p-4 mb-4">
+                        <h5 class="mb-3 text-success">
+                            <i class="fas fa-coins me-2"></i>Low Cost Options
+                        </h5>
+                        <div class="row">
+                            ${lowCost.map(option => renderTransportCard(option, type)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Medium Cost Section
+            if (mediumCost.length > 0) {
+                html += `
+                    <div class="card-glass p-4 mb-4">
+                        <h5 class="mb-3 text-warning">
+                            <i class="fas fa-star me-2"></i>Medium Cost Options
+                        </h5>
+                        <div class="row">
+                            ${mediumCost.map(option => renderTransportCard(option, type)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // High Cost Section
+            if (highCost.length > 0) {
+                html += `
+                    <div class="card-glass p-4 mb-4">
+                        <h5 class="mb-3 text-danger">
+                            <i class="fas fa-crown me-2"></i>High Cost/Luxury Options
+                        </h5>
+                        <div class="row">
+                            ${highCost.map(option => renderTransportCard(option, type)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            transportOptionsDiv.innerHTML = html;
+            
+            // Add event listeners to select buttons
+            document.querySelectorAll('.select-transport-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const transportId = this.getAttribute('data-id');
+                    const transportType = this.getAttribute('data-type');
+                    
+                    // Redirect to seat selection or directly save
+                    if (transportType === 'car') {
+                        // For cars, no seat selection needed
+                        saveTransportSelection(transportId, transportType);
+                    } else {
+                        // For flights/buses, go to seat selection
+                        window.location.href = `/planner/plan/{{ trip.id }}/transport/${transportId}/seats/?type=${transportType}`;
+                    }
+                });
+            });
+        }
+        
+        function renderTransportCard(option, type) {
+            return `
+                <div class="col-md-6 mb-3">
+                    <div class="card-glass p-3">
+                        <div class="row align-items-center">
+                            <div class="col-3 text-center">
+                                <div class="rounded-circle bg-light p-3 d-inline-block">
+                                    <i class="fas fa-${getTransportIcon(type)} fa-2x text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="fw-bold mb-1">${option.name}</h6>
+                                ${type === 'flight' ? `
+                                    <p class="text-gray small mb-1">${option.departure_time} • ${option.duration}</p>
+                                    <p class="text-gray small mb-0">${option.route}</p>
+                                ` : ''}
+                                ${type === 'bus' ? `
+                                    <p class="text-gray small mb-1">${option.departure_time} • ${option.duration}</p>
+                                    <p class="text-gray small mb-0">${option.bus_type}</p>
+                                ` : ''}
+                                ${type === 'car' ? `
+                                    <p class="text-gray small mb-1">${option.car_model}</p>
+                                    <p class="text-gray small mb-0">${option.seats} seats</p>
+                                ` : ''}
+                            </div>
+                            <div class="col-3 text-end">
+                                <h6 class="price-tag mb-2">${option.price}</h6>
+                                <button class="btn btn-sm btn-primary select-transport-btn" 
+                                        data-id="${option.id}" 
+                                        data-type="${type}">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function getTransportIcon(type) {
+            switch(type) {
+                case 'flight': return 'plane';
+                case 'bus': return 'bus';
+                case 'car': return 'car';
+                default: return 'transport';
+            }
+        }
+        
+        function saveTransportSelection(transportId, transportType) {
+            // Save selection and redirect back to plan page
+            const formData = new FormData();
+            formData.append('transport_id', transportId);
+            formData.append('transport_type', transportType);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            fetch(`/planner/save-transport/{{ trip.id }}/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect back to plan page with selected transport
+                    window.location.href = "{% url 'planner:plan' %}?transport_selected=true";
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

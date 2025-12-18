@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% block title %}GoMyanmar - Discover Myanmar The Smart Way{% endblock %}
+{% block content %}
+
+<!-- Hero Section -->
+<section class="py-5 mt-5">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="hero-title mb-4">Discover Myanmar<br>The Smart Way</h1>
+                <p class="lead mb-4 text-gray">GoMyanmar: AI-powered travel planning. Generate personalized itineraries, discover hidden gems, and explore with confidence.</p>
+                <div class="d-flex flex-wrap gap-3">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                        <i class="fas fa-rocket me-2"></i>Start Planning
+                    </a>
+                    {% else %}
+                    <a href="{% url 'users:signup' %}" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>Get Started Free
+                    </a>
+                    <a href="{% url 'users:login' %}" class="btn btn-outline-light border-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="position-relative">
+                    <i class="fas fa-compass fa-10x" style="color: rgba(139, 92, 246, 0.1);"></i>
+                    <div class="position-absolute top-50 start-50 translate-middle">
+                        <i class="fas fa-robot fa-4x" style="background: linear-gradient(135deg, #8B5CF6, #6B47A4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Why Choose Section -->
+<section class="why-choose-section py-5">
+    <div class="container py-5 position-relative">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Why Choose Myanmar Travel Planner?</h2>
+            <p class="text-white opacity-90">Everything you need for perfect trip planning</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card-glass p-4 h-100 text-center">
+                    <div class="feature-icon mx-auto">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h4 class="mb-3 text-purple">AI-Powered Planning</h4>
+                    <p class="text-gray">Generate personalized day-by-day itineraries tailored to your preferences.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card-glass p-4 h-100 text-center">
+                    <div class="feature-icon mx-auto">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h4 class="mb-3 text-purple">Interactive Maps</h4>
+                    <p class="text-gray">Visualize your journey with pinned locations and routes.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card-glass p-4 h-100 text-center">
+                    <div class="feature-icon mx-auto">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <h4 class="mb-3 text-purple">Smart Budgeting</h4>
+                    <p class="text-gray">Detailed cost breakdowns for hotels, food, and transport in Myanmar Kyats.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Grid -->
+<section class="py-5">
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h2 class="section-title light-section">Everything You Need to Plan Your Journey</h2>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-bg p-3 me-3">
+                            <i class="fas fa-calendar-alt fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Smart Itinerary</h5>
+                    </div>
+                    <p class="text-gray mb-0">AI-powered day-by-day travel plans tailored to your preferences.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-teal p-3 me-3">
+                            <i class="fas fa-hotel fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Hotel Recommendations</h5>
+                    </div>
+                    <p class="text-gray mb-0">Curated accommodations from budget to luxury options.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-gold p-3 me-3">
+                            <i class="fas fa-bus fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Transportation</h5>
+                    </div>
+                    <p class="text-gray mb-0">Book flights and cars with interactive seat selection.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-bg p-3 me-3">
+                            <i class="fas fa-map fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Interactive Maps</h5>
+                    </div>
+                    <p class="text-gray mb-0">Visualize your journey with pinned locations and routes.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-teal p-3 me-3">
+                            <i class="fas fa-calculator fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Budget Planning</h5>
+                    </div>
+                    <p class="text-gray mb-0">Detailed cost breakdown for hotels, food, and transport.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="card-glass p-4 h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle gradient-gold p-3 me-3">
+                            <i class="fas fa-cloud-sun fa-lg text-white"></i>
+                        </div>
+                        <h5 class="mb-0 text-black">Weather Forecast</h5>
+                    </div>
+                    <p class="text-gray mb-0">Plan ahead with accurate weather predictions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="home-features-bg py-5">
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h2 class="section-title light-section">How It Works</h2>
+            <p class="text-gray">Plan your perfect trip in 3 easy steps</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="number-circle mb-4">1</div>
+                    <h4 class="fw-bold mb-3 text-black">Set Preferences</h4>
+                    <p class="text-gray">Tell us your destination, dates, budget, and travel style.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="number-circle mb-4">2</div>
+                    <h4 class="fw-bold mb-3 text-black">AI Generates Plan</h4>
+                    <p class="text-gray">Our AI creates a complete itinerary with activities and hotels.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="number-circle mb-4">3</div>
+                    <h4 class="fw-bold mb-3 text-black">Customize & Book</h4>
+                    <p class="text-gray">Edit your plan, book accommodations, and start your journey.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="home-cta-bg py-5">
+    <div class="container py-5 text-center">
+        <h2 class="display-5 fw-bold mb-4 text-white">Ready to Explore Myanmar?</h2>
+        <p class="lead mb-4 text-white opacity-90">Join thousands of travelers who trust GoMyanmar for their perfect journey</p>
+        {% if user.is_authenticated %}
+        <a href="{% url 'planner:plan' %}" class="btn btn-gold btn-lg px-5">
+            <i class="fas fa-plus me-2"></i>Create New Trip
+        </a>
+        {% else %}
+        <a href="{% url 'users:signup' %}" class="btn btn-gold btn-lg px-5">
+            <i class="fas fa-user-plus me-2"></i>Get Started Free
+        </a>
+        {% endif %}
+    </div>
+</section>
+
+{% endblock %}

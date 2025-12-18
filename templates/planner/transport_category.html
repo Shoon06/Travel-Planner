@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select Transportation - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Choose Your Transportation</h2>
+                        <p class="text-gray mb-0">Select how you want to travel to {{ trip.destination.name }}</p>
+                    </div>
+                    <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Transport Options -->
+            <div class="row g-4">
+                <!-- Flights -->
+                <div class="col-md-4">
+                    <div class="card-glass p-4 text-center transport-option h-100" data-type="flight">
+                        <div class="feature-icon gradient-bg mx-auto mb-4">
+                            <i class="fas fa-plane fa-2x text-white"></i>
+                        </div>
+                        <h5 class="mb-3">Flight</h5>
+                        <p class="text-gray mb-3">Fastest way to travel between cities</p>
+                        <div class="price-ranges mb-3">
+                            <span class="badge bg-success d-block mb-1">Low: MMK 50,000+</span>
+                            <span class="badge bg-warning d-block mb-1">Medium: MMK 100,000+</span>
+                            <span class="badge bg-danger d-block">High: MMK 200,000+</span>
+                        </div>
+                        <a href="{% url 'planner:select_transport' trip.id %}?type=flight" class="btn btn-primary w-100">
+                            Select Flight
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Car Rental -->
+                <div class="col-md-4">
+                    <div class="card-glass p-4 text-center transport-option h-100" data-type="car">
+                        <div class="feature-icon gradient-purple mx-auto mb-4">
+                            <i class="fas fa-car fa-2x text-white"></i>
+                        </div>
+                        <h5 class="mb-3">Car Rental</h5>
+                        <p class="text-gray mb-3">Flexible travel on your own schedule</p>
+                        <div class="price-ranges mb-3">
+                            <span class="badge bg-success d-block mb-1">Economy: MMK 30,000/day</span>
+                            <span class="badge bg-warning d-block mb-1">SUV: MMK 60,000/day</span>
+                            <span class="badge bg-danger d-block">Luxury: MMK 120,000/day</span>
+                        </div>
+                        <a href="{% url 'planner:select_transport' trip.id %}?type=car" class="btn btn-primary w-100">
+                            Select Car
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Bus -->
+                <div class="col-md-4">
+                    <div class="card-glass p-4 text-center transport-option h-100" data-type="bus">
+                        <div class="feature-icon gradient-teal mx-auto mb-4">
+                            <i class="fas fa-bus fa-2x text-white"></i>
+                        </div>
+                        <h5 class="mb-3">Bus</h5>
+                        <p class="text-gray mb-3">Comfortable and affordable road travel</p>
+                        <div class="price-ranges mb-3">
+                            <span class="badge bg-success d-block mb-1">Standard: MMK 20,000+</span>
+                            <span class="badge bg-warning d-block mb-1">VIP: MMK 40,000+</span>
+                            <span class="badge bg-danger d-block">Luxury: MMK 60,000+</span>
+                        </div>
+                        <a href="{% url 'planner:select_transport' trip.id %}?type=bus" class="btn btn-primary w-100">
+                            Select Bus
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .transport-option {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .transport-option:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(107, 71, 164, 0.2);
+    }
+    
+    .badge.bg-success {
+        background: linear-gradient(135deg, #28a745, #20c997) !important;
+    }
+    
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #ffc107, #fd7e14) !important;
+        color: white !important;
+    }
+    
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #dc3545, #c82333) !important;
+    }
+</style>
+{% endblock %}

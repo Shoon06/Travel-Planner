@@ -1,0 +1,606 @@
+{% extends 'base.html' %}
+{% load custom_filters %}  <!-- Add this line to load custom filters -->
+{% load static %}
+{% block title %}Select Hotel - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Hotels in {{ trip.destination.name }}</h2>
+                        <p class="text-gray mb-0">
+                            <i class="fas fa-calendar me-2"></i>{{ trip.start_date|date:"M d, Y" }} - {{ trip.end_date|date:"M d, Y" }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-users me-2"></i>{{ trip.travelers }} traveler{% if trip.travelers > 1 %}s{% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                    </a>
+                </div>
+                
+                <!-- Search and Filters -->
+                <div class="card-glass p-4 mb-4">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label fw-bold">Search Hotels</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="hotelSearch" 
+                                       placeholder="Search by hotel name, amenities, or location...">
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Sort By</label>
+                            <select class="form-select" id="sortBy">
+                                <option value="price_asc">Price: Low to High</option>
+                                <option value="price_desc">Price: High to Low</option>
+                                <option value="rating_desc">Rating: High to Low</option>
+                                <option value="name_asc">Name: A to Z</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Price Range (MMK)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" placeholder="Min" id="minPrice" 
+                                       min="0" max="1000000">
+                                <span class="input-group-text">to</span>
+                                <input type="number" class="form-control" placeholder="Max" id="maxPrice" 
+                                       min="0" max="1000000">
+                                <button class="btn btn-outline-light" type="button" id="applyPriceFilter">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Amenities</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" value="wifi" id="wifiFilter">
+                                    <label class="form-check-label" for="wifiFilter">
+                                        <i class="fas fa-wifi me-1"></i>WiFi
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" value="pool" id="poolFilter">
+                                    <label class="form-check-label" for="poolFilter">
+                                        <i class="fas fa-swimming-pool me-1"></i>Pool
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" value="spa" id="spaFilter">
+                                    <label class="form-check-label" for="spaFilter">
+                                        <i class="fas fa-spa me-1"></i>Spa
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" value="restaurant" id="restaurantFilter">
+                                    <label class="form-check-label" for="restaurantFilter">
+                                        <i class="fas fa-utensils me-1"></i>Restaurant
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hotel Categories -->
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button class="btn btn-sm {% if not request.GET.category %}btn-primary{% else %}btn-outline-light{% endif %} filter-category" 
+                                data-category="all">
+                            All Hotels
+                        </button>
+                        <button class="btn btn-sm {% if request.GET.category == 'budget' %}btn-primary{% else %}btn-outline-light{% endif %} filter-category" 
+                                data-category="budget">
+                            <i class="fas fa-coins me-1"></i>Budget ($-$$)
+                        </button>
+                        <button class="btn btn-sm {% if request.GET.category == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %} filter-category" 
+                                data-category="medium">
+                            <i class="fas fa-home me-1"></i>Medium ($$-$$$)
+                        </button>
+                        <button class="btn btn-sm {% if request.GET.category == 'luxury' %}btn-primary{% else %}btn-outline-light{% endif %} filter-category" 
+                                data-category="luxury">
+                            <i class="fas fa-crown me-1"></i>Luxury ($$$+)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hotels List -->
+            <div id="hotelsList">
+                {% for hotel in hotels %}
+                <div class="card-glass p-4 mb-4 hotel-card" 
+                     data-name="{{ hotel.name|lower }}"
+                     data-category="{{ hotel.category }}"
+                     data-price="{{ hotel.price_in_mmk }}"
+                     data-rating="{{ hotel.rating }}"
+                     data-amenities="{{ hotel.amenities|join:','|lower }}">
+                    <div class="row">
+                        <div class="col-md-3">
+                            {% if hotel.image %}
+                            <div class="hotel-image rounded" style="background-image: url('{{ hotel.image.url }}');"></div>
+                            {% else %}
+                            <div class="hotel-image rounded d-flex align-items-center justify-content-center bg-light">
+                                <i class="fas fa-hotel fa-3x text-gray"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h4 class="fw-bold mb-1">{{ hotel.name }}</h4>
+                                <span class="badge {% if hotel.category == 'budget' %}bg-success{% elif hotel.category == 'medium' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ hotel.get_category_display }}
+                                </span>
+                            </div>
+                            
+                            <p class="text-gray mb-2">
+                                <i class="fas fa-map-marker-alt me-2"></i>{{ hotel.address }}
+                            </p>
+                            
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    <i class="fas fa-star text-warning me-1"></i>
+                                    <span class="fw-bold">{{ hotel.rating }}</span>
+                                    <span class="text-gray">({{ hotel.review_count }} reviews)</span>
+                                </div>
+                                <div class="text-gray">
+                                    <i class="fas fa-bed me-1"></i>{{ trip.travelers }} Room{% if trip.travelers > 1 %}s{% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Amenities -->
+                            <div class="mb-3">
+                                {% for amenity in hotel.amenities|slice:":5" %}
+                                <span class="badge bg-light text-dark me-2 mb-2">
+                                    <i class="fas fa-check me-1"></i>{{ amenity|title }}
+                                </span>
+                                {% endfor %}
+                                {% if hotel.amenities|length > 5 %}
+                                <span class="badge bg-light text-dark">
+                                    +{{ hotel.amenities|length|add:"-5" }} more
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Duration and Dates -->
+                            <div class="text-gray small">
+                                {% with nights=trip.nights %}
+                                <p class="mb-1">
+                                    <i class="fas fa-moon me-1"></i>{{ nights }} night{% if nights > 1 %}s{% endif %} stay
+                                </p>
+                                {% endwith %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="text-end h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="mb-3">
+                                        <h3 class="price-tag mb-1">{{ hotel.price_in_mmk }}</h3>
+                                        <p class="text-gray small mb-0">per night</p>
+                                        {% with nights=trip.nights total=hotel.price_in_mmk|add:0 %}
+                                        <p class="fw-bold mt-2">
+                                            Total: <span class="text-teal">{{ total|multiply:nights|floatformat:0 }}</span> MMK
+                                        </p>
+                                        {% endwith %}
+                                    </div>
+                                </div>
+                                
+                                <form method="post" action="{% url 'planner:select_hotel' trip.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="hotel_id" value="{{ hotel.id }}">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-check me-2"></i>Select Hotel
+                                    </button>
+                                    <p class="text-gray small text-center mt-2 mb-0">
+                                        <i class="fas fa-info-circle me-1"></i>Free cancellation
+                                    </p>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="card-glass p-5 text-center">
+                    <div class="feature-icon gradient-bg mx-auto mb-4">
+                        <i class="fas fa-hotel fa-2x text-white"></i>
+                    </div>
+                    <h4 class="mb-3">No hotels available</h4>
+                    <p class="text-gray mb-4">
+                        No hotels match your criteria in {{ trip.destination.name }}.
+                        Try adjusting your filters or budget.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                        </a>
+                        <button class="btn btn-outline-light" id="clearFilters">
+                            <i class="fas fa-filter me-2"></i>Clear Filters
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="text-center py-5" style="display: none;">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-gray">Loading hotels...</p>
+            </div>
+            
+            <!-- No Results Message -->
+            <div id="noResults" class="card-glass p-5 text-center" style="display: none;">
+                <div class="feature-icon gradient-bg mx-auto mb-4">
+                    <i class="fas fa-search fa-2x text-white"></i>
+                </div>
+                <h4 class="mb-3">No matching hotels found</h4>
+                <p class="text-gray mb-4">Try adjusting your search criteria or filters.</p>
+                <button class="btn btn-primary" id="resetFilters">
+                    <i class="fas fa-redo me-2"></i>Reset All Filters
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hotel-image {
+        width: 100%;
+        height: 200px;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+    
+    .hotel-image i {
+        color: rgba(139, 92, 246, 0.3);
+    }
+    
+    .filter-category {
+        transition: all 0.3s ease;
+    }
+    
+    .filter-category:hover {
+        transform: translateY(-2px);
+    }
+    
+    .badge.bg-success {
+        background: linear-gradient(135deg, #10B981, #059669) !important;
+    }
+    
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: white !important;
+    }
+    
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+    }
+    
+    .badge.bg-light {
+        background: white !important;
+        border: 1px solid rgba(139, 92, 246, 0.1);
+    }
+    
+    .text-teal {
+        color: #06B6D4 !important;
+        font-weight: 600;
+    }
+    
+    /* Price tag styling */
+    .price-tag {
+        background: linear-gradient(135deg, #06B6D4, #0891B2);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+        font-size: 1.5rem;
+    }
+    
+    .price-tag:before {
+        content: 'MMK ';
+        font-size: 0.8em;
+        font-weight: 400;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const hotelCards = document.querySelectorAll('.hotel-card');
+        const searchInput = document.getElementById('hotelSearch');
+        const sortBy = document.getElementById('sortBy');
+        const minPrice = document.getElementById('minPrice');
+        const maxPrice = document.getElementById('maxPrice');
+        const applyPriceFilter = document.getElementById('applyPriceFilter');
+        const wifiFilter = document.getElementById('wifiFilter');
+        const poolFilter = document.getElementById('poolFilter');
+        const spaFilter = document.getElementById('spaFilter');
+        const restaurantFilter = document.getElementById('restaurantFilter');
+        const categoryButtons = document.querySelectorAll('.filter-category');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const noResults = document.getElementById('noResults');
+        const hotelsList = document.getElementById('hotelsList');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        let activeCategory = 'all';
+        let activeFilters = {
+            search: '',
+            minPrice: 0,
+            maxPrice: 1000000,
+            amenities: [],
+            sort: 'price_asc'
+        };
+        
+        // Set default price ranges based on trip budget
+        function setDefaultPriceRanges() {
+            const budget = '{{ trip.budget_range }}';
+            switch(budget) {
+                case 'low':
+                    minPrice.value = 0;
+                    maxPrice.value = 50000;
+                    activeFilters.minPrice = 0;
+                    activeFilters.maxPrice = 50000;
+                    break;
+                case 'medium':
+                    minPrice.value = 50000;
+                    maxPrice.value = 150000;
+                    activeFilters.minPrice = 50000;
+                    activeFilters.maxPrice = 150000;
+                    break;
+                case 'high':
+                    minPrice.value = 150000;
+                    maxPrice.value = 1000000;
+                    activeFilters.minPrice = 150000;
+                    activeFilters.maxPrice = 1000000;
+                    break;
+            }
+        }
+        
+        // Filter hotels function
+        function filterHotels() {
+            loadingIndicator.style.display = 'block';
+            
+            setTimeout(() => {
+                let visibleCount = 0;
+                
+                hotelCards.forEach(card => {
+                    const name = card.getAttribute('data-name') || '';
+                    const category = card.getAttribute('data-category') || '';
+                    const price = parseFloat(card.getAttribute('data-price')) || 0;
+                    const rating = parseFloat(card.getAttribute('data-rating')) || 0;
+                    const amenities = card.getAttribute('data-amenities') || '';
+                    
+                    let show = true;
+                    
+                    // Category filter
+                    if (activeCategory !== 'all' && category !== activeCategory) {
+                        show = false;
+                    }
+                    
+                    // Search filter
+                    if (activeFilters.search && !name.includes(activeFilters.search.toLowerCase())) {
+                        show = false;
+                    }
+                    
+                    // Price filter
+                    if (price < activeFilters.minPrice || price > activeFilters.maxPrice) {
+                        show = false;
+                    }
+                    
+                    // Amenities filter
+                    if (activeFilters.amenities.length > 0) {
+                        const hasAllAmenities = activeFilters.amenities.every(amenity => 
+                            amenities.includes(amenity.toLowerCase())
+                        );
+                        if (!hasAllAmenities) show = false;
+                    }
+                    
+                    if (show) {
+                        card.style.display = '';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                
+                // Sort hotels
+                sortHotels();
+                
+                // Show/hide no results message
+                if (visibleCount === 0) {
+                    noResults.style.display = '';
+                    hotelsList.style.display = 'none';
+                } else {
+                    noResults.style.display = 'none';
+                    hotelsList.style.display = '';
+                }
+                
+                loadingIndicator.style.display = 'none';
+            }, 300);
+        }
+        
+        // Sort hotels function
+        function sortHotels() {
+            const container = document.querySelector('#hotelsList');
+            const cards = Array.from(document.querySelectorAll('.hotel-card[style*="display:"]'));
+            
+            cards.sort((a, b) => {
+                const aPrice = parseFloat(a.getAttribute('data-price')) || 0;
+                const bPrice = parseFloat(b.getAttribute('data-price')) || 0;
+                const aRating = parseFloat(a.getAttribute('data-rating')) || 0;
+                const bRating = parseFloat(b.getAttribute('data-rating')) || 0;
+                const aName = a.getAttribute('data-name') || '';
+                const bName = b.getAttribute('data-name') || '';
+                
+                switch(activeFilters.sort) {
+                    case 'price_asc':
+                        return aPrice - bPrice;
+                    case 'price_desc':
+                        return bPrice - aPrice;
+                    case 'rating_desc':
+                        return bRating - aRating;
+                    case 'name_asc':
+                        return aName.localeCompare(bName);
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Reorder cards in DOM
+            cards.forEach(card => {
+                container.appendChild(card);
+            });
+        }
+        
+        // Category filter
+        categoryButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Update active button styles
+                categoryButtons.forEach(btn => {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-light');
+                });
+                this.classList.remove('btn-outline-light');
+                this.classList.add('btn-primary');
+                
+                // Update active category
+                activeCategory = this.getAttribute('data-category');
+                filterHotels();
+            });
+        });
+        
+        // Search input
+        searchInput.addEventListener('input', function() {
+            activeFilters.search = this.value.toLowerCase();
+            filterHotels();
+        });
+        
+        // Sort by
+        sortBy.addEventListener('change', function() {
+            activeFilters.sort = this.value;
+            filterHotels();
+        });
+        
+        // Price filter
+        applyPriceFilter.addEventListener('click', function() {
+            activeFilters.minPrice = parseFloat(minPrice.value) || 0;
+            activeFilters.maxPrice = parseFloat(maxPrice.value) || 1000000;
+            filterHotels();
+        });
+        
+        // Amenities filter
+        [wifiFilter, poolFilter, spaFilter, restaurantFilter].forEach(filter => {
+            filter.addEventListener('change', function() {
+                activeFilters.amenities = [];
+                if (wifiFilter.checked) activeFilters.amenities.push('wifi');
+                if (poolFilter.checked) activeFilters.amenities.push('pool');
+                if (spaFilter.checked) activeFilters.amenities.push('spa');
+                if (restaurantFilter.checked) activeFilters.amenities.push('restaurant');
+                filterHotels();
+            });
+        });
+        
+        // Clear filters
+        clearFiltersBtn?.addEventListener('click', function() {
+            resetFilters();
+        });
+        
+        resetFiltersBtn?.addEventListener('click', function() {
+            resetFilters();
+        });
+        
+        function resetFilters() {
+            // Reset search
+            searchInput.value = '';
+            activeFilters.search = '';
+            
+            // Reset category
+            categoryButtons.forEach(btn => {
+                if (btn.getAttribute('data-category') === 'all') {
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-outline-light');
+                } else {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-light');
+                }
+            });
+            activeCategory = 'all';
+            
+            // Reset price
+            setDefaultPriceRanges();
+            
+            // Reset amenities
+            [wifiFilter, poolFilter, spaFilter, restaurantFilter].forEach(filter => {
+                filter.checked = false;
+            });
+            activeFilters.amenities = [];
+            
+            // Reset sort
+            sortBy.value = 'price_asc';
+            activeFilters.sort = 'price_asc';
+            
+            // Apply filters
+            filterHotels();
+        }
+        
+        // Initialize
+        setDefaultPriceRanges();
+        filterHotels();
+        
+        // Add CSS for loading animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .hotel-card {
+                animation: fadeIn 0.5s ease-out;
+            }
+            
+            .spinner-border {
+                width: 3rem;
+                height: 3rem;
+            }
+        `;
+        document.head.appendChild(style);
+    });
+</script>
+
+{% block extra_js %}
+{% if trip.nights is not defined %}
+<script>
+    // Calculate nights if not done in backend
+    document.addEventListener('DOMContentLoaded', function() {
+        const start = new Date('{{ trip.start_date|date:"Y-m-d" }}');
+        const end = new Date('{{ trip.end_date|date:"Y-m-d" }}');
+        const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        
+        // Update all total price calculations
+        document.querySelectorAll('.hotel-card').forEach(card => {
+            const pricePerNight = parseFloat(card.getAttribute('data-price')) || 0;
+            const totalPrice = pricePerNight * nights;
+            
+            const totalElement = card.querySelector('.text-teal');
+            if (totalElement) {
+                totalElement.textContent = Math.round(totalPrice).toLocaleString();
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}
+{% endblock %}

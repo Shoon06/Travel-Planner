@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Plan Your Trip - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card-glass p-4 mb-4">
+                <div class="text-center mb-5">
+                    <h1 class="where-next-title mb-3">Where to next?</h1>
+                    <p class="lead text-gray">Choose your departure and destination for your perfect Myanmar adventure</p>
+                </div>
+            </div>
+            
+            <!-- Trip Planner Form -->
+            <div class="card-glass p-5" id="start-planning">
+                <h2 class="section-title mb-4">Plan Your Perfect Myanmar Adventure</h2>
+                <p class="text-gray mb-5">Fill in your travel details below</p>
+                
+                <form method="post" id="tripForm">
+                    {% csrf_token %}
+                    
+                    <!-- Origin and Destination Fields -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Departure From</label>
+                                <div class="position-relative">
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-map-marker-alt"></i>
+                                        </span>
+                                        <input type="text" class="form-control" name="origin" id="origin" 
+                                               placeholder="Type 'M' for Mandalay, 'Y' for Yangon, etc."
+                                               autocomplete="off" value="{{ origin_input }}">
+                                    </div>
+                                    <div id="originSuggestions" class="suggestions-dropdown"></div>
+                                    <input type="hidden" id="origin_id" name="origin_id" value="{{ selected_origin_id }}">
+                                </div>
+                                <div class="form-text">
+                                    Start typing to see suggestions (e.g., Yangon, Mandalay, Naypyidaw)
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Destination To</label>
+                                <div class="position-relative">
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-flag-checkered"></i>
+                                        </span>
+                                        <input type="text" class="form-control" name="destination" id="destination" 
+                                               placeholder="Where do you want to go?"
+                                               autocomplete="off" value="{{ destination_input }}">
+                                    </div>
+                                    <div id="destinationSuggestions" class="suggestions-dropdown"></div>
+                                    <input type="hidden" id="destination_id" name="destination_id" value="{{ selected_destination_id }}">
+                                </div>
+                                <div class="form-text">
+                                    Start typing (e.g., 'B' for Bagan, 'I' for Inle Lake, 'M' for Mandalay)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Start Date</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </span>
+                                    <input type="date" class="form-control" name="start_date" id="start_date" 
+                                           value="{{ today|date:'Y-m-d' }}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">End Date</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </span>
+                                    <input type="date" class="form-control" name="end_date" id="end_date"
+                                           value="{{ tomorrow|date:'Y-m-d' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Number of Travelers</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-users"></i>
+                                    </span>
+                                    <select class="form-select" name="travelers" id="travelers">
+                                        <option value="1">1 Person</option>
+                                        <option value="2" selected>2 People</option>
+                                        <option value="3">3 People</option>
+                                        <option value="4">4 People</option>
+                                        <option value="5">5 People</option>
+                                        <option value="6">6+ People</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-5">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Accommodation Type</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-hotel"></i>
+                                    </span>
+                                    {% if selected_hotel_id %}
+                                    <div class="form-control p-3 selection-made">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span id="selectedHotelName">{{ selected_hotel_name }}</span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changeHotelBtn">
+                                                Change
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="selected_hotel_id" name="selected_hotel_id" value="{{ selected_hotel_id }}">
+                                    {% else %}
+                                    <div class="form-control p-0">
+                                        <a href="#" id="selectHotelBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
+                                            <i class="fas fa-hotel me-2"></i>Select Hotels
+                                            <span class="float-end"><i class="fas fa-chevron-right"></i></span>
+                                        </a>
+                                    </div>
+                                    <input type="hidden" id="selected_hotel_id" name="selected_hotel_id">
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Transportation Preference</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-bus"></i>
+                                    </span>
+                                    {% if selected_transport_id %}
+                                    <div class="form-control p-3 selection-made">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-check-circle text-primary me-2"></i>
+                                                <span id="selectedTransportName">{{ selected_transport_name }}</span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changeTransportBtn">
+                                                Change
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="selected_transport_type" name="selected_transport_type" value="{{ selected_transport_type }}">
+                                    <input type="hidden" id="selected_transport_id" name="selected_transport_id" value="{{ selected_transport_id }}">
+                                    {% else %}
+                                    <div class="form-control p-0">
+                                        <a href="#" id="selectTransportBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
+                                            <i class="fas fa-car me-2"></i>Select Transport
+                                            <span class="float-end"><i class="fas fa-chevron-right"></i></span>
+                                        </a>
+                                    </div>
+                                    <input type="hidden" id="selected_transport_type" name="selected_transport_type">
+                                    <input type="hidden" id="selected_transport_id" name="selected_transport_id">
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="continueBtn" {% if not selected_hotel_id or not selected_transport_id %}disabled{% endif %}>
+                            Continue to Plan Selection <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('origin');
+        const originIdInput = document.getElementById('origin_id');
+        const originSuggestions = document.getElementById('originSuggestions');
+        
+        const destinationInput = document.getElementById('destination');
+        const destinationIdInput = document.getElementById('destination_id');
+        const destinationSuggestions = document.getElementById('destinationSuggestions');
+        
+        const startDate = document.getElementById('start_date');
+        const endDate = document.getElementById('end_date');
+        const selectHotelBtn = document.getElementById('selectHotelBtn');
+        const selectTransportBtn = document.getElementById('selectTransportBtn');
+        const changeHotelBtn = document.getElementById('changeHotelBtn');
+        const changeTransportBtn = document.getElementById('changeTransportBtn');
+        const selectedHotelId = document.getElementById('selected_hotel_id');
+        const selectedTransportId = document.getElementById('selected_transport_id');
+        const continueBtn = document.getElementById('continueBtn');
+        
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        
+        if (!startDate.value) startDate.value = today;
+        if (!endDate.value) endDate.value = tomorrowStr;
+        
+        // Date validation
+        startDate.min = today;
+        endDate.min = today;
+        
+        startDate.addEventListener('change', function() {
+            endDate.min = this.value;
+            if (endDate.value && endDate.value < this.value) {
+                endDate.value = this.value;
+            }
+        });
+        
+        // Improved search function with better filtering
+        async function searchLocations(query) {
+            try {
+                const response = await fetch(`/planner/search-destinations/?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                // If no results with the query, try broader search
+                if (!data.results || data.results.length === 0) {
+                    if (query.length > 1) {
+                        const firstLetter = query[0].toUpperCase();
+                        const secondResponse = await fetch(`/planner/search-destinations/?q=${firstLetter}`);
+                        const secondData = await secondResponse.json();
+                        return secondData.results || [];
+                    }
+                }
+                return data.results || [];
+            } catch (error) {
+                console.error('Error searching locations:', error);
+                return [];
+            }
+        }
+        
+        // Setup autocomplete for any input
+        function setupAutocomplete(inputElement, idInput, suggestionsDiv, fieldName) {
+            let debounceTimer;
+            
+            inputElement.addEventListener('input', async function() {
+                clearTimeout(debounceTimer);
+                const query = this.value.trim();
+                
+                if (query.length < 1) {
+                    suggestionsDiv.style.display = 'none';
+                    idInput.value = '';
+                    updateContinueButton();
+                    return;
+                }
+                
+                debounceTimer = setTimeout(async () => {
+                    const results = await searchLocations(query);
+                    
+                    if (results.length > 0) {
+                        // Sort results: exact matches first, then partial matches
+                        const exactMatches = results.filter(r => 
+                            r.name.toLowerCase().startsWith(query.toLowerCase())
+                        );
+                        const partialMatches = results.filter(r => 
+                            !r.name.toLowerCase().startsWith(query.toLowerCase())
+                        );
+                        const sortedResults = [...exactMatches, ...partialMatches];
+                        
+                        suggestionsDiv.innerHTML = sortedResults.map(dest => `
+                            <div class="suggestion-item" data-id="${dest.id}" data-name="${dest.name}">
+                                <div class="city-name">${dest.name}</div>
+                                <div class="region-name">${dest.region} • ${dest.type}</div>
+                            </div>
+                        `).join('');
+                        
+                        suggestionsDiv.style.display = 'block';
+                        
+                        // Add click handlers
+                        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                inputElement.value = this.getAttribute('data-name');
+                                idInput.value = this.getAttribute('data-id');
+                                suggestionsDiv.style.display = 'none';
+                                inputElement.classList.add('is-valid');
+                                
+                                // Validate origin and destination are different
+                                validateLocations();
+                                updateContinueButton();
+                            });
+                        });
+                    } else {
+                        suggestionsDiv.innerHTML = `
+                            <div class="suggestion-item text-gray p-3">
+                                No locations found. Try: Yangon, Mandalay, Bagan, Inle Lake, Naypyidaw
+                            </div>`;
+                        suggestionsDiv.style.display = 'block';
+                    }
+                }, 250);
+            });
+        }
+        
+        // Validate that origin and destination are different
+        function validateLocations() {
+            const originId = originIdInput.value;
+            const destinationId = destinationIdInput.value;
+            
+            if (originId && destinationId && originId === destinationId) {
+                alert('Departure and destination cannot be the same. Please choose different locations.');
+                destinationInput.value = '';
+                destinationIdInput.value = '';
+                destinationInput.classList.remove('is-valid');
+                return false;
+            }
+            return true;
+        }
+        
+        // Setup autocomplete for both fields
+        setupAutocomplete(originInput, originIdInput, originSuggestions, 'origin');
+        setupAutocomplete(destinationInput, destinationIdInput, destinationSuggestions, 'destination');
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!originInput.contains(e.target) && !originSuggestions.contains(e.target)) {
+                originSuggestions.style.display = 'none';
+            }
+            if (!destinationInput.contains(e.target) && !destinationSuggestions.contains(e.target)) {
+                destinationSuggestions.style.display = 'none';
+            }
+        });
+        
+        // Update validation function
+        function updateContinueButton() {
+            const hasOrigin = originIdInput.value.trim() !== '';
+            const hasDestination = destinationIdInput.value.trim() !== '';
+            const hasHotel = selectedHotelId && selectedHotelId.value;
+            const hasTransport = selectedTransportId && selectedTransportId.value;
+            
+            // Check if origin and destination are different
+            const areDifferent = hasOrigin && hasDestination && originIdInput.value !== destinationIdInput.value;
+            
+            // Enable/disable hotel selection button
+            if (selectHotelBtn) {
+                if (areDifferent && startDate.value && endDate.value) {
+                    selectHotelBtn.style.pointerEvents = 'auto';
+                    selectHotelBtn.style.opacity = '1';
+                } else {
+                    selectHotelBtn.style.pointerEvents = 'none';
+                    selectHotelBtn.style.opacity = '0.5';
+                }
+            }
+            
+            // Enable/disable continue button
+            if (hasOrigin && hasDestination && hasHotel && hasTransport && areDifferent) {
+                continueBtn.disabled = false;
+            } else {
+                continueBtn.disabled = true;
+            }
+        }
+        
+        // Hotel selection
+        if (selectHotelBtn) {
+            selectHotelBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                if (!validateLocations()) {
+                    return;
+                }
+                
+                if (!originIdInput.value || !destinationIdInput.value) {
+                    alert('Please select both departure and destination first.');
+                    return;
+                }
+                
+                if (!startDate.value || !endDate.value) {
+                    alert('Please select travel dates first.');
+                    return;
+                }
+                
+                // Save basic trip info
+                const formData = new FormData();
+                formData.append('origin_id', originIdInput.value);
+                formData.append('destination_id', destinationIdInput.value);
+                formData.append('start_date', startDate.value);
+                formData.append('end_date', endDate.value);
+                formData.append('travelers', document.getElementById('travelers').value);
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                
+                fetch('{% url "planner:plan" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.trip_id) {
+                        window.location.href = `/planner/plan/${data.trip_id}/hotels/`;
+                    } else {
+                        alert('Error: ' + (data.error || 'Please try again.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+            });
+        }
+        
+        // Form submission
+        const form = document.getElementById('tripForm');
+        form.addEventListener('submit', function(e) {
+            if (!originIdInput.value) {
+                e.preventDefault();
+                alert('Please select a departure location.');
+                originInput.focus();
+                return false;
+            }
+            
+            if (!destinationIdInput.value) {
+                e.preventDefault();
+                alert('Please select a destination.');
+                destinationInput.focus();
+                return false;
+            }
+            
+            if (!validateLocations()) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Show loading state
+            continueBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            continueBtn.disabled = true;
+            
+            return true;
+        });
+        
+        // Initialize
+        updateContinueButton();
+    });
+</script>
+
+<style>
+.suggestions-dropdown {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    margin-top: 2px;
+}
+
+.suggestion-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+    background: #f8f9fa;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.city-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.region-name {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.selection-made {
+    background: #f8f9fa;
+    border-color: #dee2e6 !important;
+}
+</style>
+{% endblock %}

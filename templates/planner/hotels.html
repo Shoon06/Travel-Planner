@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select Hotel - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Hotels in {{ destination.name }}</h2>
+                        <p class="text-gray mb-0">
+                            <i class="fas fa-calendar me-2"></i>{{ start_date|date:"M d, Y" }} - {{ end_date|date:"M d, Y" }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-users me-2"></i>{{ travelers }} traveler{{ travelers|pluralize }}
+                        </p>
+                    </div>
+                    <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Budget Filter -->
+            <div class="card-glass p-4 mb-4">
+                <h5 class="mb-3">Filter by Budget</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="?budget=all{% if category %}&category={{ category }}{% endif %}" 
+                       class="btn btn-sm {% if not budget_filter or budget_filter == 'all' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        All Budgets
+                    </a>
+                    <a href="?budget=low{% if category %}&category={{ category }}{% endif %}" 
+                       class="btn btn-sm {% if budget_filter == 'low' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        <i class="fas fa-coins me-1"></i>Budget (Under $50)
+                    </a>
+                    <a href="?budget=medium{% if category %}&category={{ category }}{% endif %}" 
+                       class="btn btn-sm {% if budget_filter == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        <i class="fas fa-home me-1"></i>Medium ($50-$150)
+                    </a>
+                    <a href="?budget=high{% if category %}&category={{ category }}{% endif %}" 
+                       class="btn btn-sm {% if budget_filter == 'high' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        <i class="fas fa-crown me-1"></i>Luxury ($150+)
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Hotels Grid -->
+            <div class="row">
+                {% for hotel in hotels %}
+                <div class="col-md-6 mb-4">
+                    <div class="card-glass p-4 h-100">
+                        <div class="row">
+                            <div class="col-md-4">
+                                {% if hotel.image %}
+                                <img src="{{ hotel.image.url }}" alt="{{ hotel.name }}" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
+                                {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 150px;">
+                                    <i class="fas fa-hotel fa-3x text-gray"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-8">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="fw-bold mb-0">{{ hotel.name }}</h5>
+                                    <span class="badge {% if hotel.category == 'budget' %}bg-success{% elif hotel.category == 'medium' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                        {{ hotel.get_category_display }}
+                                    </span>
+                                </div>
+                                
+                                <p class="text-gray small mb-2">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ hotel.address|truncatechars:50 }}
+                                </p>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3">
+                                        <i class="fas fa-star text-warning me-1"></i>
+                                        <span class="fw-bold">{{ hotel.rating }}</span>
+                                        <span class="text-gray">({{ hotel.review_count }})</span>
+                                    </div>
+                                    <div class="text-gray">
+                                        <i class="fas fa-wifi me-1"></i>WiFi
+                                        {% if 'pool' in hotel.amenities %}<i class="fas fa-swimming-pool ms-2 me-1"></i>Pool{% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h4 class="price-tag mb-0">{{ hotel.price_in_mmk }}</h4>
+                                        <p class="text-gray small mb-0">per night</p>
+                                    </div>
+                                    <form method="post" action="{% url 'planner:select_hotel' trip.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="hotel_id" value="{{ hotel.id }}">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-check me-2"></i>Select
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="card-glass p-5 text-center">
+                        <div class="feature-icon gradient-purple mx-auto mb-4">
+                            <i class="fas fa-hotel fa-2x text-white"></i>
+                        </div>
+                        <h4 class="mb-3">No hotels available</h4>
+                        <p class="text-gray mb-4">No hotels match your criteria in {{ destination.name }}.</p>
+                        <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .price-tag {
+        background: linear-gradient(135deg, #6B47A4, #B79EDC);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .price-tag:before {
+        content: 'MMK ';
+        font-size: 0.9em;
+        font-weight: 400;
+    }
+</style>
+{% endblock %}

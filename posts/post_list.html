@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% block title %}Community Posts - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-2">Community Posts</h2>
+                        <p class="text-gray mb-0">Share your Myanmar travel experiences</p>
+                    </div>
+                    <a href="{% url 'posts:post_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create Post
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card-glass p-4 mb-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Filter by Destination</label>
+                        <select class="form-select" id="destinationFilter">
+                            <option value="">All Destinations</option>
+                            {% for destination in destinations %}
+                            <option value="{{ destination.id }}">{{ destination.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Sort By</label>
+                        <select class="form-select" id="sortFilter">
+                            <option value="newest">Newest First</option>
+                            <option value="popular">Most Popular</option>
+                            <option value="oldest">Oldest First</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Posts List -->
+            {% for post in posts %}
+            <div class="card-glass p-4 mb-4 post-card" data-destination="{{ post.destination.id|default:'' }}">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-light p-2 me-3">
+                            <i class="fas fa-user fa-lg"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">{{ post.user.username }}</h5>
+                            <p class="text-gray small mb-0">
+                                <i class="fas fa-clock me-1"></i>{{ post.created_at|timesince }} ago
+                                {% if post.destination %}
+                                <span class="ms-2">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ post.destination.name }}
+                                </span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            {% if post.user == request.user %}
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                
+                <h4 class="mb-3">{{ post.title }}</h4>
+                
+                {% if post.image %}
+                <div class="mb-3">
+                    <img src="{{ post.image.url }}" alt="{{ post.title }}" class="img-fluid rounded">
+                </div>
+                {% endif %}
+                
+                {% if post.video %}
+                <div class="mb-3">
+                    <video controls class="img-fluid rounded" style="max-height: 400px;">
+                        <source src="{{ post.video.url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                {% endif %}
+                
+                <p class="mb-4">{{ post.content|linebreaks }}</p>
+                
+                <!-- Reactions -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-light like-btn {% if request.user in post.likes.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-thumbs-up me-1"></i>
+                            <span class="like-count">{{ post.likes.count }}</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-light love-btn {% if request.user in post.loves.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-heart me-1"></i>
+                            <span class="love-count">{{ post.loves.count }}</span>
+                        </button>
+                    </div>
+                    <a href="{% url 'posts:post_detail' post.id %}" class="btn btn-sm btn-outline-light">
+                        <i class="fas fa-comment me-1"></i>
+                        {{ post.comments.count }} Comments
+                    </a>
+                </div>
+                
+                <!-- Comment Form -->
+                <div class="comment-form mt-3">
+                    <form method="post" action="{% url 'posts:add_comment' post.id %}" class="comment-form">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Add a comment..." name="content" required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Recent Comments -->
+                {% if post.comments.all %}
+                <div class="mt-3">
+                    {% for comment in post.comments.all|slice:":2" %}
+                    <div class="d-flex mb-2">
+                        <div class="me-2">
+                            <div class="rounded-circle bg-light p-1">
+                                <i class="fas fa-user fa-sm"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="card-glass p-2">
+                                <p class="mb-1"><strong>{{ comment.user.username }}</strong> {{ comment.content }}</p>
+                                <p class="text-gray small mb-0">{{ comment.created_at|timesince }} ago</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if post.comments.count > 2 %}
+                    <a href="{% url 'posts:post_detail' post.id %}" class="text-decoration-none small">
+                        View all {{ post.comments.count }} comments
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="card-glass p-5 text-center">
+                <div class="feature-icon gradient-bg mx-auto mb-4">
+                    <i class="fas fa-comments fa-2x text-white"></i>
+                </div>
+                <h4 class="mb-3">No posts yet</h4>
+                <p class="text-gray mb-4">Be the first to share your Myanmar travel experience!</p>
+                <a href="{% url 'posts:post_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create First Post
+                </a>
+            </div>
+            {% endfor %}
+            
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% else %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Popular Destinations -->
+            <div class="card-glass p-4 mb-4">
+                <h5 class="mb-3">Popular Destinations</h5>
+                {% for destination in destinations|slice:":5" %}
+                <a href="?destination={{ destination.id }}" class="d-flex align-items-center mb-3 text-decoration-none">
+                    <div class="rounded-circle bg-light p-2 me-3">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1">{{ destination.name }}</h6>
+                        <p class="text-gray small mb-0">{{ destination.region }}</p>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            
+            <!-- Top Contributors -->
+            <div class="card-glass p-4 mb-4">
+                <h5 class="mb-3">Top Contributors</h5>
+                {% with top_users=posts|slice:":5" %}
+                {% for post in top_users %}
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle bg-light p-2 me-3">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">{{ post.user.username }}</h6>
+                        <p class="text-gray small mb-0">{{ post.user.posts.count }} posts</p>
+                    </div>
+                    <span class="badge gradient-gold">{{ post.total_reactions }} reactions</span>
+                </div>
+                {% endfor %}
+                {% endwith %}
+            </div>
+            
+            <!-- Community Guidelines -->
+            <div class="card-glass p-4">
+                <h5 class="mb-3">Community Guidelines</h5>
+                <ul class="list-unstyled text-gray">
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Be respectful to others</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Share genuine experiences</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>No spam or advertising</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Keep discussions friendly</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Help fellow travelers</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .like-btn.active, .love-btn.active {
+        background: linear-gradient(135deg, #33699B, #2C3E50);
+        color: white !important;
+        border-color: #33699B;
+    }
+    
+    .post-card {
+        transition: transform 0.3s ease;
+    }
+    
+    .post-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .dropdown-menu {
+        min-width: 150px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Like button functionality
+        document.querySelectorAll('.like-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                const likeBtn = this;
+                const loveBtn = document.querySelector(`.love-btn[data-post-id="${postId}"]`);
+                
+                fetch(`/posts/${postId}/like/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.liked) {
+                        likeBtn.classList.add('active');
+                        loveBtn.classList.remove('active');
+                    } else {
+                        likeBtn.classList.remove('active');
+                    }
+                    
+                    likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                    loveBtn.querySelector('.love-count').textContent = data.loves_count;
+                });
+            });
+        });
+        
+        // Love button functionality
+        document.querySelectorAll('.love-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                const loveBtn = this;
+                const likeBtn = document.querySelector(`.like-btn[data-post-id="${postId}"]`);
+                
+                fetch(`/posts/${postId}/love/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.loved) {
+                        loveBtn.classList.add('active');
+                        likeBtn.classList.remove('active');
+                    } else {
+                        loveBtn.classList.remove('active');
+                    }
+                    
+                    loveBtn.querySelector('.love-count').textContent = data.loves_count;
+                    likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                });
+            });
+        });
+        
+        // Comment form submission
+        document.querySelectorAll('.comment-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const postId = this.getAttribute('action').split('/')[2];
+                
+                fetch(this.getAttribute('action'), {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear the input
+                        this.querySelector('input[name="content"]').value = '';
+                        
+                        // Add new comment to the list
+                        const commentsContainer = this.closest('.post-card').querySelector('.mt-3');
+                        if (commentsContainer) {
+                            const commentHtml = `
+                                <div class="d-flex mb-2">
+                                    <div class="me-2">
+                                        <div class="rounded-circle bg-light p-1">
+                                            <i class="fas fa-user fa-sm"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="card-glass p-2">
+                                            <p class="mb-1"><strong>${data.comment.user}</strong> ${data.comment.content}</p>
+                                            <p class="text-gray small mb-0">${data.comment.created_at}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            commentsContainer.insertAdjacentHTML('afterbegin', commentHtml);
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Filter functionality
+        const destinationFilter = document.getElementById('destinationFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        
+        function applyFilters() {
+            const destination = destinationFilter.value;
+            const sort = sortFilter.value;
+            
+            let url = window.location.pathname;
+            const params = new URLSearchParams();
+            
+            if (destination) params.append('destination', destination);
+            if (sort !== 'newest') params.append('sort', sort);
+            
+            const queryString = params.toString();
+            if (queryString) {
+                url += '?' + queryString;
+            }
+            
+            window.location.href = url;
+        }
+        
+        destinationFilter.addEventListener('change', applyFilters);
+        sortFilter.addEventListener('change', applyFilters);
+    });
+</script>
+{% endblock %}

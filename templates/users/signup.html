@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Sign Up - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-user-plus fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold">Create Your Account</h2>
+                    <p class="text-gray">Join GoMyanmar and start planning your perfect trip</p>
+                </div>
+                
+                <form method="post" action="{% url 'users:signup' %}">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label for="id_username" class="form-label fw-bold">Full Name</label>
+                            <input type="text" name="username" id="id_username" 
+                                   class="form-control" placeholder="Enter your full name" required>
+                            {% if form.username.errors %}
+                            <div class="text-danger small mt-1">{{ form.username.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label for="id_email" class="form-label fw-bold">Email Address</label>
+                            <input type="email" name="email" id="id_email" 
+                                   class="form-control" placeholder="your.email@example.com" required>
+                            {% if form.email.errors %}
+                            <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label for="id_password1" class="form-label fw-bold">Password</label>
+                            <input type="password" name="password1" id="id_password1" 
+                                   class="form-control" placeholder="Create a password" required>
+                            {% if form.password1.errors %}
+                            <div class="text-danger small mt-1">{{ form.password1.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label for="id_password2" class="form-label fw-bold">Confirm Password</label>
+                            <input type="password" name="password2" id="id_password2" 
+                                   class="form-control" placeholder="Confirm your password" required>
+                            {% if form.password2.errors %}
+                            <div class="text-danger small mt-1">{{ form.password2.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="terms" required>
+                        <label class="form-check-label text-gray" for="terms">
+                            I agree to the <a href="#" class="text-decoration-none" style="color: #00D2FF;">Terms of Service</a> and <a href="#" class="text-decoration-none" style="color: #00D2FF;">Privacy Policy</a>
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid mb-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-user-plus me-2"></i>Create Account
+                        </button>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="text-center">
+                        <p class="mb-0 text-gray">Already have an account? 
+                            <a href="{% url 'users:login' %}" class="text-decoration-none fw-bold" style="color: #00D2FF;">
+                                Log in here
+                            </a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

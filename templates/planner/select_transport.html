@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+{% block title %}Select Transportation - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">Transportation</h2>
+                        <p class="text-gray mb-0">Choose how you want to travel</p>
+                    </div>
+                    <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back
+                    </a>
+                </div>
+                
+                <!-- Transport Type Selection -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card-glass p-3 text-center transport-type" data-type="flight">
+                            <i class="fas fa-plane fa-3x text-primary mb-3"></i>
+                            <h5>Flight</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-glass p-3 text-center transport-type" data-type="car">
+                            <i class="fas fa-car fa-3x text-primary mb-3"></i>
+                            <h5>Car Rental</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-glass p-3 text-center transport-type" data-type="bus">
+                            <i class="fas fa-bus fa-3x text-primary mb-3"></i>
+                            <h5>Bus</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transport Options (Will be shown based on selection) -->
+            <div id="transportOptions" style="display: none;">
+                <div class="card-glass p-4">
+                    <h4 class="mb-4">Available Options</h4>
+                    <div class="row" id="optionsContainer">
+                        <!-- Options will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .transport-type {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .transport-type:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary-blue);
+    }
+    
+    .transport-type.active {
+        border: 2px solid var(--primary-blue);
+        background: rgba(52, 152, 219, 0.1);
+    }
+    
+    .transport-option-card {
+        transition: all 0.3s ease;
+    }
+    
+    .transport-option-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(52, 152, 219, 0.2);
+    }
+    
+    .seat-legend {
+        font-size: 0.8rem;
+    }
+    
+    .seat {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 2px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+    
+    .seat.available {
+        background: white;
+        border: 1px solid #ddd;
+    }
+    
+    .seat.selected {
+        background: var(--primary-blue);
+        color: white;
+        border: 1px solid var(--primary-blue);
+    }
+    
+    .seat.occupied {
+        background: #e0e0e0;
+        color: #999;
+        cursor: not-allowed;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const transportTypes = document.querySelectorAll('.transport-type');
+        const transportOptionsDiv = document.getElementById('transportOptions');
+        const optionsContainer = document.getElementById('optionsContainer');
+        
+        transportTypes.forEach(type => {
+            type.addEventListener('click', function() {
+                // Remove active class from all
+                transportTypes.forEach(t => t.classList.remove('active'));
+                
+                // Add active class to selected
+                this.classList.add('active');
+                
+                const transportType = this.getAttribute('data-type');
+                loadTransportOptions(transportType);
+            });
+        });
+        
+        function loadTransportOptions(type) {
+            transportOptionsDiv.style.display = 'block';
+            optionsContainer.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading ${type} options...</p>
+                </div>
+            `;
+            
+            // Simulate loading data
+            setTimeout(() => {
+                if (type === 'flight') {
+                    showFlightOptions();
+                } else if (type === 'car') {
+                    showCarOptions();
+                } else if (type === 'bus') {
+                    showBusOptions();
+                }
+            }, 500);
+        }
+        
+        function showFlightOptions() {
+            const flights = [
+                {
+                    id: 1,
+                    name: "Air KBZ",
+                    type: "Economy",
+                    seats: 4,
+                    price: 35000,
+                    departure: "6:00 AM",
+                    arrival: "7:30 AM"
+                },
+                {
+                    id: 2,
+                    name: "Myanmar National Airlines",
+                    type: "Business",
+                    seats: 7,
+                    price: 65000,
+                    departure: "10:00 AM",
+                    arrival: "11:30 AM"
+                },
+                {
+                    id: 3,
+                    name: "Golden Myanmar Airlines",
+                    type: "Luxury",
+                    seats: 4,
+                    price: 120000,
+                    departure: "2:00 PM",
+                    arrival: "3:30 PM"
+                }
+            ];
+            
+            optionsContainer.innerHTML = flights.map(flight => `
+                <div class="col-md-4 mb-4">
+                    <div class="transport-option-card card-glass p-4 h-100">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-plane fa-2x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">${flight.name}</h5>
+                        <p class="text-center text-gray">${flight.type}</p>
+                        <div class="text-center mb-3">
+                            <i class="fas fa-users me-1"></i>${flight.seats} Seats
+                        </div>
+                        <div class="text-center mb-3">
+                            <div class="price-tag">${flight.price.toLocaleString()}</div>
+                            <p class="text-gray small mb-0">per seat</p>
+                        </div>
+                        <div class="text-center mb-3">
+                            <p class="mb-1">${flight.departure} - ${flight.arrival}</p>
+                        </div>
+                        <button class="btn btn-primary w-100 select-transport-btn" 
+                                data-id="${flight.id}" 
+                                data-type="flight">
+                            <i class="fas fa-check me-2"></i>Select
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            attachTransportSelectionHandlers();
+        }
+        
+        function showCarOptions() {
+            const cars = [
+                {
+                    id: 1,
+                    model: "Toyota Vios",
+                    type: "Economy",
+                    seats: 4,
+                    price: 35000,
+                    company: "City Car Rental"
+                },
+                {
+                    id: 2,
+                    model: "Toyota Fortuner",
+                    type: "SUV",
+                    seats: 7,
+                    price: 65000,
+                    company: "Premium Rentals"
+                },
+                {
+                    id: 3,
+                    model: "Mercedes E-Class",
+                    type: "Luxury",
+                    seats: 4,
+                    price: 120000,
+                    company: "Luxury Wheels"
+                }
+            ];
+            
+            optionsContainer.innerHTML = cars.map(car => `
+                <div class="col-md-4 mb-4">
+                    <div class="transport-option-card card-glass p-4 h-100">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-car fa-2x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">${car.model}</h5>
+                        <p class="text-center text-gray">${car.type}</p>
+                        <div class="text-center mb-3">
+                            <i class="fas fa-users me-1"></i>${car.seats} Seats
+                        </div>
+                        <div class="text-center mb-3">
+                            <div class="price-tag">${car.price.toLocaleString()}</div>
+                            <p class="text-gray small mb-0">per day</p>
+                        </div>
+                        <p class="text-center text-gray small">${car.company}</p>
+                        <button class="btn btn-primary w-100 select-transport-btn" 
+                                data-id="${car.id}" 
+                                data-type="car">
+                            <i class="fas fa-check me-2"></i>Select
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            attachTransportSelectionHandlers();
+        }
+        
+        function showBusOptions() {
+            const buses = [
+                {
+                    id: 1,
+                    company: "JJ Express",
+                    type: "Standard",
+                    seats: 40,
+                    price: 15000,
+                    departure: "8:00 PM"
+                },
+                {
+                    id: 2,
+                    company: "Elite Bus",
+                    type: "VIP",
+                    seats: 30,
+                    price: 25000,
+                    departure: "9:00 PM"
+                },
+                {
+                    id: 3,
+                    company: "Luxury Coach",
+                    type: "Luxury",
+                    seats: 20,
+                    price: 40000,
+                    departure: "10:00 PM"
+                }
+            ];
+            
+            optionsContainer.innerHTML = buses.map(bus => `
+                <div class="col-md-4 mb-4">
+                    <div class="transport-option-card card-glass p-4 h-100">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-bus fa-2x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">${bus.company}</h5>
+                        <p class="text-center text-gray">${bus.type}</p>
+                        <div class="text-center mb-3">
+                            <i class="fas fa-users me-1"></i>${bus.seats} Seats
+                        </div>
+                        <div class="text-center mb-3">
+                            <div class="price-tag">${bus.price.toLocaleString()}</div>
+                            <p class="text-gray small mb-0">per seat</p>
+                        </div>
+                        <div class="text-center mb-3">
+                            <p class="mb-1">Departure: ${bus.departure}</p>
+                        </div>
+                        <button class="btn btn-primary w-100 select-transport-btn" 
+                                data-id="${bus.id}" 
+                                data-type="bus">
+                            <i class="fas fa-check me-2"></i>Select
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            attachTransportSelectionHandlers();
+        }
+        
+        function attachTransportSelectionHandlers() {
+            document.querySelectorAll('.select-transport-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const transportId = this.getAttribute('data-id');
+                    const transportType = this.getAttribute('data-type');
+                    
+                    // Show seat selection for flights and buses
+                    if (transportType === 'flight' || transportType === 'bus') {
+                        window.location.href = `/planner/plan/{{ trip.id }}/transport/${transportId}/seats/?type=${transportType}`;
+                    } else {
+                        // For cars, save directly
+                        saveTransportSelection(transportId, transportType);
+                    }
+                });
+            });
+        }
+        
+        function saveTransportSelection(transportId, transportType) {
+            const formData = new FormData();
+            formData.append('transport_id', transportId);
+            formData.append('transport_type', transportType);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            fetch(`/planner/save-transport/{{ trip.id }}/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect back to plan page
+                    window.location.href = "{% url 'planner:plan' %}?transport_id=" + transportId + "&transport_type=" + transportType;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving selection. Please try again.');
+            });
+        }
+    });
+</script>
+{% endblock %}
