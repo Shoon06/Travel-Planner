@@ -74,9 +74,15 @@
                             </div>
                         </td>
                         <td>
-                            <span class="badge {% if user.user_type == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
-                                {{ user.user_type|title }}
+                            {% if user.user_type == 'admin' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-crown me-1"></i>Administrator
                             </span>
+                            {% else %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-user me-1"></i>Regular User
+                            </span>
+                            {% endif %}
                             {% if user == request.user %}
                             <div class="text-gray small">(You)</div>
                             {% endif %}
@@ -184,13 +190,14 @@
         
         // Update button state when role selection changes
         document.querySelectorAll('.role-select').forEach(select => {
+            // Store original value
+            const originalValue = select.value;
+            
             select.addEventListener('change', function() {
                 const userId = this.getAttribute('data-user-id');
                 const saveBtn = document.querySelector(`.save-role-btn[data-user-id="${userId}"]`);
-                const originalRole = this.getAttribute('data-original-role') || 
-                                    (this.value === 'admin' ? 'user' : 'admin');
                 
-                if (this.value !== originalRole) {
+                if (this.value !== originalValue) {
                     saveBtn.disabled = false;
                     saveBtn.classList.remove('btn-outline-primary');
                     saveBtn.classList.add('btn-primary');
@@ -200,9 +207,6 @@
                     saveBtn.classList.add('btn-outline-primary');
                 }
             });
-            
-            // Set initial original role
-            select.setAttribute('data-original-role', select.value);
         });
     });
 </script>

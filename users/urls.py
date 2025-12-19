@@ -1,10 +1,6 @@
 from django.urls import path
 from . import views
-from .views_admin import (
-    AdminDashboardView, AdminUserListView, AdminUserRoleManagementView, 
-    AdminTripListView, AdminTripAnalyticsView, AdminContentManagementView, 
-    AdminDatabaseBackupView, AdminAddUserView  # Add AdminAddUserView here
-)
+from . import views_admin
 from . import views_admin_actions
 from django.contrib.auth.views import LogoutView
 
@@ -17,25 +13,22 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(next_page='home'), name='logout'),
     path('force-logout/', views.force_logout_view, name='force_logout'),
     
-    # Email availability check
-    path('check-email/', views.check_email_availability, name='check_email_availability'),
-    
     # Admin Dashboard
-    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('admin/dashboard/', views_admin.AdminDashboardView.as_view(), name='admin_dashboard'),
     
     # User Management
-    path('admin/users/', AdminUserListView.as_view(), name='admin_dashboard_users'),
-    path('admin/users/add/', AdminAddUserView.as_view(), name='admin_add_user'),  # Custom add user
-    path('admin/users/roles/', AdminUserRoleManagementView.as_view(), name='admin_dashboard_user_roles'),
+    path('admin/users/', views_admin.AdminUserListView.as_view(), name='admin_dashboard_users'),
+    path('admin/users/add/', views_admin.AdminAddUserView.as_view(), name='admin_add_user'),  # This should now work
+    path('admin/users/roles/', views_admin.AdminUserRoleManagementView.as_view(), name='admin_dashboard_user_roles'),
     
     # Trip Management
-    path('admin/trips/', AdminTripListView.as_view(), name='admin_dashboard_trips'),
-    path('admin/trips/analytics/', AdminTripAnalyticsView.as_view(), name='admin_dashboard_trip_analytics'),
-    path('admin/trips/content/', AdminContentManagementView.as_view(), name='admin_dashboard_trip_content'),
+    path('admin/trips/', views_admin.AdminTripListView.as_view(), name='admin_dashboard_trips'),
+    path('admin/trips/analytics/', views_admin.AdminTripAnalyticsView.as_view(), name='admin_dashboard_trip_analytics'),
+    path('admin/trips/content/', views_admin.AdminContentManagementView.as_view(), name='admin_dashboard_trip_content'),
     
     # System Management
-    path('admin/database-backup/', AdminDatabaseBackupView.as_view(), name='admin_database_backup'),
-    path('admin/content/', AdminContentManagementView.as_view(), name='admin_content'),
+    path('admin/database-backup/', views_admin.AdminDatabaseBackupView.as_view(), name='admin_database_backup'),
+    path('admin/content/', views_admin.AdminContentManagementView.as_view(), name='admin_content'),
     
     # Action URLs
     path('admin/user/<int:user_id>/toggle-active/', views_admin_actions.toggle_user_active, name='admin_toggle_user_active'),

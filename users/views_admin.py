@@ -13,6 +13,8 @@ from django import forms
 from users.models import CustomUser
 from planner.models import Destination, Hotel, Flight, BusService, CarRental, TripPlan
 from posts.models import Post, Comment
+# Add this import at the top of users/views_admin.py
+from .forms import CustomUserCreationForm
 
 # Create a simple form class directly in views_admin.py
 class AdminUserCreationForm(forms.ModelForm):
@@ -126,17 +128,25 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         
         return context
 
-class AdminUserListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
-    template_name = 'users/admin_user_list.html'
+
+class AdminUserListView(LoginRequiredMixin, ListView):
     model = CustomUser
+    template_name = 'users/admin_dashboard_users.html'
     context_object_name = 'users'
     paginate_by = 20
     
+    def dispatch(self, request, *args, **kwargs):
+        # Check if user is admin
+        if not request.user.is_authenticated or not request.user.is_admin_user():
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('users:login')
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = CustomUser.objects.all().order_by('-date_joined')
         
-        # Filter by search query
-        search_query = self.request.GET.get('q')
+        # Search filter
+        search_query = self.request.GET.get('q', '')
         if search_query:
             queryset = queryset.filter(
                 Q(username__icontains=search_query) |
@@ -145,18 +155,32 @@ class AdminUserListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
                 Q(last_name__icontains=search_query)
             )
         
-        # Filter by user type
-        user_type = self.request.GET.get('type')
+        # User type filter
+        user_type = self.request.GET.get('type', '')
         if user_type:
             queryset = queryset.filter(user_type=user_type)
         
-        return queryset.order_by('-date_joined')
+        # Status filter
+        status = self.request.GET.get('status', '')
+        if status == 'active':
+            queryset = queryset.filter(is_active=True)
+        elif status == 'inactive':
+            queryset = queryset.filter(is_active=False)
+        
+        return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Count statistics
         context['total_users'] = CustomUser.objects.count()
-        context['admin_users'] = CustomUser.objects.filter(user_type='admin').count()
+        context['admin_count'] = CustomUser.objects.filter(user_type='admin').count()
         context['regular_users'] = CustomUser.objects.filter(user_type='user').count()
+        context['active_users_count'] = CustomUser.objects.filter(is_active=True).count()
+        context['new_users_today'] = CustomUser.objects.filter(
+            date_joined__date=timezone.now().date()
+        ).count()
+        
         return context
 
 class AdminTripListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
@@ -284,50 +308,61 @@ class AdminUserRoleManagementView(LoginRequiredMixin, AdminRequiredMixin, ListVi
     paginate_by = 20
     
     def get_queryset(self):
-        queryset = CustomUser.objects.all()
-        
-        # Filter by search query
-        search_query = self.request.GET.get('q')
-        if search_query:
-            queryset = queryset.filter(
-                Q(username__icontains=search_query) |
-                Q(email__icontains=search_query) |
-                Q(first_name__icontains=search_query) |
-                Q(last_name__icontains=search_query)
-            )
-        
-        # Filter by user type
-        user_type = self.request.GET.get('type')
-        if user_type:
-            queryset = queryset.filter(user_type=user_type)
-        
-        return queryset.order_by('user_type', 'username')
+        return CustomUser.objects.order_by('user_type', 'username')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        users = context['users']
-        
         # Calculate counts
-        context['admin_count'] = users.filter(user_type='admin').count()
-        context['user_count'] = users.filter(user_type='user').count()
-        
+        all_users = CustomUser.objects.all()
+        context['admin_count'] = all_users.filter(user_type='admin').count()
+        context['user_count'] = all_users.filter(user_type='user').count()
         return context
 
-class AdminAddUserView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
-    template_name = 'users/admin_add_user.html'
+
+# Add to users/views_admin.py (at the end of the file)
+
+
+# Add this to users/views_admin.py if not already there
+class AdminAddUserView(LoginRequiredMixin, CreateView):
     model = CustomUser
-    form_class = AdminUserCreationForm
+    form_class = CustomUserCreationForm
+    template_name = 'users/admin_add_user.html'
     success_url = reverse_lazy('users:admin_dashboard_users')
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Add New User'
-        return context
+    def dispatch(self, request, *args, **kwargs):
+        # Check if user is admin
+        if not request.user.is_authenticated or not request.user.is_admin_user():
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('users:login')
+        return super().dispatch(request, *args, **kwargs)
     
-    def form_valid(self, form):
-        user = form.save()
-        messages.success(self.request, f'User {user.username} created successfully!')
-        return super().form_valid(form)
+# Update the form_valid method in AdminAddUserView
+def form_valid(self, form):
+    user = form.save(commit=False)
+    user_type = form.cleaned_data.get('user_type', 'user')
+    user.user_type = user_type
+    
+    # Set is_active from form data
+    is_active = self.request.POST.get('is_active') == 'on'
+    user.is_active = is_active
+    
+    # Set staff status if superuser is creating
+    if self.request.user.is_superuser:
+        is_staff = self.request.POST.get('is_staff') == 'on'
+        user.is_staff = is_staff
+    
+    user.save()
+    messages.success(self.request, f'User {user.username} created successfully!')
+    
+    # Check if "Save & Add Another" was clicked
+    if 'add_another' in self.request.POST:
+        return redirect('users:admin_add_user')
+    
+    return super().form_valid(form)
+    
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors below.')
+        return super().form_invalid(form)
 
 class AdminContentManagementView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
     template_name = 'users/admin_content.html'

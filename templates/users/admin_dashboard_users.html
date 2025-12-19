@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}User Management - Admin - Myanmar Travel Planner{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">
+                    <i class="fas fa-users me-2 text-primary"></i>User Management
+                </h2>
+                <p class="mb-0" style="color: #7f8c8d;">
+                    Total: {{ users.count }} users • {{ admin_count }} admins • {{ regular_users }} regular users
+                </p>
+            </div>
+            <div class="btn-group" role="group">
+                <a href="{% url 'users:admin_add_user' %}" class="btn btn-primary">
+                    <i class="fas fa-user-plus me-2"></i>Add New User
+                </a>
+                <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-user-tag me-2"></i>Manage Roles
+                </a>
+            </div>
+        </div>
+        
+        <!-- Search and Filters -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <form method="get" class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="fas fa-search text-gray"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" name="q" 
+                               placeholder="Search users by name, email, username..." 
+                               value="{{ request.GET.q|default:'' }}">
+                        <button class="btn btn-outline-primary" type="submit">
+                            Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-3 mb-3">
+                <select class="form-select" id="userTypeFilter">
+                    <option value="">All Users</option>
+                    <option value="admin" {% if request.GET.type == 'admin' %}selected{% endif %}>Administrators</option>
+                    <option value="user" {% if request.GET.type == 'user' %}selected{% endif %}>Regular Users</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active Only</option>
+                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <div class="feature-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-2" 
+                     style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-users text-primary fa-lg"></i>
+                </div>
+                <h3 class="mb-1" style="color: #2c3e50;">{{ total_users }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <div class="feature-icon bg-danger bg-opacity-10 rounded-circle mx-auto mb-2" 
+                     style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-crown text-danger fa-lg"></i>
+                </div>
+                <h3 class="mb-1" style="color: #2c3e50;">{{ admin_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Administrators</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <div class="feature-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-2" 
+                     style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-user-check text-success fa-lg"></i>
+                </div>
+                <h3 class="mb-1" style="color: #2c3e50;">{{ active_users_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Active Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <div class="feature-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-2" 
+                     style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-user-plus text-warning fa-lg"></i>
+                </div>
+                <h3 class="mb-1" style="color: #2c3e50;">{{ new_users_today }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">New Today</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50; min-width: 200px;">User</th>
+                        <th style="color: #2c3e50;">Contact</th>
+                        <th style="color: #2c3e50;">Type</th>
+                        <th style="color: #2c3e50;">Joined</th>
+                        <th style="color: #2c3e50;">Status</th>
+                        <th style="color: #2c3e50;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                     class="rounded-circle me-3" width="45" height="45" style="object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 45px; height: 45px; background: linear-gradient(135deg, #6B47A4, #3498db);">
+                                    <span class="text-white fw-bold">{{ user.username|first|upper }}</span>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <strong style="color: #2c3e50;">{{ user.username }}</strong>
+                                    {% if user.first_name or user.last_name %}
+                                    <div class="text-gray small">{{ user.first_name }} {{ user.last_name }}</div>
+                                    {% endif %}
+                                    <div class="text-gray small">ID: {{ user.id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="color: #34495e;">{{ user.email|default:"No email" }}</div>
+                            {% if user.phone_number %}
+                            <div class="text-gray small">{{ user.phone_number }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if user.user_type == 'admin' %}bg-danger{% else %}bg-primary{% endif %} px-3 py-2">
+                                <i class="fas {% if user.user_type == 'admin' %}fa-crown{% else %}fa-user{% endif %} me-1"></i>
+                                {{ user.user_type|title }}
+                            </span>
+                        </td>
+                        <td style="color: #7f8c8d;">
+                            {{ user.date_joined|date:"M d, Y" }}
+                            <div class="text-gray small">{{ user.date_joined|timesince }} ago</div>
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge bg-success px-3 py-2">
+                                <i class="fas fa-check-circle me-1"></i>Active
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary px-3 py-2">
+                                <i class="fas fa-times-circle me-1"></i>Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="/admin/users/customuser/{{ user.id }}/change/" 
+                                   class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit in Admin">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'users:admin_dashboard_user_roles' %}" 
+                                   class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Manage Role">
+                                    <i class="fas fa-user-tag"></i>
+                                </a>
+                                {% if user != request.user %}
+                                <button class="btn btn-sm {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %} toggle-active-btn" 
+                                        data-user-id="{{ user.id }}" data-user-name="{{ user.username }}"
+                                        data-bs-toggle="tooltip" 
+                                        title="{% if user.is_active %}Deactivate User{% else %}Activate User{% endif %}">
+                                    <i class="fas {% if user.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                                </button>
+                                {% else %}
+                                <button class="btn btn-sm btn-outline-secondary" disabled data-bs-toggle="tooltip" title="Your Account">
+                                    <i class="fas fa-user"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="fas fa-users fa-4x text-gray opacity-50"></i>
+                            </div>
+                            <h5 style="color: #2c3e50;" class="mb-2">No users found</h5>
+                            <p style="color: #7f8c8d;" class="mb-3">Try adjusting your search or filters</p>
+                            <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-redo me-2"></i>Reset Filters
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+    
+    <!-- Quick Actions Card -->
+    <div class="card-glass p-4 mt-4">
+        <h5 style="color: #2c3e50;" class="mb-3">
+            <i class="fas fa-bolt text-warning me-2"></i>Quick Actions
+        </h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <a href="{% url 'users:admin_add_user' %}" class="btn btn-primary w-100">
+                    <i class="fas fa-user-plus me-2"></i>Add New User
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-user-tag me-2"></i>Manage User Roles
+                </a>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-info w-100" id="exportUsersBtn">
+                    <i class="fas fa-download me-2"></i>Export Users List
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Info (Temporary - Remove after testing) -->
+    <div class="card-glass p-4 mt-4 bg-warning bg-opacity-10">
+        <h6 style="color: #2c3e50;" class="mb-2">
+            <i class="fas fa-bug me-2"></i>Debug Information
+        </h6>
+        <p class="small mb-1" style="color: #7f8c8d;">
+            <strong>Add User URL:</strong> {% url 'users:admin_add_user' %}
+        </p>
+        <p class="small mb-1" style="color: #7f8c8d;">
+            <strong>Template:</strong> admin_dashboard_users.html
+        </p>
+        <p class="small mb-0" style="color: #7f8c8d;">
+            <strong>Users Count:</strong> {{ users.count }}
+        </p>
+    </div>
+</div>
+
+<style>
+    .card-glass {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 
+            0 15px 35px rgba(107, 71, 164, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+    
+    .card-glass:hover {
+        transform: translateY(-2px);
+        border-color: rgba(139, 92, 246, 0.2);
+        box-shadow: 
+            0 20px 40px rgba(107, 71, 164, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    
+    .table-hover tbody tr:hover {
+        background: rgba(183, 158, 220, 0.1);
+    }
+    
+    .feature-icon {
+        transition: transform 0.3s ease;
+    }
+    
+    .feature-icon:hover {
+        transform: scale(1.1);
+    }
+    
+    .badge {
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+    
+    .text-gray {
+        color: #7f8c8d !important;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // User type filter
+        const userTypeFilter = document.getElementById('userTypeFilter');
+        userTypeFilter.addEventListener('change', function() {
+            updateFilters();
+        });
+        
+        // Status filter
+        const statusFilter = document.getElementById('statusFilter');
+        statusFilter.addEventListener('change', function() {
+            updateFilters();
+        });
+        
+        function updateFilters() {
+            const url = new URL(window.location);
+            const searchParams = new URLSearchParams(url.search);
+            
+            if (userTypeFilter.value) {
+                searchParams.set('type', userTypeFilter.value);
+            } else {
+                searchParams.delete('type');
+            }
+            
+            if (statusFilter.value) {
+                searchParams.set('status', statusFilter.value);
+            } else {
+                searchParams.delete('status');
+            }
+            
+            // Keep search query if exists
+            const searchInput = document.querySelector('input[name="q"]');
+            if (searchInput && searchInput.value.trim()) {
+                searchParams.set('q', searchInput.value.trim());
+            } else {
+                searchParams.delete('q');
+            }
+            
+            // Reset to page 1 when filters change
+            searchParams.delete('page');
+            
+            window.location.href = `${url.pathname}?${searchParams.toString()}`;
+        }
+        
+        // Toggle user active status
+        document.querySelectorAll('.toggle-active-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                const userName = this.getAttribute('data-user-name');
+                const isActive = this.classList.contains('btn-outline-danger');
+                const action = isActive ? 'deactivate' : 'activate';
+                
+                if (confirm(`Are you sure you want to ${action} user "${userName}"?`)) {
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    fetch(`{% url 'users:admin_toggle_user_active' 0 %}`.replace('0', userId), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error: Could not update user status. Please check console for details.');
+                    });
+                }
+            });
+        });
+        
+        // Export users list
+        const exportUsersBtn = document.getElementById('exportUsersBtn');
+        if (exportUsersBtn) {
+            exportUsersBtn.addEventListener('click', function() {
+                alert('Export feature coming soon!');
+                // In a real implementation, this would generate and download a CSV/Excel file
+            });
+        }
+        
+        // Search form submission
+        const searchForm = document.querySelector('form');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function(e) {
+                const searchInput = this.querySelector('input[name="q"]');
+                if (!searchInput.value.trim()) {
+                    e.preventDefault();
+                    // If search is empty, clear the search parameter
+                    const url = new URL(window.location);
+                    url.searchParams.delete('q');
+                    url.searchParams.delete('page');
+                    window.location.href = url.toString();
+                }
+            });
+        }
+        
+        // Debug: Log the add user URL
+        console.log('Add User URL:', "{% url 'users:admin_add_user' %}");
+        console.log('Current User:', "{{ request.user.username }}");
+        console.log('Is Admin:', "{{ request.user.is_admin_user }}");
+    });
+</script>
+{% endblock %}

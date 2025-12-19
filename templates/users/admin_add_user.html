@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
-{% block title %}Add New User - Admin - GoMyanmar{% endblock %}
+{% block title %}Add New User - Admin - Myanmar Travel Planner{% endblock %}
 
 {% block content %}
 <div class="container py-5 mt-5">
@@ -9,164 +8,428 @@
     <div class="card-glass p-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h2 class="mb-2" style="color: #2c3e50;">Add New User</h2>
+                <h2 class="mb-2" style="color: #2c3e50;"><i class="fas fa-user-plus me-2 text-primary"></i>Add New User</h2>
                 <p class="mb-0" style="color: #7f8c8d;">Create a new user account</p>
             </div>
-            <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-primary">
+            <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-light">
                 <i class="fas fa-arrow-left me-2"></i>Back to Users
             </a>
         </div>
     </div>
-    
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Add User Form -->
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card-glass p-4">
-                <form method="post" enctype="multipart/form-data" id="addUserForm">
-                    {% csrf_token %}
-                    
-                    <!-- Display form errors -->
-                    {% if form.errors %}
-                    <div class="alert alert-danger">
-                        <strong>Please correct the errors below:</strong>
-                        <ul>
-                            {% for field, errors in form.errors.items %}
-                                {% for error in errors %}
-                                    <li>{{ field }}: {{ error }}</li>
-                                {% endfor %}
-                            {% endfor %}
-                        </ul>
+    <div class="card-glass p-4">
+        <form method="post" action="{% url 'users:admin_add_user' %}">
+            {% csrf_token %}
+            
+            <div class="row">
+                <!-- Username -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>Username *
+                    </label>
+                    <input type="text" name="username" class="form-control" required
+                           placeholder="Enter username" value="{{ form.username.value|default:'' }}">
+                    {% if form.username.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.username.errors.0 }}
+                    </div>
+                    {% else %}
+                    <div class="form-text">150 characters or fewer. Letters, digits and @/./+/-/_ only.</div>
+                    {% endif %}
+                </div>
+                
+                <!-- Email -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-envelope me-1"></i>Email Address *
+                    </label>
+                    <input type="email" name="email" class="form-control" required
+                           placeholder="user@example.com" value="{{ form.email.value|default:'' }}">
+                    {% if form.email.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.email.errors.0 }}
                     </div>
                     {% endif %}
-                    
-                    <!-- Basic Information -->
-                    <h4 class="mb-4" style="color: #2c3e50;">Basic Information</h4>
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.username.id_for_label }}" class="form-label" style="color: #2c3e50;">Username *</label>
-                            {{ form.username }}
-                            {% if form.username.help_text %}
-                            <div class="form-text">{{ form.username.help_text }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.email.id_for_label }}" class="form-label" style="color: #2c3e50;">Email *</label>
-                            {{ form.email }}
-                            {% if form.email.help_text %}
-                            <div class="form-text">{{ form.email.help_text }}</div>
-                            {% endif %}
-                        </div>
+                </div>
+                
+                <!-- Password -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Password *
+                    </label>
+                    <input type="password" name="password1" class="form-control" required
+                           placeholder="Enter password" id="password1">
+                    {% if form.password1.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password1.errors.0 }}
                     </div>
-                    
-                    <!-- Password -->
-                    <div class="row mb-4">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.password1.id_for_label }}" class="form-label" style="color: #2c3e50;">Password *</label>
-                            {{ form.password1 }}
-                            {% if form.password1.help_text %}
-                            <div class="form-text">{{ form.password1.help_text }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.password2.id_for_label }}" class="form-label" style="color: #2c3e50;">Confirm Password *</label>
-                            {{ form.password2 }}
-                            {% if form.password2.help_text %}
-                            <div class="form-text">{{ form.password2.help_text }}</div>
-                            {% endif %}
-                        </div>
+                    {% endif %}
+                    <div class="form-text">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            At least 8 characters with letters and numbers.
+                        </small>
                     </div>
-                    
-                    <!-- User Type -->
-                    <div class="mb-4">
-                        <label for="{{ form.user_type.id_for_label }}" class="form-label" style="color: #2c3e50;">User Type *</label>
-                        {{ form.user_type }}
-                        <div class="form-text">Admins have access to the admin dashboard.</div>
+                </div>
+                
+                <!-- Confirm Password -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Confirm Password *
+                    </label>
+                    <input type="password" name="password2" class="form-control" required
+                           placeholder="Confirm password" id="password2">
+                    {% if form.password2.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password2.errors.0 }}
                     </div>
-                    
-                    <!-- Personal Information -->
-                    <h4 class="mb-4" style="color: #2c3e50;">Personal Information (Optional)</h4>
-                    <div class="row mb-4">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.first_name.id_for_label }}" class="form-label" style="color: #2c3e50;">First Name</label>
-                            {{ form.first_name }}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.last_name.id_for_label }}" class="form-label" style="color: #2c3e50;">Last Name</label>
-                            {{ form.last_name }}
-                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- User Type -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user-tag me-1"></i>User Type *
+                    </label>
+                    <select name="user_type" class="form-select" required>
+                        <option value="">Select user type</option>
+                        <option value="user" {% if form.user_type.value == 'user' %}selected{% endif %}>Regular User</option>
+                        <option value="admin" {% if form.user_type.value == 'admin' %}selected{% endif %}>Administrator</option>
+                    </select>
+                    {% if form.user_type.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.user_type.errors.0 }}
                     </div>
-                    
-                    <!-- Contact Information -->
-                    <div class="row mb-4">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.phone_number.id_for_label }}" class="form-label" style="color: #2c3e50;">Phone Number</label>
-                            {{ form.phone_number }}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.location.id_for_label }}" class="form-label" style="color: #2c3e50;">Location</label>
-                            {{ form.location }}
-                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- First Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>First Name
+                    </label>
+                    <input type="text" name="first_name" class="form-control"
+                           placeholder="First name" value="{{ form.first_name.value|default:'' }}">
+                </div>
+                
+                <!-- Last Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>Last Name
+                    </label>
+                    <input type="text" name="last_name" class="form-control"
+                           placeholder="Last name" value="{{ form.last_name.value|default:'' }}">
+                </div>
+                
+                <!-- Phone Number -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-phone me-1"></i>Phone Number
+                    </label>
+                    <input type="text" name="phone_number" class="form-control"
+                           placeholder="Phone number" value="{{ form.phone_number.value|default:'' }}">
+                </div>
+                
+                <!-- Account Status -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
+                        <i class="fas fa-user-check me-1"></i>Account Status
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_active" 
+                               id="is_active" checked style="width: 3em; height: 1.5em;">
+                        <label class="form-check-label ms-2" for="is_active" style="color: #7f8c8d;">
+                            Active Account
+                        </label>
                     </div>
-                    
-                    <!-- Profile Picture -->
-                    <div class="mb-4">
-                        <label for="{{ form.profile_picture.id_for_label }}" class="form-label" style="color: #2c3e50;">Profile Picture</label>
-                        {{ form.profile_picture }}
-                        <div class="form-text">Optional. Max size: 2MB. Formats: JPG, PNG, GIF.</div>
+                    <div class="form-text">
+                        <small>Designates whether this user can log in.</small>
                     </div>
-                    
-                    <!-- Bio -->
-                    <div class="mb-4">
-                        <label for="{{ form.bio.id_for_label }}" class="form-label" style="color: #2c3e50;">Bio</label>
-                        {{ form.bio }}
+                </div>
+                
+                <!-- Staff Status (for superusers) -->
+                {% if request.user.is_superuser %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
+                        <i class="fas fa-shield-alt me-1"></i>Staff Status
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_staff" 
+                               id="is_staff" style="width: 3em; height: 1.5em;">
+                        <label class="form-check-label ms-2" for="is_staff" style="color: #7f8c8d;">
+                            Staff Member
+                        </label>
                     </div>
-                    
-                    <!-- Status -->
-                    <div class="mb-4">
-                        <div class="form-check">
-                            {{ form.is_active }}
-                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}" style="color: #2c3e50;">
-                                Active Account
-                            </label>
-                        </div>
-                        <div class="form-text">Inactive users cannot log in.</div>
+                    <div class="form-text">
+                        <small>Designates whether this user can access the admin site.</small>
                     </div>
-                    
-                    <!-- Buttons -->
-                    <div class="d-flex justify-content-between mt-5">
-                        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
-                            <i class="fas fa-times me-2"></i>Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-user-plus me-2"></i>Create User
-                        </button>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-4 border-top">
+                <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-light">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </a>
+                <div class="btn-group" role="group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save User
+                    </button>
+                    <button type="submit" name="add_another" value="true" class="btn btn-outline-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Save & Add Another
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- User Type Information Card -->
+    <div class="card-glass p-4 mt-4">
+        <h5 style="color: #2c3e50;" class="mb-3">
+            <i class="fas fa-info-circle me-2 text-primary"></i>User Types Information
+        </h5>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card border-primary border-1 h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-user me-2"></i>Regular User
+                        </h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can plan trips</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can view destinations</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can participate in community</li>
+                            <li class="mb-1"><i class="fas fa-times text-danger me-2"></i>Cannot access admin dashboard</li>
+                            <li class="mb-1"><i class="fas fa-times text-danger me-2"></i>Cannot manage system content</li>
+                        </ul>
                     </div>
-                </form>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card border-danger border-1 h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-danger">
+                            <i class="fas fa-crown me-2"></i>Administrator
+                        </h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Full admin dashboard access</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can manage all users</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can manage trips and content</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can view system analytics</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can access admin settings</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
+<style>
+    .form-control, .form-select {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(183, 158, 220, 0.3);
+        color: #2c3e50;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #6B47A4;
+        box-shadow: 0 0 0 0.25rem rgba(107, 71, 164, 0.25);
+        background: white;
+    }
+    
+    .form-check-input:checked {
+        background-color: #6B47A4;
+        border-color: #6B47A4;
+    }
+    
+    .form-switch .form-check-input:checked {
+        background-color: #6B47A4;
+    }
+    
+    .card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('addUserForm');
-        const emailInput = document.getElementById('id_email');
+        // Password validation
+        const password1 = document.getElementById('password1');
+        const password2 = document.getElementById('password2');
         
-        // Check email availability
-        if (emailInput) {
-            emailInput.addEventListener('blur', function() {
-                if (emailInput.value) {
-                    fetch('{% url "users:check_email_availability" %}?email=' + encodeURIComponent(emailInput.value))
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.available) {
-                                emailInput.setCustomValidity('This email is already registered');
-                            } else {
-                                emailInput.setCustomValidity('');
-                            }
-                        });
+        function validatePasswords() {
+            const password1Value = password1.value;
+            const password2Value = password2.value;
+            
+            if (password1Value && password2Value) {
+                // Check if passwords match
+                if (password1Value !== password2Value) {
+                    password2.setCustomValidity('Passwords do not match');
+                    return false;
                 }
+                
+                // Check password strength
+                if (password1Value.length < 8) {
+                    password1.setCustomValidity('Password must be at least 8 characters long');
+                    return false;
+                }
+                
+                // Check for at least one letter and one number
+                const hasLetter = /[a-zA-Z]/.test(password1Value);
+                const hasNumber = /\d/.test(password1Value);
+                
+                if (!hasLetter || !hasNumber) {
+                    password1.setCustomValidity('Password must contain both letters and numbers');
+                    return false;
+                }
+                
+                // Clear validation messages
+                password1.setCustomValidity('');
+                password2.setCustomValidity('');
+                return true;
+            }
+            return false;
+        }
+        
+        // Real-time validation
+        password1.addEventListener('input', function() {
+            validatePasswords();
+            updatePasswordStrength();
+        });
+        
+        password2.addEventListener('input', validatePasswords);
+        
+        // Email validation
+        const emailInput = document.querySelector('input[name="email"]');
+        emailInput.addEventListener('blur', function() {
+            const email = this.value;
+            if (email) {
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailPattern.test(email)) {
+                    this.setCustomValidity('Please enter a valid email address');
+                } else {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+        
+        // Username validation
+        const usernameInput = document.querySelector('input[name="username"]');
+        usernameInput.addEventListener('input', function() {
+            const username = this.value;
+            if (username) {
+                const usernamePattern = /^[a-zA-Z0-9@.+-_]+$/;
+                if (!usernamePattern.test(username)) {
+                    this.setCustomValidity('Username can only contain letters, digits and @/./+/-/_');
+                } else if (username.length > 150) {
+                    this.setCustomValidity('Username must be 150 characters or fewer');
+                } else {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+        
+        // Password strength indicator
+        function updatePasswordStrength() {
+            const password = password1.value;
+            const strengthIndicator = document.getElementById('password-strength');
+            
+            if (!strengthIndicator) {
+                // Create strength indicator if it doesn't exist
+                const div = document.createElement('div');
+                div.id = 'password-strength';
+                div.className = 'mt-2';
+                password1.parentNode.appendChild(div);
+            }
+            
+            const indicator = document.getElementById('password-strength');
+            let strength = 0;
+            let message = '';
+            let color = 'danger';
+            
+            if (password.length >= 8) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/\d/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+            
+            switch(strength) {
+                case 0:
+                    message = 'Very Weak';
+                    color = 'danger';
+                    break;
+                case 1:
+                    message = 'Weak';
+                    color = 'danger';
+                    break;
+                case 2:
+                    message = 'Fair';
+                    color = 'warning';
+                    break;
+                case 3:
+                    message = 'Good';
+                    color = 'info';
+                    break;
+                case 4:
+                    message = 'Strong';
+                    color = 'success';
+                    break;
+            }
+            
+            if (password.length > 0) {
+                indicator.innerHTML = `
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-${color}" role="progressbar" 
+                             style="width: ${strength * 25}%" aria-valuenow="${strength * 25}" 
+                             aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <small class="text-${color} mt-1 d-block">Password strength: ${message}</small>
+                `;
+            } else {
+                indicator.innerHTML = '';
+            }
+        }
+        
+        // Form submission validation
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            if (!validatePasswords()) {
+                e.preventDefault();
+                alert('Please fix the password errors before submitting.');
+            }
+        });
+        
+        // "Save & Add Another" button functionality
+        const addAnotherBtn = document.querySelector('button[name="add_another"]');
+        if (addAnotherBtn) {
+            addAnotherBtn.addEventListener('click', function() {
+                // This will submit the form with the add_another parameter
+                // The view should handle redirecting back to the add form
             });
         }
     });
