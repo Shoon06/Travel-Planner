@@ -11,7 +11,7 @@ def home_view(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home_view, name='home'),
-    path('users/', include('users.urls')),
+    path('users/', include('users.urls', namespace='users')),
     path('trips/', include('trips.urls')),
     path('posts/', include('posts.urls')),
     path('planner/', include('planner.urls', namespace='planner')),

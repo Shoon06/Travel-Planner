@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% block title %}Trip Analytics - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Trip Analytics</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Detailed analytics and insights about user trips</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ status_distribution|length }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Trip Statuses</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ popular_destinations|length }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Popular Destinations</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ active_users|length }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Active Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">6</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Months Trend</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Analytics Charts -->
+    <div class="row">
+        <!-- Trip Creation Trend -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Trip Creation Trend (Last 30 Days)</h4>
+                <div id="tripCreationChart" style="height: 300px;"></div>
+            </div>
+        </div>
+        
+        <!-- Status Distribution -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Trip Status Distribution</h4>
+                <div id="statusDistributionChart" style="height: 300px;"></div>
+            </div>
+        </div>
+        
+        <!-- Monthly Revenue -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Monthly Revenue Trend</h4>
+                <div id="revenueChart" style="height: 300px;"></div>
+            </div>
+        </div>
+        
+        <!-- Popular Destinations -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Top 5 Popular Destinations</h4>
+                <div class="list-group">
+                    {% for dest in popular_destinations|slice:":5" %}
+                    <div class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ dest.destination__name }}</h6>
+                            <span class="badge bg-primary">{{ dest.count }} trips</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Users -->
+        <div class="col-12 mb-4">
+            <div class="card-glass p-4">
+                <h4 style="color: #2c3e50;" class="mb-3">Most Active Users</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="color: #2c3e50;">User</th>
+                                <th style="color: #2c3e50;">Email</th>
+                                <th style="color: #2c3e50;">Trips</th>
+                                <th style="color: #2c3e50;">Last Trip</th>
+                                <th style="color: #2c3e50;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in active_users|slice:":10" %}
+                            <tr>
+                                <td style="color: #2c3e50;">{{ user.user__username }}</td>
+                                <td style="color: #7f8c8d;">{{ user.user__email }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ user.trip_count }}</span>
+                                </td>
+                                <td style="color: #7f8c8d;">
+                                    {% if user.last_trip %}
+                                    {{ user.last_trip|date:"M d, Y" }}
+                                    {% else %}
+                                    Never
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">Active</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <p style="color: #7f8c8d;">No active users found</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Trip Creation Trend Chart
+        const tripCreationData = JSON.parse('{{ trip_creation_data|safe|escapejs }}');
+        const tripCreationCtx = document.createElement('canvas');
+        tripCreationCtx.id = 'tripCreationCanvas';
+        document.getElementById('tripCreationChart').appendChild(tripCreationCtx);
+        
+        new Chart(tripCreationCtx, {
+            type: 'line',
+            data: {
+                labels: tripCreationData.map(d => d.date.split('-')[2]), // Show only day
+                datasets: [{
+                    label: 'Trips Created',
+                    data: tripCreationData.map(d => d.count),
+                    borderColor: '#6B47A4',
+                    backgroundColor: 'rgba(107, 71, 164, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#7f8c8d'
+                        },
+                        grid: {
+                            color: 'rgba(183, 158, 220, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#7f8c8d'
+                        },
+                        grid: {
+                            color: 'rgba(183, 158, 220, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Status Distribution Chart
+        const statusData = JSON.parse('{{ status_distribution|safe|escapejs }}');
+        const statusCtx = document.createElement('canvas');
+        statusCtx.id = 'statusCanvas';
+        document.getElementById('statusDistributionChart').appendChild(statusCtx);
+        
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(d => d.status.charAt(0).toUpperCase() + d.status.slice(1)),
+                datasets: [{
+                    data: statusData.map(d => d.count),
+                    backgroundColor: [
+                        '#6B47A4',
+                        '#3498db',
+                        '#2ecc71',
+                        '#f39c12',
+                        '#e74c3c'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#2c3e50'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Monthly Revenue Chart
+        const revenueData = JSON.parse('{{ monthly_revenue|safe|escapejs }}');
+        const revenueCtx = document.createElement('canvas');
+        revenueCtx.id = 'revenueCanvas';
+        document.getElementById('revenueChart').appendChild(revenueCtx);
+        
+        new Chart(revenueCtx, {
+            type: 'bar',
+            data: {
+                labels: revenueData.map(d => d.month),
+                datasets: [{
+                    label: 'Revenue (MMK)',
+                    data: revenueData.map(d => d.revenue),
+                    backgroundColor: '#2ecc71',
+                    borderColor: '#27ae60',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#7f8c8d',
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(183, 158, 220, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#7f8c8d'
+                        },
+                        grid: {
+                            color: 'rgba(183, 158, 220, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -8,8 +8,16 @@ from django.contrib.auth import authenticate, login, logout
 from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from .models import CustomUser
 from django.utils import timezone
+from django.http import JsonResponse
+from .models import CustomUser
 
-
+def check_email_availability(request):
+    """Check if email is available"""
+    email = request.GET.get('email', '')
+    if email:
+        exists = CustomUser.objects.filter(email=email).exists()
+        return JsonResponse({'available': not exists})
+    return JsonResponse({'available': False})
 def force_logout_view(request):
     """Force logout endpoint for debugging"""
     logout(request)
@@ -120,3 +128,22 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         context['total_revenue'] = total_revenue
         
         return context
+    # Add this method to TripPlan model in planner/models.py or update it here:
+def get_total_cost(self):
+    """Calculate total cost for the trip"""
+    total = 0
+    
+    # Hotel cost
+    if self.selected_hotel:
+        nights = (self.end_date - self.start_date).days
+        if nights <= 0:
+            nights = 1
+        hotel_cost = self.selected_hotel.price_per_night * nights * 2100
+        total += float(hotel_cost)
+    
+    # Transport cost
+    if self.selected_transport and self.selected_transport.get('price'):
+        transport_cost = float(self.selected_transport['price'])
+        total += transport_cost
+    
+    return total

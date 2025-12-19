@@ -442,3 +442,82 @@ section {
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
+/* Admin Dashboard Fixes */
+.admin-dashboard h1,
+.admin-dashboard h2,
+.admin-dashboard h3,
+.admin-dashboard h4,
+.admin-dashboard h5,
+.admin-dashboard h6 {
+    color: #2c3e50 !important;
+}
+
+.admin-dashboard p,
+.admin-dashboard .text-gray {
+    color: #7f8c8d !important;
+}
+
+.admin-dashboard .card-glass {
+    background: rgba(255, 255, 255, 0.95) !important;
+}
+
+.admin-dashboard .btn-outline-light {
+    border-color: #bdc3c7 !important;
+    color: #2c3e50 !important;
+}
+
+.admin-dashboard .btn-outline-light:hover {
+    background: rgba(183, 158, 220, 0.1) !important;
+    border-color: #6B47A4 !important;
+    color: #6B47A4 !important;
+}
+
+/* Table Styling for Admin */
+.admin-dashboard table {
+    color: #2c3e50 !important;
+}
+
+.admin-dashboard table thead th {
+    background: rgba(183, 158, 220, 0.1) !important;
+    border-bottom: 2px solid rgba(107, 71, 164, 0.2) !important;
+}
+
+.admin-dashboard table tbody tr:hover {
+    background: rgba(183, 158, 220, 0.05) !important;
+}
+
+/* Badge colors for admin */
+.admin-dashboard .badge.bg-success {
+    background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+}
+
+.admin-dashboard .badge.bg-primary {
+    background: linear-gradient(135deg, #3498db, #2980b9) !important;
+}
+
+.admin-dashboard .badge.bg-warning {
+    background: linear-gradient(135deg, #f39c12, #d35400) !important;
+    color: white !important;
+}
+
+.admin-dashboard .badge.bg-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+}
+
+.admin-dashboard .badge.bg-secondary {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d) !important;
+}
+
+/* Form controls in admin */
+.admin-dashboard .form-control,
+.admin-dashboard .form-select {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(183, 158, 220, 0.3) !important;
+    color: #2c3e50 !important;
+}
+
+.admin-dashboard .form-control:focus,
+.admin-dashboard .form-select:focus {
+    border-color: #6B47A4 !important;
+    box-shadow: 0 0 0 0.25rem rgba(107, 71, 164, 0.25) !important;
+}

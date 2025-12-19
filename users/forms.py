@@ -1,3 +1,4 @@
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.core.exceptions import ValidationError
@@ -14,9 +15,53 @@ class CustomUserCreationForm(UserCreationForm):
         help_text="Required. Enter a valid email address."
     )
     
+    user_type = forms.ChoiceField(
+        choices=CustomUser.USER_TYPE_CHOICES,
+        initial='user',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    first_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    last_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    phone_number = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    location = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    bio = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+    )
+    
+    profile_picture = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )
+    
+    is_active = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password1', 'password2')
+        fields = ('username', 'email', 'password1', 'password2', 
+                  'user_type', 'first_name', 'last_name', 'phone_number', 
+                  'location', 'bio', 'profile_picture', 'is_active')
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'form-control form-control-lg',
@@ -56,11 +101,22 @@ class CustomUserCreationForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
-        user.user_type = 'user'
+        user.user_type = self.cleaned_data.get('user_type', 'user')
+        user.first_name = self.cleaned_data.get('first_name', '')
+        user.last_name = self.cleaned_data.get('last_name', '')
+        user.phone_number = self.cleaned_data.get('phone_number', '')
+        user.location = self.cleaned_data.get('location', '')
+        user.bio = self.cleaned_data.get('bio', '')
+        user.is_active = self.cleaned_data.get('is_active', True)
+        
         if commit:
             user.save()
+            if self.cleaned_data.get('profile_picture'):
+                user.profile_picture = self.cleaned_data['profile_picture']
+                user.save()
         return user
 
+# ... [rest of your existing forms] ...
 class CustomAuthenticationForm(AuthenticationForm):
     username = forms.CharField(
         label="Email or Username",

@@ -7,8 +7,10 @@
     <div class="card-glass p-4 mb-5">
         <div class="d-flex justify-content-between align-items-center flex-wrap">
             <div>
-                <h2 class="fw-bold mb-2">Admin Management Dashboard</h2>
-                <p class="text-gray mb-0">Welcome back, {{ user.username }} <span class="badge gradient-gold text-dark">Administrator</span></p>
+                <h2 class="fw-bold mb-2" style="color: #2c3e50;">Admin Management Dashboard</h2>
+                <p class="mb-0" style="color: #34495e;">
+                    Welcome back, {{ user.username }} <span class="badge gradient-gold text-dark">Administrator</span>
+                </p>
             </div>
             <div>
                 <a href="/admin/" class="btn btn-primary">
@@ -25,8 +27,8 @@
                 <div class="feature-icon gradient-bg mx-auto mb-3">
                     <i class="fas fa-users text-white"></i>
                 </div>
-                <h3 class="mb-2">{{ total_users }}</h3>
-                <p class="text-gray mb-0">Total Users</p>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_users }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
                 <small class="text-success">+{{ new_users_today }} today</small>
             </div>
         </div>
@@ -36,9 +38,9 @@
                 <div class="feature-icon gradient-teal mx-auto mb-3">
                     <i class="fas fa-suitcase text-white"></i>
                 </div>
-                <h3 class="mb-2">{{ total_trips }}</h3>
-                <p class="text-gray mb-0">Total Trips</p>
-                <small>{{ active_trips }} active</small>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_trips }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Trips</p>
+                <small style="color: #3498db;">{{ active_trips }} active</small>
             </div>
         </div>
         
@@ -47,8 +49,8 @@
                 <div class="feature-icon gradient-gold mx-auto mb-3">
                     <i class="fas fa-coins text-dark"></i>
                 </div>
-                <h3 class="mb-2">{{ total_revenue|floatformat:0 }}</h3>
-                <p class="text-gray mb-0">Total Revenue (MMK)</p>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_revenue|floatformat:0 }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Revenue (MMK)</p>
             </div>
         </div>
         
@@ -57,8 +59,8 @@
                 <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
                     <i class="fas fa-map-marked-alt text-white"></i>
                 </div>
-                <h3 class="mb-2">{{ total_destinations }}</h3>
-                <p class="text-gray mb-0">Destinations</p>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_destinations }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
             </div>
         </div>
     </div>
@@ -68,16 +70,16 @@
         <!-- User Management -->
         <div class="col-md-6 mb-4">
             <div class="card-glass p-4 h-100">
-                <h4 class="mb-4 section-title">User Management</h4>
-                <p class="text-gray mb-4">Manage user accounts and roles</p>
+                <h4 class="mb-4" style="color: #2c3e50;">User Management</h4>
+                <p class="mb-4" style="color: #7f8c8d;">Manage user accounts and roles</p>
                 <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-list me-2"></i>View All Users
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="/admin/users/customuser/add/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-user-plus me-2"></i>Add New User
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-user-tag me-2"></i>Manage User Roles
                     </a>
                 </div>
@@ -87,16 +89,16 @@
         <!-- Trip Management -->
         <div class="col-md-6 mb-4">
             <div class="card-glass p-4 h-100">
-                <h4 class="mb-4 section-title">Trip Management</h4>
-                <p class="text-gray mb-4">View and manage user trips</p>
+                <h4 class="mb-4" style="color: #2c3e50;">Trip Management</h4>
+                <p class="mb-4" style="color: #7f8c8d;">View and manage user trips</p>
                 <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="{% url 'users:admin_dashboard_trips' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-list-alt me-2"></i>View All Trips
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="{% url 'users:admin_dashboard_trip_analytics' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-chart-line me-2"></i>Trip Analytics
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="{% url 'users:admin_dashboard_trip_content' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-edit me-2"></i>Edit Trip Content
                     </a>
                 </div>
@@ -106,17 +108,23 @@
         <!-- Content Management -->
         <div class="col-md-6 mb-4">
             <div class="card-glass p-4 h-100">
-                <h4 class="mb-4 section-title">Content Management</h4>
-                <p class="text-gray mb-4">Manage destinations, hotels, and activities</p>
+                <h4 class="mb-4" style="color: #2c3e50;">Content Management</h4>
+                <p class="mb-4" style="color: #7f8c8d;">Manage destinations, hotels, and activities</p>
                 <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="/admin/planner/destination/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-map-marked-alt me-2"></i>Manage Destinations
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <a href="/admin/planner/hotel/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-hotel me-2"></i>Manage Hotels
                     </a>
-                    <a href="#" class="btn btn-outline-light">
-                        <i class="fas fa-bus me-2"></i>Manage Transportation
+                    <a href="/admin/planner/flight/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
+                        <i class="fas fa-plane me-2"></i>Manage Flights
+                    </a>
+                    <a href="/admin/planner/busservice/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
+                        <i class="fas fa-bus me-2"></i>Manage Buses
+                    </a>
+                    <a href="/admin/planner/carrental/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
+                        <i class="fas fa-car me-2"></i>Manage Cars
                     </a>
                 </div>
             </div>
@@ -125,21 +133,120 @@
         <!-- System Settings -->
         <div class="col-md-6 mb-4">
             <div class="card-glass p-4 h-100">
-                <h4 class="mb-4 section-title">System Settings</h4>
-                <p class="text-gray mb-4">System configuration and settings</p>
+                <h4 class="mb-4" style="color: #2c3e50;">System Settings</h4>
+                <p class="mb-4" style="color: #7f8c8d;">System configuration and settings</p>
                 <div class="d-grid gap-2">
-                    <a href="/admin/" class="btn btn-outline-light">
+                    <a href="/admin/" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-cogs me-2"></i>Full Django Admin
                     </a>
-                    <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light">
+                    <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;">
                         <i class="fas fa-eye me-2"></i>View User Dashboard
                     </a>
-                    <a href="#" class="btn btn-outline-light">
+                    <button class="btn btn-outline-light" style="border-color: #bdc3c7; color: #2c3e50;" id="backupBtn">
                         <i class="fas fa-database me-2"></i>Database Backup
-                    </a>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="card-glass p-4 mt-5">
+        <h4 style="color: #2c3e50;" class="mb-4">Recent Activity</h4>
+        <div class="row">
+            <div class="col-md-6">
+                <h5 style="color: #34495e;" class="mb-3">New Users</h5>
+                <div class="list-group">
+                    {% for recent_user in recent_users %}
+                    <div class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ recent_user.username }}</h6>
+                            <small style="color: #7f8c8d;">{{ recent_user.date_joined|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1" style="color: #7f8c8d;">{{ recent_user.email }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h5 style="color: #34495e;" class="mb-3">Recent Trips</h5>
+                <div class="list-group">
+                    {% for trip in recent_trips %}
+                    <div class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ trip.user.username }} → {{ trip.destination.name }}</h6>
+                            <small style="color: #7f8c8d;">{{ trip.created_at|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1" style="color: #7f8c8d;">
+                            {{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d" }} • 
+                            <span class="badge bg-{% if trip.status == 'completed' %}success{% elif trip.status == 'booked' %}primary{% else %}warning{% endif %}">
+                                {{ trip.status|title }}
+                            </span>
+                        </p>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .card-glass {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 
+            0 15px 35px rgba(107, 71, 164, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+    
+    .card-glass:hover {
+        transform: translateY(-5px);
+        border-color: rgba(139, 92, 246, 0.2);
+        box-shadow: 
+            0 25px 50px rgba(107, 71, 164, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    
+    .list-group-item {
+        border: 1px solid rgba(183, 158, 220, 0.2);
+        margin-bottom: 5px;
+        border-radius: 10px;
+    }
+    
+    .list-group-item:hover {
+        background: rgba(183, 158, 220, 0.1) !important;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Database backup button
+        const backupBtn = document.getElementById('backupBtn');
+        if (backupBtn) {
+            backupBtn.addEventListener('click', function() {
+                fetch('{% url "users:admin_database_backup" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Database backup initiated successfully!');
+                    } else {
+                        alert('Error creating backup: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error creating backup.');
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}

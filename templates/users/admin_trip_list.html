@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% block title %}Trip Management - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Trip Management</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Manage all user trips</p>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="planning" {% if request.GET.status == 'planning' %}selected{% endif %}>Planning</option>
+                    <option value="booked" {% if request.GET.status == 'booked' %}selected{% endif %}>Booked</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="userFilter">
+                    <option value="">All Users</option>
+                    {% for user in all_users %}
+                    <option value="{{ user.id }}" {% if request.GET.user == user.id|stringformat:"s" %}selected{% endif %}>
+                        {{ user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="destinationFilter">
+                    <option value="">All Destinations</option>
+                    {% for dest in destinations %}
+                    <option value="{{ dest.id }}" {% if request.GET.destination == dest.id|stringformat:"s" %}selected{% endif %}>
+                        {{ dest.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-primary w-100" id="clearFilters">
+                    <i class="fas fa-filter-circle-xmark me-2"></i>Clear Filters
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trips Table -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">Trip ID</th>
+                        <th style="color: #2c3e50;">User</th>
+                        <th style="color: #2c3e50;">Destination</th>
+                        <th style="color: #2c3e50;">Dates</th>
+                        <th style="color: #2c3e50;">Travelers</th>
+                        <th style="color: #2c3e50;">Status</th>
+                        <th style="color: #2c3e50;">Created</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trip in trips %}
+                    <tr>
+                        <td style="color: #34495e;">
+                            <strong>#{{ trip.id }}</strong>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 30px; height: 30px;">
+                                    <i class="fas fa-user text-gray fa-sm"></i>
+                                </div>
+                                <div>
+                                    <div style="color: #2c3e50;">{{ trip.user.username }}</div>
+                                    <div class="text-gray small">{{ trip.user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="color: #2c3e50;">
+                            {{ trip.destination.name }}
+                            <div class="text-gray small">{{ trip.destination.region }}</div>
+                        </td>
+                        <td style="color: #34495e;">
+                            {{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d" }}
+                            <div class="text-gray small">
+                                {% widthratio trip.end_date|timeuntil:trip.start_date 1 1 as nights %}
+                                {{ nights }} night{% if nights != 1 %}s{% endif %}
+                            </div>
+                        </td>
+                        <td style="color: #2c3e50; text-align: center;">
+                            {{ trip.travelers }}
+                            <div class="text-gray small">
+                                {% if trip.travelers == 1 %}person{% else %}people{% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if trip.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif trip.status == 'booked' %}
+                            <span class="badge bg-primary">Booked</span>
+                            {% elif trip.status == 'planning' %}
+                            <span class="badge bg-warning text-dark">Planning</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Draft</span>
+                            {% endif %}
+                        </td>
+                        <td style="color: #7f8c8d;">
+                            {{ trip.created_at|date:"M d, Y" }}
+                            <div class="text-gray small">{{ trip.created_at|timesince }} ago</div>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="#" class="btn btn-sm btn-outline-primary view-trip-btn" 
+                                   data-trip-id="{{ trip.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="#" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger delete-trip-btn" 
+                                        data-trip-id="{{ trip.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="fas fa-suitcase fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No trips found</h5>
+                            <p style="color: #7f8c8d;">Try adjusting your filters</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter handlers
+        const statusFilter = document.getElementById('statusFilter');
+        const userFilter = document.getElementById('userFilter');
+        const destinationFilter = document.getElementById('destinationFilter');
+        const clearFilters = document.getElementById('clearFilters');
+        
+        function updateFilters() {
+            const url = new URL(window.location);
+            
+            if (statusFilter.value) {
+                url.searchParams.set('status', statusFilter.value);
+            } else {
+                url.searchParams.delete('status');
+            }
+            
+            if (userFilter.value) {
+                url.searchParams.set('user', userFilter.value);
+            } else {
+                url.searchParams.delete('user');
+            }
+            
+            if (destinationFilter.value) {
+                url.searchParams.set('destination', destinationFilter.value);
+            } else {
+                url.searchParams.delete('destination');
+            }
+            
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        }
+        
+        statusFilter.addEventListener('change', updateFilters);
+        userFilter.addEventListener('change', updateFilters);
+        destinationFilter.addEventListener('change', updateFilters);
+        
+        clearFilters.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+        
+        // View trip details
+        document.querySelectorAll('.view-trip-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const tripId = this.getAttribute('data-trip-id');
+                window.open(`/planner/plan/${tripId}/`, '_blank');
+            });
+        });
+        
+        // Delete trip
+        document.querySelectorAll('.delete-trip-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const tripId = this.getAttribute('data-trip-id');
+                if (confirm('Are you sure you want to delete this trip?')) {
+                    fetch(`/admin/trip/${tripId}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

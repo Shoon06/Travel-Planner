@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% block title %}User Role Management - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">User Role Management</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Manage user roles and permissions</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Role Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ users.count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ users|length }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Displayed</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ admin_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Admins</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ user_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Regular Users</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Table with Role Management -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">User</th>
+                        <th style="color: #2c3e50;">Current Role</th>
+                        <th style="color: #2c3e50;">Change Role</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                     class="rounded-circle me-2" width="40" height="40">
+                                {% else %}
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 40px; height: 40px;">
+                                    <i class="fas fa-user text-gray"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <strong style="color: #2c3e50;">{{ user.username }}</strong>
+                                    <div class="text-gray small">{{ user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {% if user.user_type == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
+                                {{ user.user_type|title }}
+                            </span>
+                            {% if user == request.user %}
+                            <div class="text-gray small">(You)</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <select class="form-select role-select" data-user-id="{{ user.id }}" 
+                                    {% if user == request.user %}disabled{% endif %}>
+                                <option value="user" {% if user.user_type == 'user' %}selected{% endif %}>Regular User</option>
+                                <option value="admin" {% if user.user_type == 'admin' %}selected{% endif %}>Administrator</option>
+                            </select>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-primary save-role-btn" 
+                                        data-user-id="{{ user.id }}"
+                                        {% if user == request.user %}disabled{% endif %}>
+                                    <i class="fas fa-save me-1"></i>Save
+                                </button>
+                                <a href="/admin/users/customuser/{{ user.id }}/change/" 
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No users found</h5>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Save role changes
+        document.querySelectorAll('.save-role-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                const selectElement = document.querySelector(`.role-select[data-user-id="${userId}"]`);
+                const newRole = selectElement.value;
+                
+                if (confirm('Are you sure you want to change this user\'s role?')) {
+                    fetch('{% url "users:admin_update_user_role" %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_id: userId,
+                            role: newRole
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error saving role change.');
+                    });
+                }
+            });
+        });
+        
+        // Update button state when role selection changes
+        document.querySelectorAll('.role-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const userId = this.getAttribute('data-user-id');
+                const saveBtn = document.querySelector(`.save-role-btn[data-user-id="${userId}"]`);
+                const originalRole = this.getAttribute('data-original-role') || 
+                                    (this.value === 'admin' ? 'user' : 'admin');
+                
+                if (this.value !== originalRole) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('btn-outline-primary');
+                    saveBtn.classList.add('btn-primary');
+                } else {
+                    saveBtn.disabled = true;
+                    saveBtn.classList.remove('btn-primary');
+                    saveBtn.classList.add('btn-outline-primary');
+                }
+            });
+            
+            // Set initial original role
+            select.setAttribute('data-original-role', select.value);
+        });
+    });
+</script>
+{% endblock %}
