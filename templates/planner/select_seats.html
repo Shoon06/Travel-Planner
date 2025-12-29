@@ -4,27 +4,29 @@
 {% block content %}
 <div class="container py-5 mt-5">
     <div class="row">
-        <div class="col-lg-8 mx-auto">
+        <div class="col-lg-10 mx-auto">
             <div class="card-glass p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 class="mb-2">Select Your Seats</h2>
                         <p class="text-gray mb-0">
-                            {% if trip.transportation_preference == 'flight' %}
-                                {{ transport.airline }} - Flight {{ transport.flight_number }}
-                            {% elif trip.transportation_preference == 'bus' %}
-                                {{ transport.company }} - {{ transport.get_bus_type_display }}
-                            {% elif trip.transportation_preference == 'car' %}
-                                {{ transport.company }} - {{ transport.car_model }}
+                            {% if transport_type == 'flight' %}
+                                <i class="fas fa-plane me-2"></i>{{ transport.airline.name }} - Flight {{ transport.flight_number }}
+                                <br>
+                                <small class="text-gray">{{ transport.departure.name }} → {{ transport.arrival.name }} | {{ transport.get_duration_display }}</small>
+                            {% elif transport_type == 'bus' %}
+                                <i class="fas fa-bus me-2"></i>{{ transport.company }} - {{ transport.get_bus_type_display }}
+                                <br>
+                                <small class="text-gray">{{ transport.departure.name }} → {{ transport.arrival.name }} | {{ transport.get_duration_display }}</small>
                             {% endif %}
                         </p>
                     </div>
-                    <a href="{% url 'planner:select_transport' trip.id %}" class="btn btn-outline-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back
+                    <a href="{% url 'planner:select_transport' trip.id %}?type={{ transport_type }}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Options
                     </a>
                 </div>
                 
-                {% if trip.transportation_preference == 'car' %}
+                {% if transport_type == 'car' %}
                 <!-- Car Rental - No seat selection needed -->
                 <div class="card-glass p-5 text-center">
                     <div class="feature-icon gradient-teal mx-auto mb-4">
@@ -32,45 +34,52 @@
                     </div>
                     <h4 class="mb-3">Car Selected!</h4>
                     <p class="text-gray mb-4">No seat selection needed for car rental.</p>
-                    <form method="post" action="{% url 'planner:select_seats' trip.id transport.id %}">
+                    <form method="post" action="{% url 'planner:select_seats' trip.id transport.id %}?type=car">
                         {% csrf_token %}
+                        <input type="hidden" name="transport_type" value="car">
                         <input type="hidden" name="selected_seats" value='[]'>
                         <button type="submit" class="btn btn-primary btn-lg">
-                            Confirm Car Selection
+                            <i class="fas fa-check me-2"></i>Confirm Car Selection
                         </button>
                     </form>
                 </div>
                 
                 {% else %}
-                <!-- Seat Selection for Flight/Bus -->
+                <!-- Booking Summary -->
                 <div class="card-glass p-4 mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h4 class="mb-2">Available Seats: {{ transport.available_seats }}</h4>
-                            <p class="text-gray mb-0">
-                                {% if trip.transportation_preference == 'flight' %}
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h4 class="mb-2">
+                                {% if transport_type == 'flight' %}
                                     {{ transport.departure.name }} → {{ transport.arrival.name }}
-                                {% elif trip.transportation_preference == 'bus' %}
-                                    {{ transport.departure.name }} → {{ transport.arrival.name }} ({{ transport.duration }})
-                                {% endif %}
-                            </p>
-                        </div>
-                        <div class="text-end">
-                            <h4 class="price-tag mb-2">
-                                {% if trip.transportation_preference == 'flight' %}
-                                    {{ transport.price_in_mmk }}
-                                {% elif trip.transportation_preference == 'bus' %}
-                                    {{ transport.price_in_mmk }}
+                                {% else %}
+                                    {{ transport.departure.name }} → {{ transport.arrival.name }}
                                 {% endif %}
                             </h4>
-                            <p class="text-gray small mb-0">per seat</p>
+                            <p class="text-gray mb-0">
+                                <i class="fas fa-users me-1"></i> Travelers: {{ trip.travelers }}
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-chair me-1"></i> Available Seats: {{ transport.available_seats }}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="price-display">
+                                <h4 class="price-tag mb-2">
+                                    {% if transport_type == 'flight' %}
+                                        {{ transport.price_in_mmk|floatformat:0 }} MMK
+                                    {% elif transport_type == 'bus' %}
+                                        {{ transport.price_in_mmk|floatformat:0 }} MMK
+                                    {% endif %}
+                                </h4>
+                                <p class="text-gray small mb-0">per seat</p>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Seat Legend -->
                 <div class="card-glass p-4 mb-4">
-                    <h5 class="mb-3">Seat Legend</h5>
+                    <h5 class="mb-3"><i class="fas fa-info-circle me-2"></i>Seat Legend</h5>
                     <div class="d-flex flex-wrap gap-3">
                         <div class="d-flex align-items-center">
                             <div class="seat seat-available me-2"></div>
@@ -84,10 +93,14 @@
                             <div class="seat seat-occupied me-2"></div>
                             <span class="text-gray">Occupied</span>
                         </div>
-                        {% if trip.transportation_preference == 'flight' %}
+                        {% if transport_type == 'flight' %}
                         <div class="d-flex align-items-center">
                             <div class="seat seat-premium me-2"></div>
                             <span class="text-gray">Premium/Extra Legroom</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="seat seat-first-class me-2"></div>
+                            <span class="text-gray">First Class</span>
                         </div>
                         {% endif %}
                     </div>
@@ -95,10 +108,10 @@
                 
                 <!-- Seat Map -->
                 <div class="card-glass p-4 mb-4">
-                    <h5 class="mb-4">Select Your Seats</h5>
+                    <h5 class="mb-4"><i class="fas fa-chair me-2"></i>Select Your Seats</h5>
                     
+                    {% if transport_type == 'bus' %}
                     <!-- Bus Seat Layout -->
-                    {% if trip.transportation_preference == 'bus' %}
                     <div class="seat-map-bus">
                         <!-- Driver Area -->
                         <div class="driver-area text-center mb-4">
@@ -106,117 +119,152 @@
                                 <i class="fas fa-steering-wheel fa-2x text-gray"></i>
                             </div>
                             <p class="text-gray small mb-0">Driver</p>
+                            <div class="bus-front mt-3 mb-4"></div>
                         </div>
                         
-                        <!-- Bus Seats (2-2 configuration) -->
-                        <div class="bus-seats">
-                            {% for row in "123456789"|make_list %}
-                            <div class="row mb-3">
-                                <!-- Left side seats -->
-                                <div class="col-6">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        {% for seat_num in "AB"|make_list %}
-                                        {% with seat_number=row|add:seat_num %}
-                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
-                                            {{ seat_number }}
-                                        </div>
-                                        {% endwith %}
-                                        {% endfor %}
+                        <!-- Bus Seats -->
+                        <div class="bus-seats-container">
+                            {% for row_data in seat_layout %}
+                            <div class="bus-row mb-3">
+                                <div class="row-number me-3">{{ row_data.row_number }}</div>
+                                <div class="bus-seats d-flex gap-2">
+                                    {% for seat in row_data.seats %}
+                                    <div class="seat 
+                                        {% if seat.occupied %}seat-occupied{% elif seat.type == 'selected' %}seat-selected{% else %}seat-available{% endif %}
+                                        {% if seat.is_window %}window-seat{% endif %}"
+                                        data-seat="{{ seat.number }}"
+                                        data-type="{{ seat.type }}"
+                                        {% if seat.occupied %}data-occupied="true"{% endif %}>
+                                        {{ seat.number }}
                                     </div>
-                                </div>
-                                
-                                <!-- Aisle -->
-                                <div class="col-1 text-center">
-                                    <div class="aisle"></div>
-                                </div>
-                                
-                                <!-- Right side seats -->
-                                <div class="col-5">
-                                    <div class="d-flex gap-2">
-                                        {% for seat_num in "CD"|make_list %}
-                                        {% with seat_number=row|add:seat_num %}
-                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
-                                            {{ seat_number }}
-                                        </div>
-                                        {% endwith %}
-                                        {% endfor %}
-                                    </div>
+                                    {% if forloop.counter == 2 %}
+                                    <div class="aisle mx-2"></div>
+                                    {% endif %}
+                                    {% endfor %}
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
                     
+                    {% elif transport_type == 'flight' %}
                     <!-- Flight Seat Layout -->
-                    {% elif trip.transportation_preference == 'flight' %}
                     <div class="seat-map-flight">
-                        <!-- First Class / Business Class -->
-                        {% if transport.category == 'high' %}
-                        <div class="premium-section mb-5">
-                            <h6 class="text-center mb-3 text-teal">
-                                <i class="fas fa-crown me-2"></i>Business Class
-                            </h6>
-                            <div class="row justify-content-center mb-4">
-                                {% for seat in "1234"|make_list %}
-                                <div class="col-3 text-center">
-                                    {% for letter in "AB"|make_list %}
-                                    {% with seat_number=seat|add:letter %}
-                                    <div class="seat seat-premium mb-2" data-seat="{{ seat_number }}">
-                                        {{ seat_number }}
-                                    </div>
-                                    {% endwith %}
-                                    {% endfor %}
-                                    <div class="aisle-small d-inline-block mx-1"></div>
-                                    {% for letter in "CD"|make_list %}
-                                    {% with seat_number=seat|add:letter %}
-                                    <div class="seat seat-premium mb-2" data-seat="{{ seat_number }}">
-                                        {{ seat_number }}
-                                    </div>
-                                    {% endwith %}
-                                    {% endfor %}
-                                </div>
-                                {% endfor %}
-                            </div>
+                        <!-- Aircraft Layout -->
+                        <div class="aircraft-nose text-center mb-4">
+                            <i class="fas fa-plane fa-2x text-gray"></i>
+                            <p class="text-gray small mb-0 mt-2">Front of Aircraft</p>
                         </div>
-                        {% endif %}
+                        
+                        <!-- First Class Section -->
+                        {% for row_data in seat_layout %}
+                            {% if row_data.is_first_class %}
+                            <div class="first-class-section mb-4 p-3 rounded" style="background: rgba(139, 92, 246, 0.05);">
+                                <h6 class="text-center mb-3 text-first-class">
+                                    <i class="fas fa-crown me-2"></i>First Class
+                                </h6>
+                                <div class="row justify-content-center">
+                                    <div class="col-12">
+                                        <div class="d-flex justify-content-center gap-2">
+                                            {% for seat in row_data.seats %}
+                                            <div class="seat 
+                                                {% if seat.occupied %}seat-occupied{% elif seat.type == 'first' %}seat-first-class{% else %}seat-available{% endif %}"
+                                                data-seat="{{ seat.number }}"
+                                                data-type="{{ seat.type }}"
+                                                {% if seat.occupied %}data-occupied="true"{% endif %}>
+                                                {{ seat.number }}
+                                            </div>
+                                            {% if forloop.counter == 3 %}
+                                            <div class="aisle mx-3"></div>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
                         
                         <!-- Economy Class -->
                         <div class="economy-section">
                             <h6 class="text-center mb-3">
                                 <i class="fas fa-users me-2"></i>Economy Class
                             </h6>
-                            <div class="row mb-4">
-                                {% for row in "567891011"|make_list %}
-                                <div class="col-12 mb-2">
-                                    <div class="d-flex justify-content-center gap-2">
-                                        {% for seat_num in "ABCDEF"|make_list %}
-                                        {% with seat_number=row|add:seat_num %}
-                                        {% if forloop.counter == 3 %}
-                                        <div class="aisle d-inline-block mx-2"></div>
-                                        {% endif %}
-                                        <div class="seat seat-available" data-seat="{{ seat_number }}">
-                                            {{ seat_number }}
+                            <div class="economy-seats">
+                                {% for row_data in seat_layout %}
+                                    {% if not row_data.is_first_class and not row_data.is_business_class %}
+                                    <div class="row mb-2">
+                                        <div class="col-1 text-end pe-0">
+                                            <span class="row-label">{{ row_data.row_number }}</span>
                                         </div>
-                                        {% endwith %}
-                                        {% endfor %}
+                                        <div class="col-10">
+                                            <div class="d-flex justify-content-center gap-1">
+                                                {% for seat in row_data.seats %}
+                                                <div class="seat 
+                                                    {% if seat.occupied %}seat-occupied
+                                                    {% elif seat.type == 'premium' %}seat-premium
+                                                    {% elif seat.type == 'selected' %}seat-selected
+                                                    {% else %}seat-available{% endif %}"
+                                                    data-seat="{{ seat.number }}"
+                                                    data-type="{{ seat.type }}"
+                                                    {% if seat.occupied %}data-occupied="true"{% endif %}>
+                                                    {{ seat.number|slice:"-1:" }}
+                                                </div>
+                                                {% if forloop.counter == 3 %}
+                                                <div class="aisle mx-2"></div>
+                                                {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
+                        </div>
+                        
+                        <!-- Aircraft Tail -->
+                        <div class="aircraft-tail text-center mt-4">
+                            <i class="fas fa-plane fa-rotate-180 fa-2x text-gray"></i>
+                            <p class="text-gray small mb-0 mt-2">Rear of Aircraft</p>
                         </div>
                     </div>
                     {% endif %}
                     
                     <!-- Selected Seats Summary -->
-                    <div class="selected-seats-summary mt-4">
-                        <h6 class="mb-3">Selected Seats:</h6>
+                    <div class="selected-seats-summary mt-4 p-3 rounded" style="background: rgba(139, 92, 246, 0.05);">
+                        <h6 class="mb-3"><i class="fas fa-check-circle me-2"></i>Selected Seats:</h6>
                         <div id="selectedSeatsList" class="d-flex flex-wrap gap-2 mb-3">
-                            <!-- Selected seats will appear here -->
+                            <div class="text-gray">No seats selected yet</div>
                         </div>
-                        <p class="text-gray small mb-0">
+                        <div id="priceSummary" class="d-none">
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>Total Price:</strong>
+                                </div>
+                                <div>
+                                    <h5 class="price-tag mb-0" id="totalPrice">0 MMK</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-gray small mb-0 mt-2">
                             <i class="fas fa-info-circle me-1"></i>
-                            Click on available seats to select them
+                            Click on available seats to select them. You can select up to {{ trip.travelers }} seat(s).
                         </p>
+                    </div>
+                </div>
+                
+                <!-- Fake Booking Notice -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div>
+                            <h6 class="alert-heading">Simulated Booking Process</h6>
+                            <p class="mb-1">This is a demonstration of our booking system. While we show real airline names for reference, we don't have actual partnerships with them.</p>
+                            <p class="mb-0"><strong>Note:</strong> Your "booking" will be simulated for demonstration purposes only.</p>
+                        </div>
                     </div>
                 </div>
                 
@@ -224,15 +272,20 @@
                 <div class="card-glass p-4">
                     <form method="post" action="{% url 'planner:select_seats' trip.id transport.id %}" id="seatForm">
                         {% csrf_token %}
+                        <input type="hidden" name="transport_type" value="{{ transport_type }}">
                         <input type="hidden" name="selected_seats" id="selectedSeatsInput" value='[]'>
                         
-                        <div class="d-flex justify-content-between">
-                            <a href="{% url 'planner:select_transport' trip.id %}" class="btn btn-outline-light">
-                                <i class="fas fa-arrow-left me-2"></i>Back to Options
-                            </a>
-                            <button type="submit" class="btn btn-primary" id="confirmButton" disabled>
-                                <i class="fas fa-check me-2"></i>Confirm Selection
-                            </button>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{% url 'planner:select_transport' trip.id %}?type={{ transport_type }}" class="btn btn-outline-light">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Options
+                                </a>
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary btn-lg" id="confirmButton" disabled>
+                                    <i class="fas fa-ticket-alt me-2"></i>Confirm Selection & Book
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -245,16 +298,18 @@
 <style>
     /* Seat Styling */
     .seat {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
+        width: 45px;
+        height: 45px;
+        border-radius: 6px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         font-weight: 600;
-        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
         margin: 2px;
+        position: relative;
     }
     
     .seat-available {
@@ -273,6 +328,7 @@
         background: linear-gradient(135deg, var(--primary-purple), var(--secondary-purple));
         border: 2px solid var(--primary-purple);
         color: white;
+        transform: scale(1.05);
     }
     
     .seat-occupied {
@@ -288,37 +344,56 @@
         color: white;
     }
     
-    .seat-premium:hover {
-        background: linear-gradient(135deg, #0891B2, #0D9488);
+    .seat-first-class {
+        background: linear-gradient(135deg, #F59E0B, #D97706);
+        border: 2px solid #F59E0B;
+        color: white;
     }
     
     /* Aisle Styling */
     .aisle {
-        width: 40px;
-        height: 100%;
+        width: 30px;
+        height: 45px;
         background: rgba(139, 92, 246, 0.05);
         border-radius: 5px;
     }
     
-    .aisle-small {
-        width: 20px;
-        height: 20px;
-        background: rgba(139, 92, 246, 0.05);
-        border-radius: 3px;
+    /* Bus Layout */
+    .bus-row {
+        display: flex;
+        align-items: center;
+        padding: 5px 0;
     }
     
-    /* Driver Area */
+    .row-number {
+        font-weight: 600;
+        color: var(--text-gray);
+        min-width: 30px;
+        text-align: center;
+    }
+    
+    .bus-seats-container {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
     .driver-area {
         padding: 15px;
         background: rgba(139, 92, 246, 0.05);
         border-radius: 10px;
-        max-width: 200px;
-        margin: 0 auto;
+        max-width: 300px;
+        margin: 0 auto 20px;
+    }
+    
+    .bus-front {
+        height: 10px;
+        background: rgba(139, 92, 246, 0.1);
+        border-radius: 5px;
     }
     
     .driver-icon {
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
         background: white;
         border-radius: 50%;
         display: flex;
@@ -327,21 +402,46 @@
         border: 2px solid rgba(139, 92, 246, 0.2);
     }
     
-    /* Bus Seats Layout */
-    .bus-seats .row {
-        align-items: center;
+    /* Flight Layout */
+    .aircraft-nose, .aircraft-tail {
+        padding: 10px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 10px;
+        max-width: 200px;
+        margin: 0 auto;
+    }
+    
+    .first-class-section {
+        border: 2px solid rgba(245, 158, 11, 0.2);
+    }
+    
+    .text-first-class {
+        color: #F59E0B;
+    }
+    
+    .economy-seats {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    
+    .row-label {
+        font-weight: 600;
+        color: var(--text-gray);
+        font-size: 0.9rem;
     }
     
     /* Selected Seat Badge */
     .selected-seat-badge {
         background: linear-gradient(135deg, var(--primary-purple), var(--secondary-purple));
         color: white;
-        padding: 5px 12px;
+        padding: 8px 15px;
         border-radius: 20px;
         font-size: 0.9rem;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 8px;
+        box-shadow: 0 2px 5px rgba(139, 92, 246, 0.2);
     }
     
     .selected-seat-badge .remove-seat {
@@ -354,10 +454,40 @@
         align-items: center;
         justify-content: center;
         background: rgba(255, 255, 255, 0.2);
+        transition: background 0.2s;
     }
     
     .selected-seat-badge .remove-seat:hover {
         background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Price Display */
+    .price-display {
+        background: rgba(139, 92, 246, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    .price-tag {
+        color: var(--primary-purple);
+        font-weight: 700;
+    }
+    
+    .window-seat {
+        position: relative;
+    }
+    
+    .window-seat::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 8px;
+        border: 2px dashed rgba(139, 92, 246, 0.5);
+        pointer-events: none;
     }
 </style>
 
@@ -367,6 +497,12 @@
         const selectedSeatsInput = document.getElementById('selectedSeatsInput');
         const selectedSeatsList = document.getElementById('selectedSeatsList');
         const confirmButton = document.getElementById('confirmButton');
+        const priceSummary = document.getElementById('priceSummary');
+        const totalPriceElement = document.getElementById('totalPrice');
+        const transportType = '{{ transport_type }}';
+        
+        // Base price per seat
+        const basePrice = {% if transport_type == 'flight' %}{{ transport.price }}{% elif transport_type == 'bus' %}{{ transport.price }}{% else %}0{% endif %};
         
         // Function to update selected seats display
         function updateSelectedSeats() {
@@ -377,34 +513,69 @@
             selectedSeatsList.innerHTML = '';
             
             if (selectedSeats.size === 0) {
-                selectedSeatsList.innerHTML = '<p class="text-gray">No seats selected</p>';
+                selectedSeatsList.innerHTML = '<div class="text-gray">No seats selected yet</div>';
                 confirmButton.disabled = true;
+                priceSummary.classList.add('d-none');
             } else {
-                selectedSeats.forEach(seat => {
+                let totalPrice = 0;
+                
+                selectedSeats.forEach(seatNumber => {
+                    // Calculate seat price (premium seats cost more)
+                    let seatPrice = basePrice;
+                    const seatElement = document.querySelector(`.seat[data-seat="${seatNumber}"]`);
+                    if (seatElement) {
+                        if (seatElement.classList.contains('seat-premium')) {
+                            seatPrice = basePrice * 1.5;
+                        } else if (seatElement.classList.contains('seat-first-class')) {
+                            seatPrice = basePrice * 2;
+                        }
+                    }
+                    totalPrice += seatPrice;
+                    
+                    // Create badge
                     const badge = document.createElement('div');
                     badge.className = 'selected-seat-badge';
                     badge.innerHTML = `
-                        ${seat}
-                        <span class="remove-seat" data-seat="${seat}">
+                        <i class="fas fa-chair"></i>
+                        ${seatNumber}
+                        <span class="remove-seat" data-seat="${seatNumber}" title="Remove seat">
                             <i class="fas fa-times"></i>
                         </span>
                     `;
                     selectedSeatsList.appendChild(badge);
                 });
+                
+                // Update price summary
+                totalPriceElement.textContent = totalPrice.toLocaleString('en-US') + ' MMK';
+                priceSummary.classList.remove('d-none');
+                
                 confirmButton.disabled = false;
             }
         }
         
         // Seat click handler
-        document.querySelectorAll('.seat.seat-available, .seat.seat-premium').forEach(seat => {
+        document.querySelectorAll('.seat:not(.seat-occupied)').forEach(seat => {
             seat.addEventListener('click', function() {
+                if (this.classList.contains('seat-occupied')) {
+                    return;
+                }
+                
                 const seatNumber = this.getAttribute('data-seat');
+                const seatType = this.getAttribute('data-type');
                 
                 if (selectedSeats.has(seatNumber)) {
                     // Deselect seat
                     selectedSeats.delete(seatNumber);
+                    
+                    // Reset seat appearance based on type
                     this.classList.remove('seat-selected');
-                    this.classList.add(this.classList.contains('seat-premium') ? 'seat-premium' : 'seat-available');
+                    if (seatType === 'premium' || this.classList.contains('seat-premium')) {
+                        this.classList.add('seat-premium');
+                    } else if (seatType === 'first') {
+                        this.classList.add('seat-first-class');
+                    } else {
+                        this.classList.add('seat-available');
+                    }
                 } else {
                     // Select seat (limit to trip travelers count)
                     if (selectedSeats.size >= {{ trip.travelers }}) {
@@ -413,7 +584,7 @@
                     }
                     
                     selectedSeats.add(seatNumber);
-                    this.classList.remove('seat-available', 'seat-premium');
+                    this.classList.remove('seat-available', 'seat-premium', 'seat-first-class');
                     this.classList.add('seat-selected');
                 }
                 
@@ -423,16 +594,21 @@
         
         // Remove seat handler
         selectedSeatsList.addEventListener('click', function(e) {
-            if (e.target.closest('.remove-seat')) {
-                const seatNumber = e.target.closest('.remove-seat').getAttribute('data-seat');
+            const removeBtn = e.target.closest('.remove-seat');
+            if (removeBtn) {
+                const seatNumber = removeBtn.getAttribute('data-seat');
                 selectedSeats.delete(seatNumber);
                 
                 // Update the seat visual
                 const seatElement = document.querySelector(`.seat[data-seat="${seatNumber}"]`);
-                if (seatElement) {
+                if (seatElement && !seatElement.classList.contains('seat-occupied')) {
                     seatElement.classList.remove('seat-selected');
-                    if (seatElement.classList.contains('premium-seat')) {
+                    const seatType = seatElement.getAttribute('data-type');
+                    
+                    if (seatType === 'premium' || seatElement.classList.contains('premium-seat')) {
                         seatElement.classList.add('seat-premium');
+                    } else if (seatType === 'first') {
+                        seatElement.classList.add('seat-first-class');
                     } else {
                         seatElement.classList.add('seat-available');
                     }
@@ -442,7 +618,7 @@
             }
         });
         
-        // Form submission validation
+        // Form submission
         document.getElementById('seatForm').addEventListener('submit', function(e) {
             if (selectedSeats.size === 0) {
                 e.preventDefault();
@@ -455,29 +631,43 @@
                 alert(`You cannot select more than {{ trip.travelers }} seat(s).`);
                 return false;
             }
+            
+            // Show loading state
+            confirmButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            confirmButton.disabled = true;
+            
+            // Show booking confirmation message
+            const seatList = Array.from(selectedSeats).join(', ');
+            if (!confirm(`Confirm booking for seats: ${seatList}\n\nThis is a simulated booking for demonstration purposes.`)) {
+                e.preventDefault();
+                confirmButton.innerHTML = '<i class="fas fa-ticket-alt me-2"></i>Confirm Selection & Book';
+                confirmButton.disabled = false;
+                return false;
+            }
         });
         
         // Initialize
         updateSelectedSeats();
         
-        // Mark some seats as occupied for demo
+        // Demo: Add some random occupied seats if needed
         setTimeout(() => {
-            // Randomly mark 5 seats as occupied for demo
-            const allSeats = document.querySelectorAll('.seat.seat-available, .seat.seat-premium');
-            const occupiedCount = Math.min(5, allSeats.length);
+            const allSeats = document.querySelectorAll('.seat.seat-available, .seat.seat-premium, .seat.seat-first-class');
+            const seatsToOccupy = Math.min(8, allSeats.length);
             
-            for (let i = 0; i < occupiedCount; i++) {
+            for (let i = 0; i < seatsToOccupy; i++) {
                 const randomIndex = Math.floor(Math.random() * allSeats.length);
                 const seat = allSeats[randomIndex];
+                const seatNumber = seat.getAttribute('data-seat');
                 
-                if (!selectedSeats.has(seat.getAttribute('data-seat'))) {
-                    seat.classList.remove('seat-available', 'seat-premium');
+                if (!selectedSeats.has(seatNumber) && !seat.classList.contains('seat-occupied')) {
+                    seat.classList.remove('seat-available', 'seat-premium', 'seat-first-class');
                     seat.classList.add('seat-occupied');
-                    seat.style.cursor = 'not-allowed';
+                    seat.setAttribute('data-occupied', 'true');
                     seat.onclick = null;
+                    seat.style.cursor = 'not-allowed';
                 }
             }
-        }, 100);
+        }, 500);
     });
 </script>
 {% endblock %}

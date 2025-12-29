@@ -1,0 +1,127 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_flight.html -->
+{% extends 'base.html' %}
+{% block title %}Add Flight - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-plane fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Add New Flight</h2>
+                    <p class="text-gray">Add a new flight to the platform</p>
+                </div>
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Flight Number</label>
+                            <input type="text" name="flight_number" class="form-control" 
+                                   placeholder="e.g., MY-123" required>
+                            {% if form.flight_number.errors %}
+                            <div class="text-danger small mt-1">{{ form.flight_number.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Airline</label>
+                            <input type="text" name="airline" class="form-control" 
+                                   placeholder="e.g., Myanmar Airways" required>
+                            {% if form.airline.errors %}
+                            <div class="text-danger small mt-1">{{ form.airline.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Departure City</label>
+                            <input type="text" name="departure_city" class="form-control" 
+                                   placeholder="e.g., Yangon" required>
+                            {% if form.departure_city.errors %}
+                            <div class="text-danger small mt-1">{{ form.departure_city.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Arrival City</label>
+                            <input type="text" name="arrival_city" class="form-control" 
+                                   placeholder="e.g., Mandalay" required>
+                            {% if form.arrival_city.errors %}
+                            <div class="text-danger small mt-1">{{ form.arrival_city.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Departure Time</label>
+                            <input type="datetime-local" name="departure_time" class="form-control" required>
+                            {% if form.departure_time.errors %}
+                            <div class="text-danger small mt-1">{{ form.departure_time.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Arrival Time</label>
+                            <input type="datetime-local" name="arrival_time" class="form-control" required>
+                            {% if form.arrival_time.errors %}
+                            <div class="text-danger small mt-1">{{ form.arrival_time.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Price (MMK)</label>
+                            <input type="number" name="price" class="form-control" 
+                                   placeholder="e.g., 150000" min="0" required>
+                            {% if form.price.errors %}
+                            <div class="text-danger small mt-1">{{ form.price.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Available Seats</label>
+                            <input type="number" name="available_seats" class="form-control" 
+                                   placeholder="e.g., 100" min="0" required>
+                            {% if form.available_seats.errors %}
+                            <div class="text-danger small mt-1">{{ form.available_seats.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
+                        <label class="form-check-label text-gray" for="is_active">
+                            Make this flight active
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'users:admin_flights' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add Flight
+                        </button>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-4">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

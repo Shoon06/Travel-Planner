@@ -1,378 +1,264 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_dashboard.html -->
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Admin Dashboard - Myanmar Travel Planner{% endblock %}
+{% block title %}Admin Dashboard - GoMyanmar{% endblock %}
 
 {% block content %}
 <div class="container py-5 mt-5">
-    <!-- Welcome Section -->
-    <div class="card-glass p-4 mb-5">
-        <div class="d-flex justify-content-between align-items-center flex-wrap">
-            <div>
-                <h2 class="fw-bold mb-2" style="color: #2c3e50;">Admin Management Dashboard</h2>
-                <p class="mb-0" style="color: #34495e;">
-                    Welcome back, {{ user.username }} <span class="badge gradient-gold text-dark">Administrator</span>
-                </p>
-            </div>
-            <div>
-                <a href="/admin/" class="btn btn-admin-outline">
-                    <i class="fas fa-lock me-2"></i>Full Django Admin
-                </a>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Statistics -->
-    <div class="row mb-5">
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-bg mx-auto mb-3">
-                    <i class="fas fa-users text-white"></i>
-                </div>
-                <h3 class="mb-2" style="color: #2c3e50;">{{ total_users }}</h3>
-                <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
-                <small class="text-success">+{{ new_users_today }} today</small>
-            </div>
-        </div>
-        
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-teal mx-auto mb-3">
-                    <i class="fas fa-suitcase text-white"></i>
-                </div>
-                <h3 class="mb-2" style="color: #2c3e50;">{{ total_trips }}</h3>
-                <p class="mb-0" style="color: #7f8c8d;">Total Trips</p>
-                <small style="color: #3498db;">{{ active_trips }} active</small>
-            </div>
-        </div>
-        
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-gold mx-auto mb-3">
-                    <i class="fas fa-coins text-dark"></i>
-                </div>
-                <h3 class="mb-2" style="color: #2c3e50;">{{ total_revenue|floatformat:0 }}</h3>
-                <p class="mb-0" style="color: #7f8c8d;">Total Revenue (MMK)</p>
-            </div>
-        </div>
-        
-        <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
-                    <i class="fas fa-map-marked-alt text-white"></i>
-                </div>
-                <h3 class="mb-2" style="color: #2c3e50;">{{ total_destinations }}</h3>
-                <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Management Sections -->
     <div class="row">
-        <!-- User Management -->
-        <div class="col-md-6 mb-4">
-            <div class="card-glass p-4 h-100">
-                <h4 class="mb-4" style="color: #2c3e50;">
-                    <i class="fas fa-users me-2 text-primary"></i>User Management
-                </h4>
-                <p class="mb-4" style="color: #7f8c8d;">Manage user accounts and roles</p>
-                <div class="d-grid gap-2">
-                    <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-list me-2"></i>View All Users
-                    </a>
-                    <a href="{% url 'users:admin_add_user' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-user-plus me-2"></i>Add New User
-                    </a>
-                    <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-user-tag me-2"></i>Manage User Roles
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Trip Management -->
-        <div class="col-md-6 mb-4">
-            <div class="card-glass p-4 h-100">
-                <h4 class="mb-4" style="color: #2c3e50;">
-                    <i class="fas fa-suitcase me-2 text-info"></i>Trip Management
-                </h4>
-                <p class="mb-4" style="color: #7f8c8d;">View and manage user trips</p>
-                <div class="d-grid gap-2">
-                    <a href="{% url 'users:admin_dashboard_trips' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-list-alt me-2"></i>View All Trips
-                    </a>
-                    <a href="{% url 'users:admin_dashboard_trip_analytics' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-chart-line me-2"></i>Trip Analytics
-                    </a>
-                    <a href="{% url 'users:admin_dashboard_trip_content' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-edit me-2"></i>Edit Trip Content
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Content Management -->
-        <div class="col-md-6 mb-4">
-            <div class="card-glass p-4 h-100">
-                <h4 class="mb-4" style="color: #2c3e50;">
-                    <i class="fas fa-boxes me-2 text-success"></i>Content Management
-                </h4>
-                <p class="mb-4" style="color: #7f8c8d;">Manage destinations, hotels, and activities</p>
-                <div class="d-grid gap-2">
-                    <a href="/admin/planner/destination/" class="btn btn-admin-outline">
-                        <i class="fas fa-map-marked-alt me-2"></i>Manage Destinations
-                    </a>
-                    <a href="/admin/planner/hotel/" class="btn btn-admin-outline">
-                        <i class="fas fa-hotel me-2"></i>Manage Hotels
-                    </a>
-                    <a href="/admin/planner/flight/" class="btn btn-admin-outline">
-                        <i class="fas fa-plane me-2"></i>Manage Flights
-                    </a>
-                    <a href="/admin/planner/busservice/" class="btn btn-admin-outline">
-                        <i class="fas fa-bus me-2"></i>Manage Buses
-                    </a>
-                    <a href="/admin/planner/carrental/" class="btn btn-admin-outline">
-                        <i class="fas fa-car me-2"></i>Manage Cars
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <!-- System Settings -->
-        <div class="col-md-6 mb-4">
-            <div class="card-glass p-4 h-100">
-                <h4 class="mb-4" style="color: #2c3e50;">
-                    <i class="fas fa-cogs me-2 text-warning"></i>System Settings
-                </h4>
-                <p class="mb-4" style="color: #7f8c8d;">System configuration and settings</p>
-                <div class="d-grid gap-2">
-                    <a href="/admin/" class="btn btn-admin-outline">
-                        <i class="fas fa-lock me-2"></i>Full Django Admin
-                    </a>
-                    <a href="{% url 'planner:dashboard' %}" class="btn btn-admin-outline">
-                        <i class="fas fa-eye me-2"></i>View User Dashboard
-                    </a>
-                    <button class="btn btn-admin-outline" id="backupBtn">
-                        <i class="fas fa-database me-2"></i>Database Backup
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Recent Activity -->
-    <div class="card-glass p-4 mt-5">
-        <h4 style="color: #2c3e50;" class="mb-4">
-            <i class="fas fa-history me-2 text-primary"></i>Recent Activity
-        </h4>
-        <div class="row">
-            <div class="col-md-6">
-                <h5 style="color: #34495e;" class="mb-3">New Users</h5>
-                <div class="list-group">
-                    {% for recent_user in recent_users %}
-                    <div class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1" style="color: #2c3e50;">{{ recent_user.username }}</h6>
-                            <small style="color: #7f8c8d;">{{ recent_user.date_joined|timesince }} ago</small>
-                        </div>
-                        <p class="mb-1" style="color: #7f8c8d;">{{ recent_user.email }}</p>
+        <!-- Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="card-glass p-3 mb-3">
+                <div class="text-center mb-3">
+                    <div class="feature-icon gradient-teal mx-auto mb-3">
+                        <i class="fas fa-crown fa-2x text-white"></i>
                     </div>
-                    {% endfor %}
+                    <h5 class="fw-bold mb-1">Admin Panel</h5>
+                    <p class="text-gray small mb-0">Welcome, {{ request.user.username }}</p>
+                </div>
+                
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'users:admin_dashboard' %}" 
+                       class="list-group-item list-group-item-action {% if request.path == '/users/admin/dashboard/' %}active{% endif %}">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                    <a href="{% url 'users:admin_hotels' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-hotel me-2"></i>Hotels
+                    </a>
+                    <a href="{% url 'users:admin_destinations' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-map-marker-alt me-2"></i>Destinations
+                    </a>
+                    <a href="{% url 'users:admin_flights' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-plane me-2"></i>Flights
+                    </a>
+                    <a href="{% url 'users:admin_buses' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-bus me-2"></i>Buses
+                    </a>
+                    <a href="{% url 'users:admin_dashboard_users' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-users me-2"></i>Users
+                    </a>
+                    <a href="{% url 'users:admin_dashboard_trips' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-suitcase me-2"></i>Trips
+                    </a>
+                    <a href="{% url 'users:admin_content' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-newspaper me-2"></i>Content
+                    </a>
+                    <a href="{% url 'users:admin_system_settings' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
                 </div>
             </div>
-            <div class="col-md-6">
-                <h5 style="color: #34495e;" class="mb-3">Recent Trips</h5>
-                <div class="list-group">
-                    {% for trip in recent_trips %}
-                    <div class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1" style="color: #2c3e50;">{{ trip.user.username }} → {{ trip.destination.name }}</h6>
-                            <small style="color: #7f8c8d;">{{ trip.created_at|timesince }} ago</small>
+            
+            <div class="card-glass p-3">
+                <h6 class="fw-bold mb-3">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i> Add Hotel
+                    </a>
+                    <a href="{% url 'users:admin_add_destination' %}" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-plus me-1"></i> Add Destination
+                    </a>
+                    <a href="{% url 'users:admin_add_user' %}" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-user-plus me-1"></i> Add User
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Statistics Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-teal d-inline-flex mb-3">
+                            <i class="fas fa-users fa-lg text-white"></i>
                         </div>
-                        <p class="mb-1" style="color: #7f8c8d;">
-                            {{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d" }} • 
-                            <span class="badge bg-{% if trip.status == 'completed' %}success{% elif trip.status == 'booked' %}primary{% else %}warning{% endif %}">
-                                {{ trip.status|title }}
-                            </span>
-                        </p>
+                        <h3 class="mb-2">{{ total_users }}</h3>
+                        <p class="text-gray mb-0">Total Users</p>
                     </div>
-                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-purple d-inline-flex mb-3">
+                            <i class="fas fa-hotel fa-lg text-white"></i>
+                        </div>
+                        <h3 class="mb-2">{{ total_hotels }}</h3>
+                        <p class="text-gray mb-0">Hotels</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-blue d-inline-flex mb-3">
+                            <i class="fas fa-suitcase fa-lg text-white"></i>
+                        </div>
+                        <h3 class="mb-2">{{ total_trips }}</h3>
+                        <p class="text-gray mb-0">Trips</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Hotels -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">Recent Hotels</h5>
+                    <a href="{% url 'users:admin_hotels' %}" class="btn btn-sm btn-outline-light">
+                        View All <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Hotel</th>
+                                <th>Destination</th>
+                                <th>Price/Night</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hotel in recent_hotels %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if hotel.image %}
+                                        <img src="{{ hotel.image.url }}" alt="{{ hotel.name }}" 
+                                             class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                        {% endif %}
+                                        <span>{{ hotel.name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ hotel.destination.name }}</td>
+                                <td>MMK {{ hotel.price_in_mmk }}</td>
+                                <td>
+                                    {% if hotel.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3">
+                                    <i class="fas fa-hotel fa-2x text-gray mb-2 d-block"></i>
+                                    <p class="text-gray mb-0">No hotels yet</p>
+                                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-sm btn-primary mt-2">
+                                        Add First Hotel
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Recent Users -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">Recent Users</h5>
+                    <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-sm btn-outline-light">
+                        View All <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in recent_users %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if user.profile_picture %}
+                                        <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                             class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 32px; height: 32px;">
+                                            <i class="fas fa-user text-gray"></i>
+                                        </div>
+                                        {% endif %}
+                                        <span>{{ user.username }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="badge {% if user.user_type == 'admin' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                        {{ user.user_type|title }}
+                                    </span>
+                                </td>
+                                <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3">
+                                    <i class="fas fa-users fa-2x text-gray mb-2 d-block"></i>
+                                    <p class="text-gray mb-0">No users yet</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card-glass p-3">
+                        <h6 class="fw-bold mb-3">System Overview</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2 d-flex justify-content-between">
+                                <span class="text-gray">Destinations:</span>
+                                <span class="fw-bold">{{ total_destinations }}</span>
+                            </li>
+                            <li class="mb-2 d-flex justify-content-between">
+                                <span class="text-gray">Flights:</span>
+                                <span class="fw-bold">{{ total_flights }}</span>
+                            </li>
+                            <li class="mb-2 d-flex justify-content-between">
+                                <span class="text-gray">Buses:</span>
+                                <span class="fw-bold">{{ total_buses }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card-glass p-3">
+                        <h6 class="fw-bold mb-3">Quick Links</h6>
+                        <div class="d-grid gap-2">
+                            <a href="/admin/" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-shield-alt me-1"></i> Django Admin
+                            </a>
+                            <a href="{% url 'users:admin_database_backup' %}" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-database me-1"></i> Backup Database
+                            </a>
+                            <a href="{% url 'users:admin_system_settings' %}" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-cog me-1"></i> System Settings
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    /* Card Glass Effect */
-    .card-glass {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        border-radius: 20px;
-        transition: all 0.3s ease;
-        box-shadow: 
-            0 15px 35px rgba(107, 71, 164, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    }
-    
-    .card-glass:hover {
-        transform: translateY(-5px);
-        border-color: rgba(139, 92, 246, 0.2);
-        box-shadow: 
-            0 25px 50px rgba(107, 71, 164, 0.25),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    }
-    
-    /* List Group Items */
-    .list-group-item {
-        border: 1px solid rgba(183, 158, 220, 0.2);
-        margin-bottom: 5px;
-        border-radius: 10px;
-    }
-    
-    .list-group-item:hover {
-        background: rgba(183, 158, 220, 0.1) !important;
-    }
-    
-    /* Feature Icons */
-    .feature-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 15px;
-    }
-    
-    .gradient-bg {
-        background: linear-gradient(135deg, #6B47A4, #3498db);
-    }
-    
-    .gradient-teal {
-        background: linear-gradient(135deg, #3498db, #2ecc71);
-    }
-    
-    .gradient-gold {
-        background: linear-gradient(135deg, #f39c12, #e74c3c);
-    }
-    
-    .gradient-bg-reverse {
-        background: linear-gradient(135deg, #3498db, #6B47A4);
-    }
-    
-    .gradient-gold.text-dark {
-        background: linear-gradient(135deg, #f39c12, #f1c40f);
-        color: #2c3e50 !important;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-weight: 600;
-    }
-    
-    /* SINGLE BUTTON STYLE FOR ALL ADMIN BUTTONS */
-    .btn-admin-outline {
-        background: rgba(255, 255, 255, 0.9);
-        border: 2px solid #6B47A4;
-        color: #6B47A4 !important;
-        font-weight: 500;
-        padding: 12px 20px;
-        border-radius: 12px;
-        transition: all 0.3s ease;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        font-size: 0.95rem;
-    }
-    
-    .btn-admin-outline:hover {
-        background: linear-gradient(135deg, #6B47A4, #3498db);
-        border-color: transparent;
-        color: white !important;
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px rgba(107, 71, 164, 0.3);
-    }
-    
-    .btn-admin-outline:active {
-        transform: translateY(-1px);
-        box-shadow: 0 5px 15px rgba(107, 71, 164, 0.3);
-    }
-    
-    /* Button groups spacing */
-    .d-grid.gap-2 {
-        gap: 12px !important;
-    }
-    
-    /* Button icons */
-    .btn-admin-outline i {
-        font-size: 1rem;
-        width: 20px;
-        text-align: center;
-    }
-    
-    /* Section headers */
-    h4 {
-        font-weight: 600;
-        color: #2c3e50;
-    }
-    
-    /* Badge styles */
-    .badge {
-        font-weight: 500;
-        padding: 5px 12px;
-        border-radius: 20px;
-    }
-    
-    /* Make sure text is visible */
-    .btn-admin-outline, .btn-admin-outline:hover {
-        text-decoration: none !important;
-    }
-</style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Database backup button
-        const backupBtn = document.getElementById('backupBtn');
-        if (backupBtn) {
-            backupBtn.addEventListener('click', function() {
-                fetch('{% url "users:admin_database_backup" %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Database backup initiated successfully!');
-                    } else {
-                        alert('Error creating backup: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    alert('Error creating backup.');
-                });
-            });
-        }
-        
-        // Add active state to buttons
-        const adminButtons = document.querySelectorAll('.btn-admin-outline');
-        adminButtons.forEach(button => {
-            button.addEventListener('mousedown', function() {
-                this.classList.add('active');
-            });
-            
-            button.addEventListener('mouseup', function() {
-                this.classList.remove('active');
-            });
-            
-            button.addEventListener('mouseleave', function() {
-                this.classList.remove('active');
-            });
-        });
-        
-        console.log('All buttons now use btn-admin-outline class for consistency');
-    });
-</script>
 {% endblock %}

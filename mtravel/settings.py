@@ -1,6 +1,5 @@
-"""
-Django settings for mtravel project.
-"""
+# C:\Users\ASUS\MyanmarTravelPlanner\mtravel\settings.py
+# FIXED VERSION - Remove duplicate LEAFLET_CONFIG
 
 import os
 from pathlib import Path
@@ -29,7 +28,6 @@ INSTALLED_APPS = [
     # Third party apps
     'crispy_forms',
     'crispy_bootstrap5',
-    #'leaflet',
     'rest_framework',
     
     # Our apps
@@ -43,7 +41,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -62,7 +60,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'mtravel.context_processors.currency_processor',  # Add this line
+                'planner.context_processors.leaflet_config',  # Keep this line
             ],
         },
     },
@@ -114,11 +112,26 @@ AUTH_USER_MODEL = 'users.CustomUser'
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
+
 AUTHENTICATION_BACKENDS = [
-    'users.backends.EmailOrUsernameModelBackend', 
+    'users.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
 # Login/Logout URLs
 LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'planner:dashboard'
 LOGOUT_REDIRECT_URL = 'home'
+
+# Leaflet Configuration (KEEP ONLY THIS ONE - remove the one at the top)
+LEAFLET_CONFIG = {
+    'DEFAULT_CENTER': (16.8409, 96.1735),  # Yangon coordinates
+    'DEFAULT_ZOOM': 10,
+    'MIN_ZOOM': 3,
+    'MAX_ZOOM': 18,
+    'ATTRIBUTION_PREFIX': '© OpenStreetMap contributors',
+    'SCALE': 'both',
+    'RESET_VIEW': False,
+    'TILES': [('OpenStreetMap', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+               {'attribution': '&copy; OpenStreetMap contributors'})],
+}

@@ -1,0 +1,224 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_hotels.html -->
+{% extends 'base.html' %}
+{% block title %}Hotels - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Manage Hotels</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Add, edit, or remove hotels</p>
+            </div>
+            <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Hotel
+            </a>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ total_hotels }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Total Hotels</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ active_hotels }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Active</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ destinations|length }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-1" style="color: #2c3e50;">3</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Categories</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <form method="get" class="row g-3 mb-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" name="search" 
+                       placeholder="Search hotels..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" name="destination">
+                    <option value="">All Destinations</option>
+                    {% for dest in destinations %}
+                    <option value="{{ dest.id }}" {% if request.GET.destination == dest.id|stringformat:"s" %}selected{% endif %}>
+                        {{ dest.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="fas fa-search me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Hotels Table -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">Hotel</th>
+                        <th style="color: #2c3e50;">Destination</th>
+                        <th style="color: #2c3e50;">Price/Night</th>
+                        <th style="color: #2c3e50;">Rating</th>
+                        <th style="color: #2c3e50;">Status</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hotel in hotels %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if hotel.image %}
+                                <img src="{{ hotel.image.url }}" alt="{{ hotel.name }}" 
+                                     class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded bg-light d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 50px; height: 50px;">
+                                    <i class="fas fa-hotel text-gray"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <div style="color: #2c3e50; font-weight: 500;">{{ hotel.name }}</div>
+                                    <div class="text-gray small">{{ hotel.location }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="color: #34495e;">{{ hotel.destination.name }}</td>
+                        <td style="color: #34495e;">MMK {{ hotel.price_per_night|floatformat:0 }}</td>
+                        <td>
+                            {% if hotel.rating %}
+                            <div class="d-flex align-items-center">
+                                <span class="text-warning">
+                                    {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= hotel.rating %}
+                                    <i class="fas fa-star"></i>
+                                    {% else %}
+                                    <i class="far fa-star"></i>
+                                    {% endif %}
+                                    {% endfor %}
+                                </span>
+                                <span class="ms-2 text-gray">{{ hotel.rating }}/5</span>
+                            </div>
+                            {% else %}
+                            <span class="text-gray">No rating</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if hotel.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                               <a href="{% url 'users:admin_edit_hotel' hotel.id %}" 
+   class="btn btn-sm btn-outline-primary">
+    <i class="fas fa-edit"></i>
+</a>
+                                <button class="btn btn-sm btn-outline-danger delete-hotel-btn" 
+                                        data-hotel-id="{{ hotel.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <i class="fas fa-hotel fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No hotels found</h5>
+                            <p style="color: #7f8c8d;">Add your first hotel to get started</p>
+                            <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add Hotel
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Delete hotel
+        document.querySelectorAll('.delete-hotel-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const hotelId = this.getAttribute('data-hotel-id');
+                if (confirm('Are you sure you want to delete this hotel?')) {
+                    fetch(`{% url 'users:admin_delete_hotel' 0 %}`.replace('0', hotelId), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

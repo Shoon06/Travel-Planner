@@ -5,13 +5,12 @@ from django.contrib import messages
 from django.utils.text import slugify
 from django import forms
 from django.core.files.base import ContentFile
-import requests
 from io import BytesIO
 from PIL import Image, ImageDraw
 import random
 from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan
 
-# Image Upload Forms
+# ==================== FORMS ====================
 class DestinationForm(forms.ModelForm):
     class Meta:
         model = Destination
@@ -25,7 +24,7 @@ class HotelForm(forms.ModelForm):
         model = Hotel
         fields = '__all__'
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 3}),
+            'amenities': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Enter amenities separated by commas'}),
             'address': forms.Textarea(attrs={'rows': 2}),
         }
 
@@ -44,6 +43,7 @@ class CarRentalForm(forms.ModelForm):
         model = CarRental
         fields = '__all__'
 
+# ==================== DESTINATION ADMIN ====================
 @admin.register(Destination)
 class DestinationAdmin(admin.ModelAdmin):
     form = DestinationForm
@@ -91,12 +91,10 @@ class DestinationAdmin(admin.ModelAdmin):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="{}" class="btn btn-sm btn-outline-success" style="margin-left: 5px;">View</a>'
-            '<a href="{}" class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" onclick="return confirm(\'Are you sure?\')">Delete</a>'
+            '<a href="/destination/{}/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
             '</div>',
             reverse('admin:planner_destination_change', args=[obj.id]),
-            f'/destination/{obj.id}/',
-            reverse('admin:planner_destination_delete', args=[obj.id])
+            obj.id
         )
     destination_actions.short_description = 'Actions'
     
@@ -123,8 +121,8 @@ class DestinationAdmin(admin.ModelAdmin):
                     draw = ImageDraw.Draw(img)
                     
                     # Draw destination name
-                    from PIL import ImageFont
                     try:
+                        from PIL import ImageFont
                         font = ImageFont.truetype("arial.ttf", 60)
                     except:
                         font = ImageFont.load_default()
@@ -173,7 +171,7 @@ class DestinationAdmin(admin.ModelAdmin):
             f'Successfully created images for {success_count} destinations', 
             level=messages.SUCCESS
         )
-    fetch_sample_images.short_description = "📷 Create sample images"
+    fetch_sample_images.short_description = "Create sample images"
     
     def duplicate_destinations(self, request, queryset):
         for destination in queryset:
@@ -197,34 +195,35 @@ class DestinationAdmin(admin.ModelAdmin):
                     f'Error duplicating {destination.name}: {str(e)}', 
                     level=messages.ERROR
                 )
-    duplicate_destinations.short_description = "📋 Duplicate selected"
+    duplicate_destinations.short_description = "Duplicate selected"
     
     def activate_destinations(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(request, f'{updated} destinations activated successfully.', level=messages.SUCCESS)
-    activate_destinations.short_description = "✅ Activate selected"
+    activate_destinations.short_description = "Activate selected"
     
     def deactivate_destinations(self, request, queryset):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} destinations deactivated successfully.', level=messages.SUCCESS)
-    deactivate_destinations.short_description = "❌ Deactivate selected"
+    deactivate_destinations.short_description = "Deactivate selected"
 
+# ==================== HOTEL ADMIN ====================
 @admin.register(Hotel)
 class HotelAdmin(admin.ModelAdmin):
     form = HotelForm
-    list_display = ['name', 'destination', 'category', 'price_per_night', 'rating', 'image_preview', 'is_active', 'hotel_actions']
-    list_filter = ['category', 'is_active', 'destination', 'rating', 'created_at']
+    list_display = ['name', 'destination', 'price_per_night', 'rating', 'image_preview', 'is_active', 'hotel_actions']
+    list_filter = ['is_active', 'destination', 'rating', 'created_at']
     search_fields = ['name', 'destination__name', 'address', 'description']
     ordering = ['name']
     list_per_page = 20
-    actions = ['activate_hotels', 'deactivate_hotels', 'upgrade_to_luxury', 'increase_prices_10', 'add_sample_images']
+    actions = ['activate_hotels', 'deactivate_hotels', 'increase_prices_10', 'add_sample_images']
     
     fieldsets = (
         ('Basic Information', {
             'fields': ('name', 'destination', 'address', 'description')
         }),
-        ('Pricing & Category', {
-            'fields': ('price_per_night', 'category')
+        ('Pricing', {
+            'fields': ('price_per_night',)
         }),
         ('Ratings & Reviews', {
             'fields': ('rating', 'review_count')
@@ -234,7 +233,7 @@ class HotelAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Images', {
-            'fields': ('image', 'gallery_images', 'image_preview'),
+            'fields': ('image', 'image_preview'),
             'classes': ('wide',)
         }),
         ('Status', {
@@ -266,12 +265,10 @@ class HotelAdmin(admin.ModelAdmin):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/hotel/{}/preview/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
-            '<a href="{}" class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" onclick="return confirm(\'Are you sure?\')">Delete</a>'
+            '<a href="/hotel/{}/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
             '</div>',
             reverse('admin:planner_hotel_change', args=[obj.id]),
-            obj.id,
-            reverse('admin:planner_hotel_delete', args=[obj.id])
+            obj.id
         )
     hotel_actions.short_description = 'Actions'
     
@@ -280,7 +277,7 @@ class HotelAdmin(admin.ModelAdmin):
             hotel.price_per_night = hotel.price_per_night * 1.1
             hotel.save()
         self.message_user(request, f'Increased prices for {queryset.count()} hotels by 10%', level=messages.SUCCESS)
-    increase_prices_10.short_description = "💰 Increase prices 10%"
+    increase_prices_10.short_description = "Increase prices by 10 percent"  # CHANGED: Removed % sign
     
     def add_sample_images(self, request, queryset):
         for hotel in queryset:
@@ -303,8 +300,8 @@ class HotelAdmin(admin.ModelAdmin):
                                          fill=(255, 255, 200), outline=(0, 0, 0), width=1)
                     
                     # Draw hotel name
-                    from PIL import ImageFont
                     try:
+                        from PIL import ImageFont
                         font = ImageFont.truetype("arial.ttf", 40)
                     except:
                         font = ImageFont.load_default()
@@ -333,36 +330,32 @@ class HotelAdmin(admin.ModelAdmin):
                         f'Error creating image for {hotel.name}: {str(e)}', 
                         level=messages.ERROR
                     )
-    add_sample_images.short_description = "🏨 Add hotel images"
+    add_sample_images.short_description = "Add hotel images"
     
     def activate_hotels(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(request, f'{updated} hotels activated successfully.', level=messages.SUCCESS)
-    activate_hotels.short_description = "✅ Activate hotels"
+    activate_hotels.short_description = "Activate hotels"
     
     def deactivate_hotels(self, request, queryset):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} hotels deactivated successfully.', level=messages.SUCCESS)
-    deactivate_hotels.short_description = "❌ Deactivate hotels"
-    
-    def upgrade_to_luxury(self, request, queryset):
-        updated = queryset.update(category='luxury')
-        self.message_user(request, f'{updated} hotels upgraded to luxury category.', level=messages.SUCCESS)
-    upgrade_to_luxury.short_description = "⭐ Upgrade to luxury"
+    deactivate_hotels.short_description = "Deactivate hotels"
 
+# ==================== FLIGHT ADMIN ====================
 @admin.register(Flight)
 class FlightAdmin(admin.ModelAdmin):
     form = FlightForm
     list_display = ['airline', 'flight_number', 'departure', 'arrival', 'departure_time', 'price', 'available_seats', 'is_active', 'flight_actions']
     list_filter = ['category', 'airline', 'is_active', 'departure', 'arrival', 'created_at']
-    search_fields = ['airline', 'flight_number', 'departure__name', 'arrival__name', 'description']
+    search_fields = ['airline', 'flight_number', 'departure__name', 'arrival__name']
     ordering = ['departure_time']
     list_per_page = 20
     actions = ['activate_flights', 'deactivate_flights', 'increase_price_10', 'duplicate_flights']
     
     fieldsets = (
         ('Flight Details', {
-            'fields': ('airline', 'flight_number', 'flight_image', 'image_preview')
+            'fields': ('airline', 'flight_number')
         }),
         ('Route & Schedule', {
             'fields': ('departure', 'arrival', 'departure_time', 'arrival_time', 'duration')
@@ -373,33 +366,14 @@ class FlightAdmin(admin.ModelAdmin):
         ('Status', {
             'fields': ('is_active',)
         }),
-        ('Additional Info', {
-            'fields': ('description', 'amenities'),
-            'classes': ('collapse',)
-        }),
     )
-    
-    readonly_fields = ['image_preview']
-    
-    def image_preview(self, obj):
-        if obj.flight_image:
-            return format_html(
-                '<div style="margin: 10px 0;">'
-                '<img src="{}" style="max-height: 100px; max-width: 150px; border-radius: 8px; border: 1px solid #ddd;" />'
-                '</div>', 
-                obj.flight_image.url
-            )
-        return "No image"
-    image_preview.short_description = 'Flight Image'
     
     def flight_actions(self, obj):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/admin/flight/{}/seat-map/" class="btn btn-sm btn-outline-info" style="margin-left: 5px;">Seats</a>'
             '</div>',
-            reverse('admin:planner_flight_change', args=[obj.id]),
-            obj.id
+            reverse('admin:planner_flight_change', args=[obj.id])
         )
     flight_actions.short_description = 'Actions'
     
@@ -408,7 +382,7 @@ class FlightAdmin(admin.ModelAdmin):
             flight.price = flight.price * 1.1
             flight.save()
         self.message_user(request, f'{queryset.count()} flight prices increased by 10%.', level=messages.SUCCESS)
-    increase_price_10.short_description = "💰 Increase prices 10%"
+    increase_price_10.short_description = "Increase prices by 10 percent"  # CHANGED: Removed % sign
     
     def duplicate_flights(self, request, queryset):
         for flight in queryset:
@@ -425,34 +399,36 @@ class FlightAdmin(admin.ModelAdmin):
                     category=flight.category,
                     total_seats=flight.total_seats,
                     available_seats=flight.available_seats,
-                    description=flight.description,
                     is_active=flight.is_active
                 )
             except Exception as e:
                 self.message_user(request, f'Error duplicating {flight.flight_number}: {str(e)}', level=messages.ERROR)
-    duplicate_flights.short_description = "📋 Duplicate flights"
+    duplicate_flights.short_description = "Duplicate flights"
     
     def activate_flights(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(request, f'{updated} flights activated successfully.', level=messages.SUCCESS)
+    activate_flights.short_description = "Activate flights"
     
     def deactivate_flights(self, request, queryset):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} flights deactivated successfully.', level=messages.SUCCESS)
+    deactivate_flights.short_description = "Deactivate flights"
 
+# ==================== BUS SERVICE ADMIN ====================
 @admin.register(BusService)
 class BusServiceAdmin(admin.ModelAdmin):
     form = BusServiceForm
     list_display = ['company', 'departure', 'arrival', 'departure_time', 'bus_type', 'price', 'available_seats', 'is_active', 'bus_actions']
     list_filter = ['bus_type', 'company', 'is_active', 'departure', 'arrival', 'created_at']
-    search_fields = ['company', 'bus_number', 'departure__name', 'arrival__name', 'description']
+    search_fields = ['company', 'departure__name', 'arrival__name']
     ordering = ['departure_time']
     list_per_page = 20
-    actions = ['activate_buses', 'deactivate_buses', 'add_sample_bus_images']
+    actions = ['activate_buses', 'deactivate_buses']
     
     fieldsets = (
         ('Bus Details', {
-            'fields': ('company', 'bus_number', 'bus_image', 'image_preview')
+            'fields': ('company', 'bus_number')
         }),
         ('Route & Schedule', {
             'fields': ('departure', 'arrival', 'departure_time', 'duration')
@@ -460,117 +436,44 @@ class BusServiceAdmin(admin.ModelAdmin):
         ('Pricing & Capacity', {
             'fields': ('price', 'bus_type', 'total_seats', 'available_seats')
         }),
-        ('Amenities', {
-            'fields': ('amenities',),
-            'classes': ('collapse',)
-        }),
         ('Status', {
             'fields': ('is_active',)
         }),
     )
     
-    readonly_fields = ['image_preview']
-    
-    def image_preview(self, obj):
-        if obj.bus_image:
-            return format_html(
-                '<div style="margin: 10px 0;">'
-                '<img src="{}" style="max-height: 100px; max-width: 150px; border-radius: 8px; border: 1px solid #ddd;" />'
-                '</div>', 
-                obj.bus_image.url
-            )
-        return "No image"
-    image_preview.short_description = 'Bus Image'
-    
     def bus_actions(self, obj):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/bus/{}/preview/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
             '</div>',
-            reverse('admin:planner_busservice_change', args=[obj.id]),
-            obj.id
+            reverse('admin:planner_busservice_change', args=[obj.id])
         )
     bus_actions.short_description = 'Actions'
-    
-    def add_sample_bus_images(self, request, queryset):
-        for bus in queryset:
-            if not bus.bus_image:
-                try:
-                    # Create a bus image
-                    img = Image.new('RGB', (800, 400), color=(200, 200, 200))
-                    draw = ImageDraw.Draw(img)
-                    
-                    # Draw bus body
-                    bus_color = (random.randint(50, 200), random.randint(50, 200), random.randint(50, 200))
-                    draw.rectangle([100, 150, 700, 300], fill=bus_color, outline=(0, 0, 0), width=3)
-                    
-                    # Draw windows
-                    for i in range(6):
-                        window_x = 150 + i * 90
-                        draw.rectangle([window_x, 170, window_x + 60, 220], fill=(150, 200, 255), outline=(0, 0, 0), width=1)
-                    
-                    # Draw wheels
-                    draw.ellipse([150, 280, 210, 340], fill=(50, 50, 50))
-                    draw.ellipse([590, 280, 650, 340], fill=(50, 50, 50))
-                    
-                    # Draw company name
-                    from PIL import ImageFont
-                    try:
-                        font = ImageFont.truetype("arial.ttf", 30)
-                    except:
-                        font = ImageFont.load_default()
-                    
-                    draw.text((300, 100), bus.company, font=font, fill=(0, 0, 0))
-                    draw.text((350, 320), f"{bus.departure.name} → {bus.arrival.name}", font=font, fill=(0, 0, 0))
-                    
-                    # Save image
-                    img_io = BytesIO()
-                    img.save(img_io, 'JPEG', quality=85)
-                    img_io.seek(0)
-                    
-                    bus.bus_image.save(
-                        f'{slugify(bus.company)}_bus.jpg',
-                        ContentFile(img_io.read()),
-                        save=True
-                    )
-                    
-                    self.message_user(
-                        request, 
-                        f'Created image for {bus.company} bus', 
-                        level=messages.SUCCESS
-                    )
-                except Exception as e:
-                    self.message_user(
-                        request, 
-                        f'Error creating image for {bus.company}: {str(e)}', 
-                        level=messages.ERROR
-                    )
-    add_sample_bus_images.short_description = "🚌 Add bus images"
     
     def activate_buses(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(request, f'{updated} buses activated successfully.', level=messages.SUCCESS)
-    activate_buses.short_description = "✅ Activate buses"
+    activate_buses.short_description = "Activate buses"
     
     def deactivate_buses(self, request, queryset):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} buses deactivated successfully.', level=messages.SUCCESS)
-    deactivate_buses.short_description = "❌ Deactivate buses"
+    deactivate_buses.short_description = "Deactivate buses"
 
+# ==================== CAR RENTAL ADMIN ====================
 @admin.register(CarRental)
 class CarRentalAdmin(admin.ModelAdmin):
     form = CarRentalForm
-    list_display = ['company', 'car_model', 'car_type', 'seats', 'price_per_day', 'location', 'car_image_preview', 'is_available', 'car_actions']
+    list_display = ['company', 'car_model', 'car_type', 'seats', 'price_per_day', 'location', 'is_available', 'car_actions']
     list_filter = ['car_type', 'company', 'is_available', 'location', 'created_at']
-    search_fields = ['company', 'car_model', 'location__name', 'description']
+    search_fields = ['company', 'car_model', 'location__name']
     ordering = ['company', 'car_model']
     list_per_page = 20
-    actions = ['make_available', 'make_unavailable', 'add_sample_car_images']
+    actions = ['make_available', 'make_unavailable']
     
     fieldsets = (
         ('Car Details', {
-            'fields': ('company', 'car_model', 'car_type', 'seats', 'car_image', 'interior_images', 'image_preview')
+            'fields': ('company', 'car_model', 'car_type', 'seats')
         }),
         ('Pricing & Features', {
             'fields': ('price_per_day', 'features')
@@ -578,119 +481,28 @@ class CarRentalAdmin(admin.ModelAdmin):
         ('Location & Availability', {
             'fields': ('location', 'is_available')
         }),
-        ('Additional Info', {
-            'fields': ('description', 'year', 'fuel_type', 'transmission'),
-            'classes': ('collapse',)
-        }),
     )
-    
-    readonly_fields = ['image_preview']
-    
-    def car_image_preview(self, obj):
-        if obj.car_image:
-            return format_html(
-                '<div style="margin: 10px 0;">'
-                '<img src="{}" style="max-height: 80px; max-width: 120px; border-radius: 8px; border: 1px solid #ddd;" />'
-                '</div>', 
-                obj.car_image.url
-            )
-        return "No image"
-    car_image_preview.short_description = 'Car Image'
-    
-    def image_preview(self, obj):
-        if obj.car_image:
-            return format_html(
-                '<div style="margin: 10px 0;">'
-                '<img src="{}" style="max-height: 200px; max-width: 300px; border-radius: 8px; border: 1px solid #ddd;" />'
-                '</div>', 
-                obj.car_image.url
-            )
-        return "No image"
-    image_preview.short_description = 'Car Image Preview'
     
     def car_actions(self, obj):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/car/{}/preview/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
             '</div>',
-            reverse('admin:planner_carrental_change', args=[obj.id]),
-            obj.id
+            reverse('admin:planner_carrental_change', args=[obj.id])
         )
     car_actions.short_description = 'Actions'
-    
-    def add_sample_car_images(self, request, queryset):
-        for car in queryset:
-            if not car.car_image:
-                try:
-                    # Create a car image based on car type
-                    img = Image.new('RGB', (800, 400), color=(240, 240, 240))
-                    draw = ImageDraw.Draw(img)
-                    
-                    # Choose color based on car type
-                    if car.car_type == 'economy':
-                        car_color = (100, 150, 200)  # Blue
-                    elif car.car_type == 'suv':
-                        car_color = (50, 100, 50)    # Green
-                    elif car.car_type == 'luxury':
-                        car_color = (200, 150, 50)   # Gold
-                    else:
-                        car_color = (150, 150, 150)  # Gray
-                    
-                    # Draw car body
-                    draw.rectangle([200, 200, 600, 300], fill=car_color, outline=(0, 0, 0), width=3)
-                    
-                    # Draw windows
-                    draw.rectangle([250, 180, 550, 200], fill=(150, 200, 255), outline=(0, 0, 0), width=1)
-                    
-                    # Draw wheels
-                    draw.ellipse([230, 280, 290, 340], fill=(30, 30, 30))
-                    draw.ellipse([510, 280, 570, 340], fill=(30, 30, 30))
-                    
-                    # Draw car model
-                    from PIL import ImageFont
-                    try:
-                        font = ImageFont.truetype("arial.ttf", 30)
-                    except:
-                        font = ImageFont.load_default()
-                    
-                    draw.text((300, 100), f"{car.company} - {car.car_model}", font=font, fill=(0, 0, 0))
-                    draw.text((350, 320), f"{car.car_type.upper()} - ${car.price_per_day}/day", font=font, fill=(0, 0, 0))
-                    
-                    # Save image
-                    img_io = BytesIO()
-                    img.save(img_io, 'JPEG', quality=85)
-                    img_io.seek(0)
-                    
-                    car.car_image.save(
-                        f'{slugify(car.company)}_{slugify(car.car_model)}.jpg',
-                        ContentFile(img_io.read()),
-                        save=True
-                    )
-                    
-                    self.message_user(
-                        request, 
-                        f'Created image for {car.car_model}', 
-                        level=messages.SUCCESS
-                    )
-                except Exception as e:
-                    self.message_user(
-                        request, 
-                        f'Error creating image for {car.car_model}: {str(e)}', 
-                        level=messages.ERROR
-                    )
-    add_sample_car_images.short_description = "🚗 Add car images"
     
     def make_available(self, request, queryset):
         updated = queryset.update(is_available=True)
         self.message_user(request, f'{updated} cars made available.', level=messages.SUCCESS)
-    make_available.short_description = "✅ Make available"
+    make_available.short_description = "Make available"
     
     def make_unavailable(self, request, queryset):
         updated = queryset.update(is_available=False)
         self.message_user(request, f'{updated} cars made unavailable.', level=messages.SUCCESS)
-    make_unavailable.short_description = "❌ Make unavailable"
+    make_unavailable.short_description = "Make unavailable"
 
+# ==================== TRIP PLAN ADMIN ====================
 @admin.register(TripPlan)
 class TripPlanAdmin(admin.ModelAdmin):
     list_display = ['user', 'destination', 'start_date', 'end_date', 'status', 'total_cost', 'trip_actions']
@@ -698,7 +510,7 @@ class TripPlanAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'destination__name', 'notes']
     readonly_fields = ['created_at', 'updated_at', 'total_cost_display']
     list_per_page = 20
-    actions = ['mark_as_completed', 'mark_as_cancelled', 'mark_as_booked', 'export_trips']
+    actions = ['mark_as_completed', 'mark_as_cancelled', 'mark_as_booked']
     
     fieldsets = (
         ('Trip Information', {
@@ -720,20 +532,44 @@ class TripPlanAdmin(admin.ModelAdmin):
     )
     
     def total_cost(self, obj):
-        cost = obj.get_total_cost()
+        cost = 0
+        # Hotel cost
+        if obj.selected_hotel:
+            nights = (obj.end_date - obj.start_date).days
+            if nights <= 0:
+                nights = 1
+            cost += float(obj.selected_hotel.price_per_night * nights * 2100)
+        
+        # Transport cost
+        if obj.selected_transport and isinstance(obj.selected_transport, dict):
+            if 'price' in obj.selected_transport:
+                cost += float(obj.selected_transport['price'])
+        
         return format_html(
             '<span style="font-weight: bold; color: #28a745;">MMK {:,}</span>',
-            cost
+            int(cost)
         )
     total_cost.short_description = 'Total Cost'
     
     def total_cost_display(self, obj):
-        cost = obj.get_total_cost()
+        cost = 0
+        # Hotel cost
+        if obj.selected_hotel:
+            nights = (obj.end_date - obj.start_date).days
+            if nights <= 0:
+                nights = 1
+            cost += float(obj.selected_hotel.price_per_night * nights * 2100)
+        
+        # Transport cost
+        if obj.selected_transport and isinstance(obj.selected_transport, dict):
+            if 'price' in obj.selected_transport:
+                cost += float(obj.selected_transport['price'])
+        
         return format_html(
             '<div style="padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 1.2em;">'
             '<strong>Total Estimated Cost: MMK {:,}</strong>'
             '</div>',
-            cost
+            int(cost)
         )
     total_cost_display.short_description = 'Total Cost'
     
@@ -741,42 +577,27 @@ class TripPlanAdmin(admin.ModelAdmin):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/trip/{}/preview/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
-            '<a href="{}" class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" onclick="return confirm(\'Are you sure?\')">Delete</a>'
             '</div>',
-            reverse('admin:planner_tripplan_change', args=[obj.id]),
-            obj.id,
-            reverse('admin:planner_tripplan_delete', args=[obj.id])
+            reverse('admin:planner_tripplan_change', args=[obj.id])
         )
     trip_actions.short_description = 'Actions'
     
     def mark_as_completed(self, request, queryset):
         updated = queryset.update(status='completed')
         self.message_user(request, f'{updated} trips marked as completed.', level=messages.SUCCESS)
-    mark_as_completed.short_description = "✅ Mark as completed"
+    mark_as_completed.short_description = "Mark as completed"
     
     def mark_as_cancelled(self, request, queryset):
         updated = queryset.update(status='cancelled')
         self.message_user(request, f'{updated} trips marked as cancelled.', level=messages.SUCCESS)
-    mark_as_cancelled.short_description = "❌ Mark as cancelled"
+    mark_as_cancelled.short_description = "Mark as cancelled"
     
     def mark_as_booked(self, request, queryset):
         updated = queryset.update(status='booked')
         self.message_user(request, f'{updated} trips marked as booked.', level=messages.SUCCESS)
-    mark_as_booked.short_description = "📅 Mark as booked"
-    
-    def export_trips(self, request, queryset):
-        # This is a placeholder for export functionality
-        self.message_user(request, f'Export functionality for {queryset.count()} trips would be implemented here.', level=messages.INFO)
-    export_trips.short_description = "📊 Export trips data"
+    mark_as_booked.short_description = "Mark as booked"
 
-# Add custom CSS for admin
-class CustomAdminSite(admin.AdminSite):
-    site_header = "Myanmar Travel Planner Administration"
-    site_title = "Myanmar Travel Admin"
-    index_title = "Welcome to Myanmar Travel Planner Admin"
-
-# Override the default admin site
+# ==================== CUSTOM ADMIN SITE ====================
 admin.site.site_header = "Myanmar Travel Planner Administration"
 admin.site.site_title = "Myanmar Travel Admin"
 admin.site.index_title = "Welcome to Myanmar Travel Planner Admin"

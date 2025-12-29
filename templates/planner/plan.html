@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\plan.html -->
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Plan Your Trip - GoMyanmar{% endblock %}
@@ -75,7 +76,7 @@
                                         <i class="fas fa-calendar-alt"></i>
                                     </span>
                                     <input type="date" class="form-control" name="start_date" id="start_date" 
-                                           value="{{ today|date:'Y-m-d' }}">
+                                           value="{{ today }}">
                                 </div>
                             </div>
                         </div>
@@ -88,7 +89,7 @@
                                         <i class="fas fa-calendar-alt"></i>
                                     </span>
                                     <input type="date" class="form-control" name="end_date" id="end_date"
-                                           value="{{ tomorrow|date:'Y-m-d' }}">
+                                           value="{{ tomorrow }}">
                                 </div>
                             </div>
                         </div>
@@ -103,12 +104,12 @@
                                         <i class="fas fa-users"></i>
                                     </span>
                                     <select class="form-select" name="travelers" id="travelers">
-                                        <option value="1">1 Person</option>
-                                        <option value="2" selected>2 People</option>
-                                        <option value="3">3 People</option>
-                                        <option value="4">4 People</option>
-                                        <option value="5">5 People</option>
-                                        <option value="6">6+ People</option>
+                                        <option value="1" {% if travelers == 1 %}selected{% endif %}>1 Person</option>
+                                        <option value="2" {% if travelers == 2 or not travelers %}selected{% endif %}>2 People</option>
+                                        <option value="3" {% if travelers == 3 %}selected{% endif %}>3 People</option>
+                                        <option value="4" {% if travelers == 4 %}selected{% endif %}>4 People</option>
+                                        <option value="5" {% if travelers == 5 %}selected{% endif %}>5 People</option>
+                                        <option value="6" {% if travelers == 6 %}selected{% endif %}>6+ People</option>
                                     </select>
                                 </div>
                             </div>
@@ -191,6 +192,13 @@
                         </button>
                     </div>
                 </form>
+                
+                <!-- Clear Form Button -->
+<div class="text-center mt-4">
+    <button type="button" class="btn btn-outline-secondary" id="clearFormBtn">
+        <i class="fas fa-redo me-2"></i>Clear Form & Start Over
+    </button>
+</div>
             </div>
         </div>
     </div>
@@ -208,24 +216,64 @@
         
         const startDate = document.getElementById('start_date');
         const endDate = document.getElementById('end_date');
+        const travelersSelect = document.getElementById('travelers');
         const selectHotelBtn = document.getElementById('selectHotelBtn');
         const selectTransportBtn = document.getElementById('selectTransportBtn');
         const changeHotelBtn = document.getElementById('changeHotelBtn');
         const changeTransportBtn = document.getElementById('changeTransportBtn');
         const selectedHotelId = document.getElementById('selected_hotel_id');
         const selectedTransportId = document.getElementById('selected_transport_id');
+        const selectedTransportType = document.getElementById('selected_transport_type');
         const continueBtn = document.getElementById('continueBtn');
+        const clearFormBtn = document.getElementById('clearFormBtn');
         
-        // Set default dates
-        const today = new Date().toISOString().split('T')[0];
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        // ========== RESTORE FORM VALUES FROM CONTEXT ==========
+        // Set values from Django context (these come from the view)
+        if ('{{ origin_input|escapejs }}' && '{{ origin_input|escapejs }}' !== '') {
+            originInput.value = '{{ origin_input|escapejs }}';
+            originInput.classList.add('is-valid');
+        }
         
-        if (!startDate.value) startDate.value = today;
-        if (!endDate.value) endDate.value = tomorrowStr;
+        if ('{{ selected_origin_id }}' && '{{ selected_origin_id }}' !== '') {
+            originIdInput.value = '{{ selected_origin_id }}';
+        }
+        
+        if ('{{ destination_input|escapejs }}' && '{{ destination_input|escapejs }}' !== '') {
+            destinationInput.value = '{{ destination_input|escapejs }}';
+            destinationInput.classList.add('is-valid');
+        }
+        
+        if ('{{ selected_destination_id }}' && '{{ selected_destination_id }}' !== '') {
+            destinationIdInput.value = '{{ selected_destination_id }}';
+        }
+        
+        // Set travelers
+        if ('{{ travelers }}' && '{{ travelers }}' !== '') {
+            travelersSelect.value = '{{ travelers }}';
+        }
+        
+        // Set today and tomorrow from context
+        if ('{{ today }}' && '{{ today }}' !== '') {
+            startDate.value = '{{ today }}';
+        }
+        
+        if ('{{ tomorrow }}' && '{{ tomorrow }}' !== '') {
+            endDate.value = '{{ tomorrow }}';
+        }
+        
+        // If no dates set, use defaults
+        if (!startDate.value) {
+            const today = new Date().toISOString().split('T')[0];
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            startDate.value = today;
+            endDate.value = tomorrowStr;
+        }
         
         // Date validation
+        const today = new Date().toISOString().split('T')[0];
         startDate.min = today;
         endDate.min = today;
         
@@ -236,13 +284,12 @@
             }
         });
         
-        // Improved search function with better filtering
+        // ========== AUTOCOMPLETE FUNCTIONS ==========
         async function searchLocations(query) {
             try {
                 const response = await fetch(`/planner/search-destinations/?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
                 
-                // If no results with the query, try broader search
                 if (!data.results || data.results.length === 0) {
                     if (query.length > 1) {
                         const firstLetter = query[0].toUpperCase();
@@ -258,7 +305,6 @@
             }
         }
         
-        // Setup autocomplete for any input
         function setupAutocomplete(inputElement, idInput, suggestionsDiv, fieldName) {
             let debounceTimer;
             
@@ -277,7 +323,6 @@
                     const results = await searchLocations(query);
                     
                     if (results.length > 0) {
-                        // Sort results: exact matches first, then partial matches
                         const exactMatches = results.filter(r => 
                             r.name.toLowerCase().startsWith(query.toLowerCase())
                         );
@@ -295,7 +340,6 @@
                         
                         suggestionsDiv.style.display = 'block';
                         
-                        // Add click handlers
                         suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
                             item.addEventListener('click', function() {
                                 inputElement.value = this.getAttribute('data-name');
@@ -303,7 +347,6 @@
                                 suggestionsDiv.style.display = 'none';
                                 inputElement.classList.add('is-valid');
                                 
-                                // Validate origin and destination are different
                                 validateLocations();
                                 updateContinueButton();
                             });
@@ -317,21 +360,6 @@
                     }
                 }, 250);
             });
-        }
-        
-        // Validate that origin and destination are different
-        function validateLocations() {
-            const originId = originIdInput.value;
-            const destinationId = destinationIdInput.value;
-            
-            if (originId && destinationId && originId === destinationId) {
-                alert('Departure and destination cannot be the same. Please choose different locations.');
-                destinationInput.value = '';
-                destinationIdInput.value = '';
-                destinationInput.classList.remove('is-valid');
-                return false;
-            }
-            return true;
         }
         
         // Setup autocomplete for both fields
@@ -348,14 +376,27 @@
             }
         });
         
-        // Update validation function
+        // ========== VALIDATION FUNCTIONS ==========
+        function validateLocations() {
+            const originId = originIdInput.value;
+            const destinationId = destinationIdInput.value;
+            
+            if (originId && destinationId && originId === destinationId) {
+                alert('Departure and destination cannot be the same. Please choose different locations.');
+                destinationInput.value = '';
+                destinationIdInput.value = '';
+                destinationInput.classList.remove('is-valid');
+                return false;
+            }
+            return true;
+        }
+        
         function updateContinueButton() {
             const hasOrigin = originIdInput.value.trim() !== '';
             const hasDestination = destinationIdInput.value.trim() !== '';
             const hasHotel = selectedHotelId && selectedHotelId.value;
             const hasTransport = selectedTransportId && selectedTransportId.value;
             
-            // Check if origin and destination are different
             const areDifferent = hasOrigin && hasDestination && originIdInput.value !== destinationIdInput.value;
             
             // Enable/disable hotel selection button
@@ -369,6 +410,17 @@
                 }
             }
             
+            // Enable/disable transport selection button
+            if (selectTransportBtn) {
+                if (areDifferent && startDate.value && endDate.value) {
+                    selectTransportBtn.style.pointerEvents = 'auto';
+                    selectTransportBtn.style.opacity = '1';
+                } else {
+                    selectTransportBtn.style.pointerEvents = 'none';
+                    selectTransportBtn.style.opacity = '0.5';
+                }
+            }
+            
             // Enable/disable continue button
             if (hasOrigin && hasDestination && hasHotel && hasTransport && areDifferent) {
                 continueBtn.disabled = false;
@@ -377,32 +429,41 @@
             }
         }
         
-        // Hotel selection
-        if (selectHotelBtn) {
-            selectHotelBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                
+        // ========== SAVE TRIP INFO FUNCTION ==========
+        async function saveTripInfo() {
+            return new Promise((resolve, reject) => {
                 if (!validateLocations()) {
+                    reject('Invalid locations');
                     return;
                 }
                 
                 if (!originIdInput.value || !destinationIdInput.value) {
-                    alert('Please select both departure and destination first.');
+                    reject('Please select both departure and destination first.');
                     return;
                 }
                 
                 if (!startDate.value || !endDate.value) {
-                    alert('Please select travel dates first.');
+                    reject('Please select travel dates first.');
                     return;
                 }
                 
-                // Save basic trip info
                 const formData = new FormData();
                 formData.append('origin_id', originIdInput.value);
                 formData.append('destination_id', destinationIdInput.value);
                 formData.append('start_date', startDate.value);
                 formData.append('end_date', endDate.value);
-                formData.append('travelers', document.getElementById('travelers').value);
+                formData.append('travelers', travelersSelect.value);
+                
+                // Also save hotel and transport if they exist
+                if (selectedHotelId && selectedHotelId.value) {
+                    formData.append('hotel_id', selectedHotelId.value);
+                }
+                
+                if (selectedTransportId && selectedTransportId.value) {
+                    formData.append('transport_id', selectedTransportId.value);
+                    formData.append('transport_type', selectedTransportType.value);
+                }
+                
                 formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
                 
                 fetch('{% url "planner:plan" %}', {
@@ -415,50 +476,159 @@
                 })
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Server response:', data);
                     if (data.success && data.trip_id) {
-                        window.location.href = `/planner/plan/${data.trip_id}/hotels/`;
+                        resolve(data.trip_id);
                     } else {
-                        alert('Error: ' + (data.error || 'Please try again.'));
+                        reject(data.error || 'Please try again.');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
+                    reject('An error occurred. Please try again.');
                 });
             });
         }
         
-        // Form submission
-        const form = document.getElementById('tripForm');
-        form.addEventListener('submit', function(e) {
-            if (!originIdInput.value) {
+        // ========== BUTTON EVENT HANDLERS ==========
+        // Hotel selection button
+        if (selectHotelBtn) {
+            selectHotelBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
-                alert('Please select a departure location.');
-                originInput.focus();
-                return false;
-            }
-            
-            if (!destinationIdInput.value) {
-                e.preventDefault();
-                alert('Please select a destination.');
-                destinationInput.focus();
-                return false;
-            }
-            
-            if (!validateLocations()) {
-                e.preventDefault();
-                return false;
-            }
-            
-            // Show loading state
-            continueBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-            continueBtn.disabled = true;
-            
-            return true;
-        });
+                
+                try {
+                    const tripId = await saveTripInfo();
+                    window.location.href = `/planner/select-hotel-map/${tripId}/`;
+                } catch (error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
         
-        // Initialize
+        // Transport selection button
+        if (selectTransportBtn) {
+            selectTransportBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                
+                try {
+                    const tripId = await saveTripInfo();
+                    window.location.href = `/planner/select-transport-category/${tripId}/`;
+                } catch (error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+        
+        // Change Hotel button
+        if (changeHotelBtn) {
+            changeHotelBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                
+                try {
+                    // Clear the current hotel selection
+                    if (selectedHotelId) {
+                        selectedHotelId.value = '';
+                    }
+                    
+                    // Save trip info and redirect to hotel selection
+                    const tripId = await saveTripInfo();
+                    window.location.href = `/planner/select-hotel-map/${tripId}/`;
+                } catch (error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+        
+        // Change Transport button
+        if (changeTransportBtn) {
+            changeTransportBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                
+                try {
+                    // Clear the current transport selection
+                    if (selectedTransportId) selectedTransportId.value = '';
+                    if (selectedTransportType) selectedTransportType.value = '';
+                    
+                    // Save trip info and redirect to transport selection
+                    const tripId = await saveTripInfo();
+                    window.location.href = `/planner/select-transport-category/${tripId}/`;
+                } catch (error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+        
+        // Clear Form button
+        if (clearFormBtn) {
+            clearFormBtn.addEventListener('click', function() {
+                // Clear all form fields
+                originInput.value = '';
+                originIdInput.value = '';
+                originInput.classList.remove('is-valid');
+                
+                destinationInput.value = '';
+                destinationIdInput.value = '';
+                destinationInput.classList.remove('is-valid');
+                
+                if (selectedHotelId) selectedHotelId.value = '';
+                if (selectedTransportId) selectedTransportId.value = '';
+                if (selectedTransportType) selectedTransportType.value = '';
+                
+                // Reset to default dates
+                const today = new Date().toISOString().split('T')[0];
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                
+                startDate.value = today;
+                endDate.value = tomorrowStr;
+                
+                travelersSelect.value = '2';
+                
+                // Update UI
+                updateContinueButton();
+                
+                // Show message
+                alert('Form cleared. You can start a new trip.');
+            });
+        }
+         // ========== FORM SUBMISSION ==========
+const form = document.getElementById('tripForm');
+form.addEventListener('submit', function(e) {
+    e.preventDefault();  // ← ADD THIS LINE to prevent default submission
+    
+    if (!originIdInput.value) {
+        alert('Please select a departure location.');
+        originInput.focus();
+        return false;
+    }
+    
+    if (!destinationIdInput.value) {
+        alert('Please select a destination.');
+        destinationInput.focus();
+        return false;
+    }
+    
+    if (!validateLocations()) {
+        return false;
+    }
+    
+    // Show loading state
+    continueBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    continueBtn.disabled = true;
+    
+    // Submit the form programmatically
+    this.submit();
+});
+        // ========== FORM SUBMISSION ==========
+        
+        // ========== INITIALIZATION ==========
+        // Initial validation
+        validateLocations();
         updateContinueButton();
+        
+        // Call updateContinueButton after a short delay to ensure DOM is ready
+        setTimeout(updateContinueButton, 100);
     });
 </script>
 
@@ -508,6 +678,15 @@
 .selection-made {
     background: #f8f9fa;
     border-color: #dee2e6 !important;
+}
+
+/* Style for form validation */
+.is-valid {
+    border-color: #198754 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(.375em + .1875rem) center;
+    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
 }
 </style>
 {% endblock %}

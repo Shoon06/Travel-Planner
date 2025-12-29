@@ -1,0 +1,70 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_edit_hotel.html -->
+{% extends 'base.html' %}
+{% block title %}Edit Hotel - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-hotel fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Edit Hotel</h2>
+                    <p class="text-gray">Update hotel information</p>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Update Hotel
+                        </button>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-4">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background: white;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+    }
+</style>
+{% endblock %}

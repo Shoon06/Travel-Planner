@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_user_roles.html -->
 {% extends 'base.html' %}
 {% block title %}User Role Management - Admin - GoMyanmar{% endblock %}
 
@@ -23,12 +24,6 @@
         </div>
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="card-glass p-3 text-center">
-                <h3 class="mb-2" style="color: #2c3e50;">{{ users|length }}</h3>
-                <p class="mb-0" style="color: #7f8c8d;">Displayed</p>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card-glass p-3 text-center">
                 <h3 class="mb-2" style="color: #2c3e50;">{{ admin_count }}</h3>
                 <p class="mb-0" style="color: #7f8c8d;">Admins</p>
             </div>
@@ -39,167 +34,166 @@
                 <p class="mb-0" style="color: #7f8c8d;">Regular Users</p>
             </div>
         </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">2</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Role Types</p>
+            </div>
+        </div>
     </div>
     
     <!-- Users Table with Role Management -->
     <div class="card-glass p-4">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th style="color: #2c3e50;">User</th>
-                        <th style="color: #2c3e50;">Current Role</th>
-                        <th style="color: #2c3e50;">Change Role</th>
-                        <th style="color: #2c3e50;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                {% if user.profile_picture %}
-                                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
-                                     class="rounded-circle me-2" width="40" height="40">
+        <form method="post" id="roleForm">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="color: #2c3e50;">User</th>
+                            <th style="color: #2c3e50;">Current Role</th>
+                            <th style="color: #2c3e50;">Change Role</th>
+                            <th style="color: #2c3e50;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if user.profile_picture %}
+                                    <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                         class="rounded-circle me-2" width="40" height="40">
+                                    {% else %}
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                         style="width: 40px; height: 40px; background: linear-gradient(135deg, #6B47A4, #3498db);">
+                                        <span class="text-white fw-bold">{{ user.username|first|upper }}</span>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <strong style="color: #2c3e50;">{{ user.username }}</strong>
+                                        <div class="text-gray small">{{ user.email }}</div>
+                                        {% if user == request.user %}
+                                        <div class="text-warning small">(Your Account)</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if user.user_type == 'admin' %}
+                                <span class="badge bg-danger px-3 py-2">
+                                    <i class="fas fa-crown me-1"></i>Administrator
+                                </span>
                                 {% else %}
-                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
-                                     style="width: 40px; height: 40px;">
-                                    <i class="fas fa-user text-gray"></i>
-                                </div>
+                                <span class="badge bg-primary px-3 py-2">
+                                    <i class="fas fa-user me-1"></i>Regular User
+                                </span>
                                 {% endif %}
-                                <div>
-                                    <strong style="color: #2c3e50;">{{ user.username }}</strong>
-                                    <div class="text-gray small">{{ user.email }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if user.user_type == 'admin' %}
-                            <span class="badge bg-danger">
-                                <i class="fas fa-crown me-1"></i>Administrator
-                            </span>
-                            {% else %}
-                            <span class="badge bg-primary">
-                                <i class="fas fa-user me-1"></i>Regular User
-                            </span>
-                            {% endif %}
-                            {% if user == request.user %}
-                            <div class="text-gray small">(You)</div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <select class="form-select role-select" data-user-id="{{ user.id }}" 
-                                    {% if user == request.user %}disabled{% endif %}>
-                                <option value="user" {% if user.user_type == 'user' %}selected{% endif %}>Regular User</option>
-                                <option value="admin" {% if user.user_type == 'admin' %}selected{% endif %}>Administrator</option>
-                            </select>
-                        </td>
-                        <td>
-                            <div class="btn-group" role="group">
-                                <button class="btn btn-sm btn-outline-primary save-role-btn" 
+                            </td>
+                            <td>
+                                <select name="user_type" class="form-select role-select" 
                                         data-user-id="{{ user.id }}"
                                         {% if user == request.user %}disabled{% endif %}>
-                                    <i class="fas fa-save me-1"></i>Save
-                                </button>
-                                <a href="/admin/users/customuser/{{ user.id }}/change/" 
-                                   class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center py-4">
-                            <i class="fas fa-users fa-3x text-gray mb-3"></i>
-                            <h5 style="color: #2c3e50;">No users found</h5>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Pagination -->
-        {% if is_paginated %}
-        <nav aria-label="Page navigation" class="mt-4">
-            <ul class="pagination justify-content-center">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-                </li>
-                {% endif %}
-                
-                {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% else %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                </li>
-                {% endif %}
-                {% endfor %}
-                
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
+                                    {% for value, label in user_types %}
+                                    <option value="{{ value }}" {% if user.user_type == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <input type="hidden" name="user_id" class="user-id-input" value="{{ user.id }}">
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary save-role-btn" 
+                                            name="action" value="update_role"
+                                            data-user-id="{{ user.id }}"
+                                            {% if user == request.user %}disabled{% endif %}>
+                                        <i class="fas fa-save me-1"></i>Update
+                                    </button>
+                                    <a href="/admin/users/customuser/{{ user.id }}/change/" 
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4">
+                                <i class="fas fa-users fa-3x text-gray mb-3"></i>
+                                <h5 style="color: #2c3e50;">No users found</h5>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
     </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Save role changes
-        document.querySelectorAll('.save-role-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const userId = this.getAttribute('data-user-id');
-                const selectElement = document.querySelector(`.role-select[data-user-id="${userId}"]`);
+        const roleForm = document.getElementById('roleForm');
+        
+        // Handle form submission
+        roleForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitButton = e.submitter || document.activeElement;
+            if (submitButton && submitButton.name === 'action' && submitButton.value === 'update_role') {
+                const userId = submitButton.getAttribute('data-user-id');
+                const selectElement = this.querySelector(`.role-select[data-user-id="${userId}"]`);
                 const newRole = selectElement.value;
                 
                 if (confirm('Are you sure you want to change this user\'s role?')) {
-                    fetch('{% url "users:admin_update_user_role" %}', {
+                    // Submit the form for this specific user
+                    const userInput = this.querySelector(`.user-id-input[value="${userId}"]`);
+                    const formData = new FormData(this);
+                    
+                    fetch('', {
                         method: 'POST',
+                        body: formData,
                         headers: {
-                            'X-CSRFToken': '{{ csrf_token }}',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            user_id: userId,
-                            role: newRole
-                        })
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert(data.message);
+                    .then(response => {
+                        if (response.ok) {
                             location.reload();
                         } else {
-                            alert('Error: ' + data.error);
+                            alert('Error updating role.');
                         }
                     })
                     .catch(error => {
-                        alert('Error saving role change.');
+                        console.error('Error:', error);
+                        alert('Error updating role.');
                     });
                 }
-            });
+            }
         });
         
         // Update button state when role selection changes
         document.querySelectorAll('.role-select').forEach(select => {
             // Store original value
             const originalValue = select.value;
+            const userId = select.getAttribute('data-user-id');
+            const saveBtn = document.querySelector(`.save-role-btn[data-user-id="${userId}"]`);
+            
+            // Check if this is the current user's row
+            const row = select.closest('tr');
+            if (row.querySelector('.text-warning')) {
+                // Disable for current user
+                saveBtn.disabled = true;
+                saveBtn.classList.remove('btn-outline-primary');
+                saveBtn.classList.add('btn-outline-secondary');
+                return;
+            }
             
             select.addEventListener('change', function() {
-                const userId = this.getAttribute('data-user-id');
-                const saveBtn = document.querySelector(`.save-role-btn[data-user-id="${userId}"]`);
-                
                 if (this.value !== originalValue) {
                     saveBtn.disabled = false;
-                    saveBtn.classList.remove('btn-outline-primary');
+                    saveBtn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
                     saveBtn.classList.add('btn-primary');
                 } else {
                     saveBtn.disabled = true;

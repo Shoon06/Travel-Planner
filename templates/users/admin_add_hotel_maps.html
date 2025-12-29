@@ -1,0 +1,352 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_hotel_maps.html -->
+{% extends 'base.html' %}
+{% block title %}Add Hotel with Google Maps - Admin - GoMyanmar{% endblock %}
+
+{% block extra_css %}
+<style>
+    #locationMap {
+        height: 400px;
+        width: 100%;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    
+    .location-search {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+    
+    .pac-container {
+        z-index: 1050 !important;
+    }
+    
+    .coordinates-display {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    .marker-instructions {
+        background: #e3f2fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-map-marked-alt fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Google Maps</h2>
+                    <p class="text-gray">Select location on map to add hotel in empty areas</p>
+                </div>
+                
+                <!-- Real Hotels Notice -->
+                <div class="alert alert-info mb-4">
+                    <h5><i class="fas fa-info-circle me-2"></i>Important Notice</h5>
+                    <p class="mb-2">
+                        You can add hotels in locations where no real hotels exist. 
+                        Use the map below to check for existing hotels in the area.
+                    </p>
+                    <p class="mb-0">
+                        <strong>Booking:</strong> Hotels added through this system can be booked 
+                        through our platform (not through real hotel websites).
+                    </p>
+                </div>
+                
+                <!-- Google Map -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-map me-2"></i>Location Selector
+                        <small class="text-gray">Drag the marker to set hotel location</small>
+                    </h5>
+                    
+                    <div class="location-search">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="locationSearch" 
+                                   placeholder="Search for location...">
+                            <button class="btn btn-outline-primary" type="button" id="checkExistingHotels">
+                                <i class="fas fa-hotel me-2"></i>Check Existing Hotels
+                            </button>
+                        </div>
+                        <div id="existingHotelsAlert" class="alert alert-warning mt-2" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="hotelsCountText">0 hotels found in this area.</span>
+                            <span id="hotelsList"></span>
+                        </div>
+                    </div>
+                    
+                    <div id="locationMap"></div>
+                    
+                    <div class="coordinates-display mt-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Latitude</label>
+                                <input type="text" class="form-control" id="displayLatitude" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Longitude</label>
+                                <input type="text" class="form-control" id="displayLongitude" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hotel Form -->
+                <form method="post" enctype="multipart/form-data" id="hotelForm">
+                    {% csrf_token %}
+                    
+                    <!-- Hidden coordinates fields -->
+                    <input type="hidden" name="latitude" id="latitude" required>
+                    <input type="hidden" name="longitude" id="longitude" required>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold">Hotel Name</label>
+                            <input type="text" name="name" class="form-control" required
+                                   placeholder="e.g., My Custom Hotel">
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold">Destination</label>
+                            <select name="destination" class="form-select" required>
+                                <option value="">Select Destination</option>
+                                {% for dest in destinations %}
+                                <option value="{{ dest.id }}">{{ dest.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Address (from map)</label>
+                        <textarea name="address" class="form-control" rows="2" 
+                                  id="addressField" required readonly></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-4">
+                            <label class="form-label fw-bold">Price (MMK)</label>
+                            <input type="number" name="price_per_night" class="form-control" 
+                                   min="0" step="1000" required
+                                   placeholder="e.g., 50000">
+                            <small class="text-muted">Price in Myanmar Kyat per night</small>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <label class="form-label fw-bold">Category</label>
+                            <select name="category" class="form-select" required>
+                                <option value="budget">Budget (Under 50,000 MMK)</option>
+                                <option value="medium">Medium (50,000 - 150,000 MMK)</option>
+                                <option value="luxury">Luxury (150,000+ MMK)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <label class="form-label fw-bold">Rating</label>
+                            <input type="number" name="rating" class="form-control" 
+                                   min="0" max="5" step="0.1"
+                                   placeholder="e.g., 4.5">
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                            <i class="fas fa-plus me-2"></i>Add Hotel at Selected Location
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Maps API -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initAdminMap" async defer></script>
+
+<script>
+    let adminMap;
+    let marker;
+    let geocoder;
+    let placesService;
+    
+    function initAdminMap() {
+        // Initialize map centered on Myanmar
+        adminMap = new google.maps.Map(document.getElementById('locationMap'), {
+            center: { lat: 21.9588, lng: 96.0891 }, // Myanmar center
+            zoom: 6,
+            mapTypeControl: true,
+            streetViewControl: false
+        });
+        
+        geocoder = new google.maps.Geocoder();
+        placesService = new google.maps.places.PlacesService(adminMap);
+        
+        // Add initial marker
+        marker = new google.maps.Marker({
+            map: adminMap,
+            draggable: true,
+            animation: google.maps.Animation.DROP,
+            title: "Drag me to set hotel location"
+        });
+        
+        // Set initial position to Yangon
+        const yangon = { lat: 16.8409, lng: 96.1735 };
+        marker.setPosition(yangon);
+        adminMap.setCenter(yangon);
+        updateLocationInfo(yangon);
+        
+        // Marker drag event
+        marker.addListener('dragend', function() {
+            const position = marker.getPosition();
+            updateLocationInfo(position);
+            checkExistingHotelsAtLocation(position);
+        });
+        
+        // Map click event
+        adminMap.addListener('click', function(event) {
+            marker.setPosition(event.latLng);
+            updateLocationInfo(event.latLng);
+            checkExistingHotelsAtLocation(event.latLng);
+        });
+        
+        // Search box
+        const input = document.getElementById('locationSearch');
+        const searchBox = new google.maps.places.SearchBox(input);
+        
+        searchBox.addListener('places_changed', function() {
+            const places = searchBox.getPlaces();
+            if (places.length === 0) return;
+            
+            const place = places[0];
+            if (!place.geometry) return;
+            
+            marker.setPosition(place.geometry.location);
+            adminMap.setCenter(place.geometry.location);
+            adminMap.setZoom(15);
+            
+            updateLocationInfo(place.geometry.location);
+            checkExistingHotelsAtLocation(place.geometry.location);
+        });
+        
+        // Check existing hotels button
+        document.getElementById('checkExistingHotels').addEventListener('click', function() {
+            const position = marker.getPosition();
+            checkExistingHotelsAtLocation(position);
+        });
+    }
+    
+    function updateLocationInfo(position) {
+        const lat = position.lat();
+        const lng = position.lng();
+        
+        // Update display
+        document.getElementById('displayLatitude').value = lat.toFixed(6);
+        document.getElementById('displayLongitude').value = lng.toFixed(6);
+        
+        // Update hidden fields
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        
+        // Enable submit button
+        document.getElementById('submitBtn').disabled = false;
+        
+        // Reverse geocode to get address
+        geocoder.geocode({ location: position }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+                document.getElementById('addressField').value = results[0].formatted_address;
+            } else {
+                document.getElementById('addressField').value = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+            }
+        });
+    }
+    
+    function checkExistingHotelsAtLocation(position) {
+        const radius = 500; // 500 meters radius
+        
+        placesService.nearbySearch({
+            location: position,
+            radius: radius,
+            type: 'lodging'
+        }, (results, status) => {
+            const alertDiv = document.getElementById('existingHotelsAlert');
+            const countText = document.getElementById('hotelsCountText');
+            const hotelsList = document.getElementById('hotelsList');
+            
+            if (status === 'OK') {
+                const existingHotels = results.filter(place => 
+                    place.business_status === 'OPERATIONAL'
+                );
+                
+                if (existingHotels.length > 0) {
+                    countText.textContent = `${existingHotels.length} real hotel(s) found within ${radius}m:`;
+                    
+                    let listHtml = '<ul class="mt-2 mb-0">';
+                    existingHotels.slice(0, 3).forEach(hotel => {
+                        listHtml += `<li>${hotel.name} (${Math.round(hotel.vicinity || '')})</li>`;
+                    });
+                    if (existingHotels.length > 3) {
+                        listHtml += `<li>... and ${existingHotels.length - 3} more</li>`;
+                    }
+                    listHtml += '</ul>';
+                    
+                    hotelsList.innerHTML = listHtml;
+                    alertDiv.style.display = 'block';
+                    
+                    // Warn admin
+                    if (existingHotels.length >= 2) {
+                        alertDiv.className = 'alert alert-danger mt-2';
+                        countText.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>
+                            ${existingHotels.length} hotels already exist in this area! 
+                            Consider choosing a different location.`;
+                    } else {
+                        alertDiv.className = 'alert alert-warning mt-2';
+                    }
+                } else {
+                    alertDiv.style.display = 'none';
+                }
+            } else {
+                alertDiv.style.display = 'none';
+            }
+        });
+    }
+    
+    // Form validation
+    document.getElementById('hotelForm').addEventListener('submit', function(e) {
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        
+        if (!lat || !lng) {
+            e.preventDefault();
+            alert('Please select a location on the map first.');
+            return false;
+        }
+        
+        // Confirm if there are existing hotels
+        const alertDiv = document.getElementById('existingHotelsAlert');
+        if (alertDiv.style.display === 'block' && alertDiv.className.includes('alert-danger')) {
+            const confirmAdd = confirm(
+                'Warning: There are existing hotels in this area. ' +
+                'Are you sure you want to add a hotel here?'
+            );
+            if (!confirmAdd) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        
+        return true;
+    });
+</script>
+{% endblock %}

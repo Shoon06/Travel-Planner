@@ -1,0 +1,243 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_system_settings.html -->
+{% extends 'base.html' %}
+{% block title %}System Settings - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">System Settings</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Configure system preferences and settings</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Statistics -->
+    <div class="card-glass p-4 mb-4">
+        <h4 style="color: #2c3e50;" class="mb-3">System Overview</h4>
+        <div class="row g-3">
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
+                    <i class="fas fa-users fa-2x mb-2" style="color: #3498db;"></i>
+                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_users }}</h5>
+                    <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
+                    <i class="fas fa-suitcase fa-2x mb-2" style="color: #6B47A4;"></i>
+                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_trips }}</h5>
+                    <p class="mb-0" style="color: #7f8c8d;">Total Trips</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
+                    <i class="fas fa-map-marked-alt fa-2x mb-2" style="color: #2ecc71;"></i>
+                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_destinations }}</h5>
+                    <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
+                    <i class="fas fa-database fa-2x mb-2" style="color: #f39c12;"></i>
+                    <h5 class="mb-1" style="color: #2c3e50;">{{ db_size|default:"0 MB" }}</h5>
+                    <p class="mb-0" style="color: #7f8c8d;">Database Size</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Sections -->
+    <div class="row">
+        <!-- General Settings -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">
+                    <i class="fas fa-cog me-2"></i>General Settings
+                </h4>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">Site Name</label>
+                    <input type="text" class="form-control" value="GoMyanmar" readonly>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">Site Description</label>
+                    <textarea class="form-control" rows="3" readonly>Myanmar's Premier Travel Planning Platform</textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">Default Currency</label>
+                    <select class="form-select">
+                        <option selected>MMK - Myanmar Kyat</option>
+                        <option>USD - US Dollar</option>
+                    </select>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="maintenance_mode">
+                    <label class="form-check-label text-gray" for="maintenance_mode">
+                        Enable Maintenance Mode
+                    </label>
+                </div>
+                
+                <button class="btn btn-primary w-100">
+                    <i class="fas fa-save me-2"></i>Save General Settings
+                </button>
+            </div>
+        </div>
+        
+        <!-- Email Settings -->
+        <div class="col-lg-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">
+                    <i class="fas fa-envelope me-2"></i>Email Settings
+                </h4>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">SMTP Host</label>
+                    <input type="text" class="form-control" placeholder="smtp.gmail.com">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">SMTP Port</label>
+                    <input type="number" class="form-control" placeholder="587">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">Email Address</label>
+                    <input type="email" class="form-control" placeholder="noreply@gomyanmar.com">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">Email Password</label>
+                    <input type="password" class="form-control" placeholder="••••••••">
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="email_notifications" checked>
+                    <label class="form-check-label text-gray" for="email_notifications">
+                        Enable Email Notifications
+                    </label>
+                </div>
+                
+                <button class="btn btn-primary w-100">
+                    <i class="fas fa-save me-2"></i>Save Email Settings
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="col-12 mb-4">
+            <div class="card-glass p-4">
+                <h4 style="color: #2c3e50;" class="mb-3">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h4>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="/admin/" class="btn btn-outline-primary w-100" target="_blank">
+                            <i class="fas fa-cogs me-2"></i>Django Admin
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'users:admin_database_backup' %}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-database me-2"></i>Database Backup
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-warning w-100" onclick="clearCache()">
+                            <i class="fas fa-broom me-2"></i>Clear Cache
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-info w-100" onclick="runMaintenance()">
+                            <i class="fas fa-tools me-2"></i>Run Maintenance
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Information -->
+        <div class="col-12">
+            <div class="card-glass p-4">
+                <h4 style="color: #2c3e50;" class="mb-3">
+                    <i class="fas fa-info-circle me-2"></i>System Information
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-borderless">
+                        <tbody>
+                            <tr>
+                                <td style="color: #2c3e50; width: 30%;">System Version</td>
+                                <td style="color: #7f8c8d;">GoMyanmar v1.0.0</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #2c3e50;">Database Tables</td>
+                                <td style="color: #7f8c8d;">{{ table_count|default:"N/A" }} tables</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #2c3e50;">Database Engine</td>
+                                <td style="color: #7f8c8d;">SQLite</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #2c3e50;">Python Version</td>
+                                <td style="color: #7f8c8d;">3.x</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #2c3e50;">Django Version</td>
+                                <td style="color: #7f8c8d;">4.x</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #2c3e50;">Server Time</td>
+                                <td style="color: #7f8c8d;">{% now "F d, Y H:i:s" %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function clearCache() {
+        if (confirm('Are you sure you want to clear all cache?')) {
+            fetch('/admin/clear-cache/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Cache cleared successfully!');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    }
+    
+    function runMaintenance() {
+        if (confirm('Run system maintenance tasks?')) {
+            fetch('/admin/run-maintenance/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Maintenance tasks completed successfully!');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

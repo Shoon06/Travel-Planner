@@ -1,0 +1,344 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_hotel_maps.html -->
+{% extends 'base.html' %}
+{% block title %}Add Hotel with Map - Admin - GoMyanmar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #locationMap {
+        height: 400px;
+        width: 100%;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+    
+    .map-container {
+        position: relative;
+    }
+    
+    .map-instructions {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #3b82f6;
+    }
+    
+    .location-display {
+        background: #e8f5e9;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-map-marked-alt fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Map Location</h2>
+                    <p class="text-gray">Add a new hotel and select its exact location on the map</p>
+                </div>
+                
+                <div class="map-instructions">
+                    <h6><i class="fas fa-info-circle me-2"></i>How to use:</h6>
+                    <ol class="mb-0">
+                        <li>Fill in the hotel details</li>
+                        <li>Enter the address in the address field</li>
+                        <li>Click "Find on Map" to geocode the address</li>
+                        <li>Drag the marker to adjust the exact location</li>
+                        <li>Click "Add Hotel" to save with location</li>
+                    </ol>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data" id="hotelForm" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Hidden fields for coordinates -->
+                    <input type="hidden" name="latitude" id="latitude" value="{{ form.latitude.value|default:'' }}">
+                    <input type="hidden" name="longitude" id="longitude" value="{{ form.longitude.value|default:'' }}">
+                    
+                    <div class="row">
+                        <!-- Hotel Name -->
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
+                            <input type="text" name="name" class="form-control" 
+                                   placeholder="e.g., Mandalay Hill Resort" required
+                                   value="{{ form.name.value|default:'' }}">
+                        </div>
+                        
+                        <!-- Destination -->
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
+                            <select name="destination" class="form-select" required id="destinationSelect">
+                                <option value="">Select Destination</option>
+                                {% for dest in destinations %}
+                                <option value="{{ dest.id }}" 
+                                    {% if form.destination.value == dest.id %}selected{% endif %}
+                                    data-lat="{{ dest.latitude|default:'21.9588' }}"
+                                    data-lng="{{ dest.longitude|default:'96.0891' }}">
+                                    {{ dest.name }} ({{ dest.region }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Address with Geocode Button -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Address *</label>
+                        <div class="input-group">
+                            <textarea name="address" class="form-control" rows="2" 
+                                      placeholder="Enter complete hotel address" 
+                                      required id="addressInput">{{ form.address.value|default:'' }}</textarea>
+                            <button type="button" class="btn btn-primary" id="geocodeBtn">
+                                <i class="fas fa-map-marker-alt me-2"></i>Find on Map
+                            </button>
+                        </div>
+                        <small class="text-muted">Enter full address and click "Find on Map" to locate on map</small>
+                    </div>
+                    
+                    <!-- Map Container -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Location on Map</label>
+                        <div class="map-container">
+                            <div id="locationMap"></div>
+                        </div>
+                        <div class="location-display mt-2">
+                            <span id="coordinatesDisplay">
+                                {% if form.latitude.value and form.longitude.value %}
+                                Coordinates: {{ form.latitude.value }}, {{ form.longitude.value }}
+                                {% else %}
+                                Drag the marker or enter address above
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Other fields (rest of your form from admin_add_hotel.html) -->
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
+                            <input type="number" name="price_per_night" class="form-control" 
+                                   placeholder="e.g., 50000" min="0" step="1000" required
+                                   value="{{ form.price_per_night.value|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
+                            <input type="number" name="rating" class="form-control" 
+                                   placeholder="e.g., 4.5" min="0" max="5" step="0.1" required
+                                   value="{{ form.rating.value|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Amenities -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
+                        <textarea name="amenities" class="form-control" rows="2" 
+                                  placeholder="wifi, pool, spa, restaurant, gym, parking, breakfast">{{ form.amenities.value|default:'' }}</textarea>
+                        <small class="text-muted">Enter amenities separated by commas</small>
+                    </div>
+                    
+                    <!-- Category -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
+                        <select name="category" class="form-select" required>
+                            <option value="">Select Category</option>
+                            <option value="budget" {% if form.category.value == 'budget' %}selected{% endif %}>
+                                Budget (Under 50,000 MMK)
+                            </option>
+                            <option value="medium" {% if form.category.value == 'medium' %}selected{% endif %}>
+                                Medium (50,000 - 150,000 MMK)
+                            </option>
+                            <option value="luxury" {% if form.category.value == 'luxury' %}selected{% endif %}>
+                                Luxury (150,000+ MMK)
+                            </option>
+                        </select>
+                    </div>
+                    
+                    <!-- Image -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Image</label>
+                        <input type="file" name="image" class="form-control" accept="image/*">
+                    </div>
+                    
+                    <!-- Real Hotel Checkbox -->
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" name="is_real_hotel" id="is_real_hotel" 
+                               {% if form.is_real_hotel.value|default:False %}checked{% endif %}>
+                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="is_real_hotel">
+                            Mark as real hotel (from Google Maps)
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add Hotel with Location
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let map;
+    let marker;
+    let defaultLat = 21.9588;  // Mandalay center
+    let defaultLng = 96.0891;
+    let currentLat = {{ form.latitude.value|default:"21.9588" }};
+    let currentLng = {{ form.longitude.value|default:"96.0891" }};
+    
+    // Initialize map
+    function initMap() {
+        map = L.map('locationMap').setView([defaultLat, defaultLng], 13);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add initial marker if coordinates exist
+        if (currentLat && currentLng) {
+            addMarker(currentLat, currentLng);
+        } else {
+            // Add default marker
+            addMarker(defaultLat, defaultLng);
+        }
+        
+        // Click on map to add marker
+        map.on('click', function(e) {
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            addMarker(e.latlng.lat, e.latlng.lng);
+        });
+    }
+    
+    // Add marker function
+    function addMarker(lat, lng) {
+        marker = L.marker([lat, lng], {
+            draggable: true
+        }).addTo(map);
+        
+        // Update coordinates when marker is dragged
+        marker.on('dragend', function(e) {
+            const position = marker.getLatLng();
+            updateCoordinates(position.lat, position.lng);
+        });
+        
+        // Set view to marker
+        map.setView([lat, lng], 15);
+        
+        // Update hidden fields
+        updateCoordinates(lat, lng);
+    }
+    
+    // Update coordinates in form
+    function updateCoordinates(lat, lng) {
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        document.getElementById('coordinatesDisplay').textContent = 
+            `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+    
+    // Geocode address using OpenStreetMap Nominatim
+    async function geocodeAddress(address) {
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Myanmar')}&limit=1`
+            );
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                
+                // Remove existing marker
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+                
+                // Add new marker
+                addMarker(lat, lng);
+                
+                return { success: true, lat, lng };
+            } else {
+                return { success: false, error: 'Address not found' };
+            }
+        } catch (error) {
+            console.error('Geocoding error:', error);
+            return { success: false, error: 'Geocoding failed' };
+        }
+    }
+    
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        initMap();
+        
+        // Geocode button
+        document.getElementById('geocodeBtn').addEventListener('click', async function() {
+            const address = document.getElementById('addressInput').value;
+            if (!address.trim()) {
+                alert('Please enter an address first');
+                return;
+            }
+            
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
+            this.disabled = true;
+            
+            const result = await geocodeAddress(address);
+            
+            this.innerHTML = '<i class="fas fa-map-marker-alt me-2"></i>Find on Map';
+            this.disabled = false;
+            
+            if (!result.success) {
+                alert('Could not find address on map. Please try a different address or drag the marker manually.');
+            }
+        });
+        
+        // When destination changes, update map center
+        document.getElementById('destinationSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const lat = parseFloat(selectedOption.dataset.lat) || defaultLat;
+            const lng = parseFloat(selectedOption.dataset.lng) || defaultLng;
+            
+            map.setView([lat, lng], 13);
+            
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+                updateCoordinates(lat, lng);
+            }
+        });
+        
+        // Form validation
+        document.getElementById('hotelForm').addEventListener('submit', function(e) {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            
+            if (!lat || !lng) {
+                e.preventDefault();
+                alert('Please select a location on the map first');
+                return false;
+            }
+            
+            return true;
+        });
+    });
+</script>
+{% endblock %}

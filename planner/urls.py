@@ -1,23 +1,23 @@
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\urls.py
 from django.urls import path
 from . import views
 
 app_name = 'planner'
 
 urlpatterns = [
-    path('', views.DashboardView.as_view(), name='dashboard'),
+    path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('plan/', views.PlanTripView.as_view(), name='plan'),
-    # URL to search destinations (used by the autocomplete in plan.html)
-    path('search-destinations/', views.SearchDestinationsView.as_view(), name='search_destinations'),
-    # URL to view and select a hotel for a specific trip
-    path('plan/<int:trip_id>/hotels/', views.SelectHotelView.as_view(), name='select_hotel'),
-    # URL to save the selected hotel
-    path('plan/<int:trip_id>/hotels/select/', views.SaveHotelView.as_view(), name='save_hotel'),
-    # URL to choose a transport type (Flight, Bus, Car)
-    path('plan/<int:trip_id>/transport/', views.SelectTransportCategoryView.as_view(), name='select_transport_category'),
-    # URL to see the list of options for a chosen transport type
-    path('plan/<int:trip_id>/transport/list/', views.SelectTransportView.as_view(), name='select_transport'),
-    # URL to save the selected transport
-    path('plan/<int:trip_id>/transport/save/', views.SaveTransportView.as_view(), name='save_transport'),
-    # URL to select seats for flight or bus
-    path('plan/<int:trip_id>/transport/<int:transport_id>/seats/', views.SelectSeatsView.as_view(), name='select_seats'),
+    path('clear-trip/', views.ClearTripDataView.as_view(), name='clear_trip'),  # Add this line
+   # path('test/', views.test_view, name='test'),
+    path('search-destinations/', views.DestinationSearchView.as_view(), name='search_destinations'),
+    path('select-hotel/<int:trip_id>/', views.SelectHotelView.as_view(), name='select_hotel'),
+    path('select-hotel-map/<int:trip_id>/', views.SelectHotelWithMapView.as_view(), name='select_hotel_map'),
+    path('save-hotel/<int:trip_id>/', views.SaveHotelView.as_view(), name='save_hotel'),
+    path('filter-hotels/<int:destination_id>/', views.FilterHotelsView.as_view(), name='filter_hotels'),
+    path('get-real-hotels/', views.GetRealHotelsView.as_view(), name='get_real_hotels'),
+    path('book-real-hotel/<int:trip_id>/', views.BookRealHotelView.as_view(), name='book_real_hotel'),
+    path('select-transport/<int:trip_id>/', views.SelectTransportView.as_view(), name='select_transport'),
+    path('select-transport-category/<int:trip_id>/', views.SelectTransportCategoryView.as_view(), name='select_transport_category'),
+    path('select-seats/<int:trip_id>/<int:transport_id>/', views.SelectSeatsView.as_view(), name='select_seats'),
+    path('save-transport/<int:trip_id>/', views.SaveTransportView.as_view(), name='save_transport'),
 ]
