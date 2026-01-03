@@ -4,7 +4,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
-
+from .airport_data import get_airport_info, destination_has_airport
 User = get_user_model()
 
 # ========== ADD THIS NEW MODEL ==========
@@ -51,6 +51,19 @@ class Destination(models.Model):
     
     def __str__(self):
         return f"{self.name}, {self.region}"
+    
+    def has_airport(self):
+        """Check if this destination has an airport"""
+        airport_info = get_airport_info(self.name)
+        return airport_info is not None and airport_info.get('has_airport', False)
+    
+    def get_airport_info(self):
+        """Get airport information for this destination"""
+        return get_airport_info(self.name)
+    
+    def airport_available(self):
+        """Alias for has_airport for template compatibility"""
+        return self.has_airport()
     
     class Meta:
         ordering = ['name']
@@ -107,7 +120,7 @@ class Flight(models.Model):
             'economy_class_rows': 26,
             'premium_seats': ['1A', '1B', '1C', '1D', '1E', '1F',
                              '2A', '2B', '2C', '2D', '2E', '2F'],
-            'occupied_seats': self.get_random_occupied_seats(),
+            'occupied_seats': self.get_real_occupied_seats(),  # CHANGED THIS LINE
             'seat_prices': {
                 'premium': float(self.price) * 1.5,
                 'economy': float(self.price),
@@ -116,22 +129,32 @@ class Flight(models.Model):
         }
         return seat_map
     
-    def get_random_occupied_seats(self):
-        """Generate random occupied seats for demo"""
-        import random
-        total_seats = 180
-        occupied_count = random.randint(20, 80)  # 20-80 seats occupied
-        occupied_seats = set()
-        
-        seats = []
-        for row in range(1, 31):
-            for letter in ['A', 'B', 'C', 'D', 'E', 'F']:
-                seats.append(f"{row}{letter}")
-        
-        occupied_seats = random.sample(seats, occupied_count)
-        return occupied_seats
+    def get_real_occupied_seats(self):
+        """Get actually booked seats from database"""
+        from .models import BookedSeat  # Import here to avoid circular import
+        booked_seats = BookedSeat.objects.filter(
+            transport_type='flight',
+            transport_id=self.id,
+            is_cancelled=False
+        ).values_list('seat_number', flat=True)
+        return list(booked_seats)
+    
+    # REMOVE OR COMMENT OUT THE get_random_occupied_seats METHOD
+    # def get_random_occupied_seats(self):
+    #     """Generate random occupied seats for demo"""
+    #     import random
+    #     total_seats = 180
+    #     occupied_count = random.randint(20, 80)  # 20-80 seats occupied
+    #     occupied_seats = set()
+    #     
+    #     seats = []
+    #     for row in range(1, 31):
+    #         for letter in ['A', 'B', 'C', 'D', 'E', 'F']:
+    #             seats.append(f"{row}{letter}")
+    #     
+    #     occupied_seats = random.sample(seats, occupied_count)
+    #     return occupied_seats
 
-   
 
 class Hotel(models.Model):
     name = models.CharField(max_length=200)
@@ -222,7 +245,6 @@ class Hotel(models.Model):
         }
 
 
-
 class BusService(models.Model):
     # ... keep your existing BusService model code ...
     company = models.CharField(max_length=100)
@@ -256,6 +278,7 @@ class BusService(models.Model):
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         return f"{hours}h {minutes}m"
+
 
 class CarRental(models.Model):
     # ... keep your existing CarRental model code ...
@@ -291,6 +314,7 @@ class CarRental(models.Model):
     
     def get_features_display(self):
         return ', '.join([feature.title() for feature in self.features])
+
 
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
@@ -344,5 +368,34 @@ class TripPlan(models.Model):
         
         return int(total)
     
+    def origin_has_airport(self):
+        """Check if origin has airport"""
+        return self.origin.has_airport() if self.origin else False
+    
+    def destination_has_airport(self):
+        """Check if destination has airport"""
+        return self.destination.has_airport() if self.destination else False
+    
     class Meta:
         ordering = ['-created_at']
+
+
+class BookedSeat(models.Model):
+    """Model to track booked seats for flights and buses"""
+    transport_type = models.CharField(max_length=10, choices=[
+        ('flight', 'Flight'),
+        ('bus', 'Bus'),
+    ])
+    transport_id = models.IntegerField()  # ID of Flight or BusService
+    seat_number = models.CharField(max_length=10)  # e.g., "1A", "2B"
+    trip = models.ForeignKey(TripPlan, on_delete=models.CASCADE, related_name='booked_seats')
+    booked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='booked_seats')
+    booking_time = models.DateTimeField(auto_now_add=True)
+    is_cancelled = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ['transport_type', 'transport_id', 'seat_number']
+        ordering = ['transport_type', 'transport_id', 'seat_number']
+    
+    def __str__(self):
+        return f"{self.seat_number} on {self.transport_type} {self.transport_id}"

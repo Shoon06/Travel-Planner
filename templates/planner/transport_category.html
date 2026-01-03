@@ -1,80 +1,182 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\planner\templates\planner\transport_category.html -->
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Select Transportation - GoMyanmar{% endblock %}
+{% block title %}Select Transport Type - GoMyanmar{% endblock %}
 
 {% block content %}
 <div class="container py-5 mt-5">
     <div class="row">
-        <div class="col-lg-8 mx-auto">
+        <div class="col-lg-10 mx-auto">
             <!-- Header -->
             <div class="card-glass p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
-                        <h2 class="mb-2">Choose Your Transportation</h2>
-                        <p class="text-gray mb-0">Select how you want to travel to {{ trip.destination.name }}</p>
+                        <h2 class="mb-2">How Would You Like to Travel?</h2>
+                        <p class="text-gray mb-0">Choose your preferred transportation from {{ trip.origin.name }} to {{ trip.destination.name }}</p>
                     </div>
                     <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Planning
+                        <i class="fas fa-arrow-left me-2"></i>Back to Plan
                     </a>
+                </div>
+                
+                <!-- Trip Summary -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <i class="fas fa-map-marker-alt text-primary me-2"></i>
+                            <span>{{ trip.origin.name }} → {{ trip.destination.name }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <i class="fas fa-calendar text-primary me-2"></i>
+                            <span>{{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d" }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <i class="fas fa-users text-primary me-2"></i>
+                            <span>{{ trip.travelers }} Traveler{{ trip.travelers|pluralize }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <!-- Transport Options -->
             <div class="row g-4">
-                <!-- Flights -->
+                <!-- Flight Option -->
                 <div class="col-md-4">
-                    <div class="card-glass p-4 text-center transport-option h-100" data-type="flight">
-                        <div class="feature-icon gradient-bg mx-auto mb-4">
-                            <i class="fas fa-plane fa-2x text-white"></i>
+                    <a href="{% url 'planner:select_transport' trip.id %}?type=flight" class="card-transport">
+                        <div class="card-glass p-4 text-center h-100">
+                            <div class="feature-icon gradient-primary mb-4">
+                                <i class="fas fa-plane fa-3x text-white"></i>
+                            </div>
+                            <h4 class="mb-3">Flight</h4>
+                            <p class="text-gray mb-4">Fastest way to travel between cities in Myanmar</p>
+                            <div class="transport-details">
+                                <div class="mb-2">
+                                    <small class="text-gray">Price Range:</small>
+                                    <div class="price-range">30,000 - 200,000 MMK</div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-gray">Travel Time:</small>
+                                    <div>1-3 hours</div>
+                                </div>
+                                <div>
+                                    <small class="text-gray">Classes:</small>
+                                    <div class="classes-tags">
+                                        <span class="badge bg-economy">Economy</span>
+                                        <span class="badge bg-business">Business</span>
+                                        <span class="badge bg-luxury">Luxury</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <span class="btn btn-primary">View Flights</span>
+                            </div>
                         </div>
-                        <h5 class="mb-3">Flight</h5>
-                        <p class="text-gray mb-3">Fastest way to travel between cities</p>
-                        <div class="price-ranges mb-3">
-                            <span class="badge bg-success d-block mb-1">Low: MMK 50,000+</span>
-                            <span class="badge bg-warning d-block mb-1">Medium: MMK 100,000+</span>
-                            <span class="badge bg-danger d-block">High: MMK 200,000+</span>
-                        </div>
-                        <a href="{% url 'planner:select_transport' trip.id %}?type=flight" class="btn btn-primary w-100">
-                            Select Flight
-                        </a>
-                    </div>
+                    </a>
                 </div>
                 
-                <!-- Car Rental -->
+                <!-- Bus Option -->
                 <div class="col-md-4">
-                    <div class="card-glass p-4 text-center transport-option h-100" data-type="car">
-                        <div class="feature-icon gradient-purple mx-auto mb-4">
-                            <i class="fas fa-car fa-2x text-white"></i>
+                    <a href="{% url 'planner:select_transport' trip.id %}?type=bus" class="card-transport">
+                        <div class="card-glass p-4 text-center h-100">
+                            <div class="feature-icon gradient-teal mb-4">
+                                <i class="fas fa-bus fa-3x text-white"></i>
+                            </div>
+                            <h4 class="mb-3">Bus Express</h4>
+                            <p class="text-gray mb-4">Comfortable and scenic travel across Myanmar</p>
+                            <div class="transport-details">
+                                <div class="mb-2">
+                                    <small class="text-gray">Price Range:</small>
+                                    <div class="price-range">15,000 - 80,000 MMK</div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-gray">Travel Time:</small>
+                                    <div>4-12 hours</div>
+                                </div>
+                                <div>
+                                    <small class="text-gray">Classes:</small>
+                                    <div class="classes-tags">
+                                        <span class="badge bg-standard">Standard</span>
+                                        <span class="badge bg-vip">VIP</span>
+                                        <span class="badge bg-luxury">Luxury</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <span class="btn btn-primary">View Buses</span>
+                            </div>
                         </div>
-                        <h5 class="mb-3">Car Rental</h5>
-                        <p class="text-gray mb-3">Flexible travel on your own schedule</p>
-                        <div class="price-ranges mb-3">
-                            <span class="badge bg-success d-block mb-1">Economy: MMK 30,000/day</span>
-                            <span class="badge bg-warning d-block mb-1">SUV: MMK 60,000/day</span>
-                            <span class="badge bg-danger d-block">Luxury: MMK 120,000/day</span>
-                        </div>
-                        <a href="{% url 'planner:select_transport' trip.id %}?type=car" class="btn btn-primary w-100">
-                            Select Car
-                        </a>
-                    </div>
+                    </a>
                 </div>
                 
-                <!-- Bus -->
+                <!-- Car Rental Option -->
                 <div class="col-md-4">
-                    <div class="card-glass p-4 text-center transport-option h-100" data-type="bus">
-                        <div class="feature-icon gradient-teal mx-auto mb-4">
-                            <i class="fas fa-bus fa-2x text-white"></i>
+                    <a href="{% url 'planner:select_transport' trip.id %}?type=car" class="card-transport">
+                        <div class="card-glass p-4 text-center h-100">
+                            <div class="feature-icon gradient-purple mb-4">
+                                <i class="fas fa-car fa-3x text-white"></i>
+                            </div>
+                            <h4 class="mb-3">Car Rental</h4>
+                            <p class="text-gray mb-4">Freedom to explore at your own pace</p>
+                            <div class="transport-details">
+                                <div class="mb-2">
+                                    <small class="text-gray">Price Range:</small>
+                                    <div class="price-range">40,000 - 200,000 MMK/day</div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-gray">Flexibility:</small>
+                                    <div>Complete Freedom</div>
+                                </div>
+                                <div>
+                                    <small class="text-gray">Classes:</small>
+                                    <div class="classes-tags">
+                                        <span class="badge bg-economy">Economy</span>
+                                        <span class="badge bg-suv">SUV</span>
+                                        <span class="badge bg-luxury">Luxury</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <span class="btn btn-primary">View Cars</span>
+                            </div>
                         </div>
-                        <h5 class="mb-3">Bus</h5>
-                        <p class="text-gray mb-3">Comfortable and affordable road travel</p>
-                        <div class="price-ranges mb-3">
-                            <span class="badge bg-success d-block mb-1">Standard: MMK 20,000+</span>
-                            <span class="badge bg-warning d-block mb-1">VIP: MMK 40,000+</span>
-                            <span class="badge bg-danger d-block">Luxury: MMK 60,000+</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Additional Info -->
+            <div class="card-glass p-4 mt-4">
+                <h5 class="mb-3"><i class="fas fa-info-circle me-2"></i>Need Help Choosing?</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-plane text-primary mt-1 me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Choose Flight If</h6>
+                                <p class="text-gray small mb-0">You're short on time or traveling long distances between cities.</p>
+                            </div>
                         </div>
-                        <a href="{% url 'planner:select_transport' trip.id %}?type=bus" class="btn btn-primary w-100">
-                            Select Bus
-                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-bus text-teal mt-1 me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Choose Bus If</h6>
+                                <p class="text-gray small mb-0">You want to enjoy scenic routes and save money on transportation.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-car text-purple mt-1 me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Choose Car If</h6>
+                                <p class="text-gray small mb-0">You want maximum flexibility and plan to explore multiple locations.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -83,27 +185,90 @@
 </div>
 
 <style>
-    .transport-option {
-        transition: all 0.3s ease;
-        cursor: pointer;
+    .card-transport {
+        text-decoration: none;
+        color: inherit;
+        display: block;
     }
     
-    .transport-option:hover {
+    .card-transport:hover .card-glass {
         transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(107, 71, 164, 0.2);
+        box-shadow: 0 10px 30px rgba(139, 92, 246, 0.2);
     }
     
-    .badge.bg-success {
-        background: linear-gradient(135deg, #28a745, #20c997) !important;
+    .price-range {
+        font-weight: 600;
+        color: var(--primary-purple);
     }
     
-    .badge.bg-warning {
-        background: linear-gradient(135deg, #ffc107, #fd7e14) !important;
-        color: white !important;
+    .classes-tags {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 5px;
     }
     
-    .badge.bg-danger {
-        background: linear-gradient(135deg, #dc3545, #c82333) !important;
+    .badge {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+    
+    .bg-economy { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
+    .bg-business { background: linear-gradient(135deg, #10B981, #059669); }
+    .bg-luxury { background: linear-gradient(135deg, #F59E0B, #D97706); }
+    .bg-standard { background: linear-gradient(135deg, #6B7280, #4B5563); }
+    .bg-vip { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
+    .bg-suv { background: linear-gradient(135deg, #EC4899, #DB2777); }
+    
+    .info-box {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .transport-details {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 15px;
+    }
+    
+    .feature-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+    
+    .gradient-primary {
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+    }
+    
+    .gradient-teal {
+        background: linear-gradient(135deg, #14B8A6, #0D9488);
+    }
+    
+    .gradient-purple {
+        background: linear-gradient(135deg, #A855F7, #9333EA);
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add hover effects
+        const cards = document.querySelectorAll('.card-transport');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.querySelector('.card-glass').style.transition = 'all 0.3s ease';
+            });
+        });
+    });
+</script>
 {% endblock %}

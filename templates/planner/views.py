@@ -534,6 +534,8 @@ class SelectTransportCategoryView(LoginRequiredMixin, View):
         context = {'trip': trip}
         return render(request, self.template_name, context)
 
+# In the SaveTransportView class, update the transport_name generation:
+
 class SaveTransportView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -545,13 +547,34 @@ class SaveTransportView(LoginRequiredMixin, View):
             
             if transport_type == 'flight':
                 transport = Flight.objects.get(id=transport_id)
-                transport_name = f"{transport.airline} Flight {transport.flight_number}"
+                # Simplified naming - just show class
+                if transport.category == 'low':
+                    transport_name = "Economy Flight"
+                elif transport.category == 'medium':
+                    transport_name = "Business Flight"
+                else:
+                    transport_name = "Luxury Flight"
+                    
             elif transport_type == 'bus':
                 transport = BusService.objects.get(id=transport_id)
-                transport_name = f"{transport.company} Bus"
+                # Simplified naming - just show class
+                if transport.bus_type == 'standard':
+                    transport_name = "Standard Bus"
+                elif transport.bus_type == 'vip':
+                    transport_name = "VIP Bus"
+                else:
+                    transport_name = "Luxury Bus"
+                    
             elif transport_type == 'car':
                 transport = CarRental.objects.get(id=transport_id)
-                transport_name = f"{transport.company} - {transport.car_model}"
+                # Simplified naming - just show class
+                if transport.car_type == 'economy':
+                    transport_name = "Economy Car"
+                elif transport.car_type == 'suv':
+                    transport_name = "SUV"
+                else:
+                    transport_name = "Luxury Car"
+                    
             else:
                 messages.error(request, 'Invalid transport type.')
                 return redirect('planner:select_transport_category', trip_id=trip.id)

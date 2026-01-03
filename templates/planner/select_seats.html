@@ -649,25 +649,7 @@
         // Initialize
         updateSelectedSeats();
         
-        // Demo: Add some random occupied seats if needed
-        setTimeout(() => {
-            const allSeats = document.querySelectorAll('.seat.seat-available, .seat.seat-premium, .seat.seat-first-class');
-            const seatsToOccupy = Math.min(8, allSeats.length);
-            
-            for (let i = 0; i < seatsToOccupy; i++) {
-                const randomIndex = Math.floor(Math.random() * allSeats.length);
-                const seat = allSeats[randomIndex];
-                const seatNumber = seat.getAttribute('data-seat');
-                
-                if (!selectedSeats.has(seatNumber) && !seat.classList.contains('seat-occupied')) {
-                    seat.classList.remove('seat-available', 'seat-premium', 'seat-first-class');
-                    seat.classList.add('seat-occupied');
-                    seat.setAttribute('data-occupied', 'true');
-                    seat.onclick = null;
-                    seat.style.cursor = 'not-allowed';
-                }
-            }
-        }, 500);
+       
     });
 </script>
 {% endblock %}
