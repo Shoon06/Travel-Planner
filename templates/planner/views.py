@@ -418,7 +418,288 @@ class FilterHotelsView(View):
             'hotels': hotel_data,
             'count': len(hotel_data)
         })
+# Add this to your existing views.py file (around line 700-800)
 
+# ========== PLAN SELECTION VIEW ==========
+class PlanSelectionView(LoginRequiredMixin, View):
+    """Display 3 travel plans (Cultural Explorer, Adventure Seeker, Relaxed Wanderer)"""
+    template_name = 'planner/plan_selection.html'
+    
+    def get(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        # Calculate trip duration
+        nights = trip.calculate_nights()
+        days = nights + 1 if nights > 0 else 3
+        
+        # Get destination for weather
+        destination_name = trip.destination.name
+        
+        # Define the 3 travel plans
+        plans = [
+            {
+                'id': 'cultural',
+                'title': 'Cultural Explorer',
+                'subtitle': 'Immerse yourself in Myanmar\'s rich cultural heritage',
+                'category': 'Culture & History',
+                'duration': f"{days} Days",
+                'estimated_cost': 1250,
+                'highlights': [
+                    'Shwedagon Pagoda at sunrise',
+                    'Colonial architecture walking tour',
+                    'Traditional puppet show',
+                    'Local tea house experience',
+                    'Museum visits',
+                    'Monastery meditation session'
+                ],
+                'icon': 'fas fa-landmark',
+                'color': '#3498db',
+                'days': self.generate_cultural_itinerary(trip, days),
+                'total_activities': days * 4
+            },
+            {
+                'id': 'adventure',
+                'title': 'Adventure Seeker',
+                'subtitle': 'Active exploration with outdoor activities',
+                'category': 'Active & Adventurous',
+                'duration': f"{days} Days",
+                'estimated_cost': 1450,
+                'highlights': [
+                    'Circular train ride',
+                    'Kayaking on Kandawgyi Lake',
+                    'Hiking to hidden temples',
+                    'Street food tour',
+                    'Bicycle tour',
+                    'Sunrise hot air balloon'
+                ],
+                'icon': 'fas fa-hiking',
+                'color': '#2ecc71',
+                'days': self.generate_adventure_itinerary(trip, days),
+                'total_activities': days * 4
+            },
+            {
+                'id': 'relaxed',
+                'title': 'Relaxed Wanderer',
+                'subtitle': 'Leisurely pace with ample free time',
+                'category': 'Relaxed & Flexible',
+                'duration': f"{days} Days",
+                'estimated_cost': 1100,
+                'highlights': [
+                    'Spa and wellness sessions',
+                    'Leisurely lake walks',
+                    'Café hopping',
+                    'Sunset photography spots',
+                    'Massage therapy',
+                    'Gardens and parks'
+                ],
+                'icon': 'fas fa-spa',
+                'color': '#9b59b6',
+                'days': self.generate_relaxed_itinerary(trip, days),
+                'total_activities': days * 3  # Fewer activities for relaxed plan
+            }
+        ]
+        
+        context = {
+            'trip': trip,
+            'plans': plans,
+            'destination': trip.destination,
+            'days': days,
+            'nights': nights,
+            'destination_name': destination_name,
+            'start_date': trip.start_date.strftime('%Y-%m-%d'),
+            'end_date': trip.end_date.strftime('%Y-%m-%d'),
+            'travelers': trip.travelers
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def generate_cultural_itinerary(self, trip, days):
+        """Generate cultural itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '09:00 AM',
+                    'title': 'Shwedagon Pagoda Visit',
+                    'location': 'Downtown Yangon',
+                    'duration': '2 hours',
+                    'description': 'Explore the golden pagoda at its morning glory',
+                    'type': 'cultural',
+                    'icon': 'fas fa-place-of-worship'
+                },
+                {
+                    'time': '12:00 PM',
+                    'title': 'Lunch at Feel Myanmar',
+                    'location': 'Traditional Restaurant',
+                    'duration': '1.5 hours',
+                    'description': 'Authentic Myanmar cuisine',
+                    'type': 'food',
+                    'icon': 'fas fa-utensils'
+                },
+                {
+                    'time': '02:00 PM',
+                    'title': 'Bogyoke Market',
+                    'location': 'Pabedan Township',
+                    'duration': '2 hours',
+                    'description': 'Shop for local crafts and souvenirs',
+                    'type': 'shopping',
+                    'icon': 'fas fa-shopping-bag'
+                },
+                {
+                    'time': '05:00 PM',
+                    'title': 'Traditional Puppet Show',
+                    'location': 'Cultural Center',
+                    'duration': '1.5 hours',
+                    'description': 'Enjoy traditional Myanmar puppetry',
+                    'type': 'entertainment',
+                    'icon': 'fas fa-mask'
+                }
+            ]
+            
+            # Customize activities based on destination
+            if 'Bagan' in trip.destination.name:
+                day_activities[0]['title'] = 'Temple Sunrise Tour'
+                day_activities[0]['location'] = 'Ancient Temples'
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def generate_adventure_itinerary(self, trip, days):
+        """Generate adventure itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '07:00 AM',
+                    'title': 'Circular Train Ride',
+                    'location': 'Yangon Circular Railway',
+                    'duration': '3 hours',
+                    'description': 'Experience local life on the train',
+                    'type': 'adventure',
+                    'icon': 'fas fa-train'
+                },
+                {
+                    'time': '11:00 AM',
+                    'title': 'Street Food Walk',
+                    'location': 'Local Markets',
+                    'duration': '2 hours',
+                    'description': 'Taste authentic street food',
+                    'type': 'food',
+                    'icon': 'fas fa-utensils'
+                },
+                {
+                    'time': '02:00 PM',
+                    'title': 'Kayaking on Lake',
+                    'location': 'Kandawgyi Lake',
+                    'duration': '2.5 hours',
+                    'description': 'Paddle through scenic waters',
+                    'type': 'water_sports',
+                    'icon': 'fas fa-water'
+                },
+                {
+                    'time': '06:00 PM',
+                    'title': 'Sunset Hike',
+                    'location': 'Nearby Hills',
+                    'duration': '2 hours',
+                    'description': 'Hike to a sunset viewpoint',
+                    'type': 'hiking',
+                    'icon': 'fas fa-mountain'
+                }
+            ]
+            
+            if 'Inle Lake' in trip.destination.name:
+                day_activities[2]['title'] = 'Inle Lake Boat Tour'
+                day_activities[2]['location'] = 'Inle Lake'
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def generate_relaxed_itinerary(self, trip, days):
+        """Generate relaxed itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '10:00 AM',
+                    'title': 'Late Breakfast',
+                    'location': 'Hotel Restaurant',
+                    'duration': '1.5 hours',
+                    'description': 'Leisurely morning meal',
+                    'type': 'food',
+                    'icon': 'fas fa-coffee'
+                },
+                {
+                    'time': '12:00 PM',
+                    'title': 'Spa & Wellness',
+                    'location': 'Wellness Center',
+                    'duration': '2 hours',
+                    'description': 'Relaxing massage and spa treatment',
+                    'type': 'wellness',
+                    'icon': 'fas fa-spa'
+                },
+                {
+                    'time': '03:00 PM',
+                    'title': 'Leisurely Lake Walk',
+                    'location': 'Local Park/Lake',
+                    'duration': '1.5 hours',
+                    'description': 'Gentle walk around the lake',
+                    'type': 'walking',
+                    'icon': 'fas fa-walking'
+                },
+                {
+                    'time': '05:00 PM',
+                    'title': 'Sunset Photography',
+                    'location': 'Scenic Viewpoint',
+                    'duration': '1 hour',
+                    'description': 'Capture beautiful sunset moments',
+                    'type': 'photography',
+                    'icon': 'fas fa-camera'
+                }
+            ]
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def calculate_date(self, start_date, day_offset):
+        """Calculate date for a specific day"""
+        from datetime import timedelta
+        return (start_date + timedelta(days=day_offset)).strftime('%Y-%m-%d')
+
+
+# ========== SELECT PLAN VIEW ==========
+class SelectPlanView(LoginRequiredMixin, View):
+    """Handle plan selection and redirect to detailed itinerary"""
+    def post(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        plan_id = request.POST.get('plan_id')
+        
+        if not plan_id:
+            messages.error(request, 'Please select a plan.')
+            return redirect('planner:plan_selection', trip_id=trip.id)
+        
+        # Save selected plan to trip
+        trip.selected_plan = plan_id
+        trip.save()
+        
+        return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
 # ========== SAVE HOTEL VIEW ==========
 class SaveHotelView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
@@ -844,3 +1125,201 @@ class ClearTripDataView(LoginRequiredMixin, View):
 def test_view(request):
     """Simple test view to check if URLs are working"""
     return JsonResponse({'status': 'OK', 'message': 'Test view works'})
+
+# Add this to your views.py (after the SelectPlanView)
+
+# ========== ITINERARY DETAIL VIEW ==========
+class ItineraryDetailView(LoginRequiredMixin, View):
+    """Display detailed itinerary with weather and activity management"""
+    template_name = 'planner/itinerary_detail.html'
+    
+    def get(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        # Get itinerary based on plan
+        days = trip.calculate_nights() + 1
+        itinerary_generator = PlanSelectionView()
+        
+        if plan_id == 'cultural':
+            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
+            plan_title = 'Cultural Explorer'
+        elif plan_id == 'adventure':
+            days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
+            plan_title = 'Adventure Seeker'
+        elif plan_id == 'relaxed':
+            days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
+            plan_title = 'Relaxed Wanderer'
+        else:
+            days_data = []
+            plan_title = 'Custom Plan'
+        
+        # Get weather forecast
+        from .weather_service import weather_service
+        weather_forecast = weather_service.get_weather_forecast(
+            trip.destination.name,
+            trip.start_date.strftime('%Y-%m-%d'),
+            trip.end_date.strftime('%Y-%m-%d')
+        )
+        
+        # Get trip cost estimate
+        cost_estimate = self.calculate_cost_estimate(trip, plan_id)
+        
+        # Get selected hotel and transport
+        hotel = trip.selected_hotel
+        transport = trip.selected_transport
+        
+        context = {
+            'trip': trip,
+            'plan_id': plan_id,
+            'plan_title': plan_title,
+            'days_data': days_data,
+            'weather_forecast': weather_forecast,
+            'cost_estimate': cost_estimate,
+            'hotel': hotel,
+            'transport': transport,
+            'total_days': days,
+            'total_activities': sum(len(day['activities']) for day in days_data),
+            'destination_name': trip.destination.name,
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def calculate_cost_estimate(self, trip, plan_id):
+        """Calculate cost estimate based on plan"""
+        nights = trip.calculate_nights()
+        
+        # Base costs by plan
+        plan_costs = {
+            'cultural': 1250,
+            'adventure': 1450,
+            'relaxed': 1100
+        }
+        
+        base_cost = plan_costs.get(plan_id, 1000)
+        
+        # Adjust for number of travelers
+        traveler_multiplier = 1 + ((trip.travelers - 1) * 0.7)  # 70% for additional travelers
+        
+        # Adjust for duration
+        duration_multiplier = (nights + 1) / 3  # Based on 3-day base plan
+        
+        # Add hotel cost
+        hotel_cost = 0
+        if trip.selected_hotel:
+            hotel_cost = float(trip.selected_hotel.price_per_night) * nights / 1300  # Convert MMK to USD approx
+        
+        # Add transport cost
+        transport_cost = 0
+        if trip.selected_transport and 'price' in trip.selected_transport:
+            transport_cost = float(trip.selected_transport['price']) / 1300  # Convert MMK to USD approx
+        
+        total_cost = (base_cost * duration_multiplier * traveler_multiplier) + hotel_cost + transport_cost
+        
+        return {
+            'total': round(total_cost),
+            'breakdown': {
+                'plan_base': round(base_cost * duration_multiplier),
+                'hotel': round(hotel_cost),
+                'transport': round(transport_cost),
+                'additional_travelers': round(base_cost * duration_multiplier * (traveler_multiplier - 1))
+            }
+        }
+
+
+# ========== ADD/REMOVE ACTIVITY VIEWS ==========
+class AddActivityView(LoginRequiredMixin, View):
+    """Add a new activity to itinerary"""
+    def post(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            data = json.loads(request.body)
+            day_number = data.get('day_number')
+            activity_data = data.get('activity')
+            
+            # In a real app, you would save this to a database
+            # For now, we'll just return success
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Activity added successfully',
+                'activity': activity_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+class RemoveActivityView(LoginRequiredMixin, View):
+    """Remove an activity from itinerary"""
+    def post(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            data = json.loads(request.body)
+            day_number = data.get('day_number')
+            activity_index = data.get('activity_index')
+            
+            # In a real app, you would remove from database
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Activity removed successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+# ========== DOWNLOAD PDF VIEW ==========
+class DownloadItineraryPDFView(LoginRequiredMixin, View):
+    """Generate and download itinerary as PDF"""
+    def get(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            # For now, we'll create a simple HTML response
+            # In production, use a PDF library like ReportLab or WeasyPrint
+            
+            from django.template.loader import render_to_string
+            from django.http import HttpResponse
+            
+            itinerary_generator = PlanSelectionView()
+            days = trip.calculate_nights() + 1
+            
+            if plan_id == 'cultural':
+                days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
+                plan_title = 'Cultural Explorer'
+            elif plan_id == 'adventure':
+                days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
+                plan_title = 'Adventure Seeker'
+            else:
+                days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
+                plan_title = 'Relaxed Wanderer'
+            
+            context = {
+                'trip': trip,
+                'plan_title': plan_title,
+                'days_data': days_data,
+                'current_date': timezone.now().strftime('%Y-%m-%d'),
+                'hotel': trip.selected_hotel,
+                'transport': trip.selected_transport,
+            }
+            
+            html_content = render_to_string('planner/itinerary_pdf.html', context)
+            
+            # Create PDF response (simplified)
+            response = HttpResponse(html_content, content_type='text/html')
+            response['Content-Disposition'] = f'attachment; filename="itinerary_{trip.destination.name}_{plan_title}.html"'
+            
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'Error generating PDF: {str(e)}')
+            return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)

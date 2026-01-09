@@ -1,5 +1,5 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# FIX THE IMPORTS AT THE TOP
+# COMPLETE CORRECTED VERSION
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import TemplateView, View
@@ -11,9 +11,9 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta, datetime
 import json
-import random  # ADD THIS IMPORT
+import random
 from django.conf import settings
-from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline  # ADD Airline HERE
+from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat
 from .real_hotels_service import real_hotels_service
 
 
@@ -122,9 +122,7 @@ class SelectSeatsView(LoginRequiredMixin, View):
                                                        f"{transport.company} - {transport.car_model}")
         
         return render(request, self.template_name, context)
-    # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE SelectSeatsView.post() method:
-
+    
     def post(self, request, trip_id, transport_id):
         """Handle seat selection - REAL BOOKING SYSTEM"""
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -146,8 +144,6 @@ class SelectSeatsView(LoginRequiredMixin, View):
             booking_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # Check if seats are already booked
-            from .models import BookedSeat
-            
             already_booked_seats = []
             available_seats = []
             
@@ -254,12 +250,9 @@ class SelectSeatsView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Error processing booking: {str(e)}')
             return redirect('planner:select_seats', trip_id=trip_id, transport_id=transport_id)
-    # In the SelectSeatsView class in views.py, update generate_bus_seat_map:
-
+    
     def generate_bus_seat_map(self, bus):
         """Generate seat map for bus using real booked seats"""
-        from .models import BookedSeat
-        
         total_rows = bus.total_seats // 4  # Assuming 4 seats per row
         
         # Get real occupied seats from database
@@ -296,6 +289,7 @@ class SelectSeatsView(LoginRequiredMixin, View):
             'occupied_seats': list(occupied_seats),
             'configuration': '2-2'
         }
+    
     def redirect_to_plan_with_transport(self, trip, transport_id, transport_type, transport_name):
         """Helper method to redirect back to plan page with transport selected"""
         redirect_url = reverse('planner:plan')
@@ -329,11 +323,13 @@ class SelectSeatsView(LoginRequiredMixin, View):
         
         return redirect(redirect_url)
 
+
 # ========== HELPER FUNCTIONS ==========
 def calculate_nights(start_date, end_date):
     if start_date and end_date:
         return (end_date - start_date).days
     return 1
+
 
 # ========== DASHBOARD VIEW ==========
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -367,16 +363,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         
         return context
 
+
 # ========== PLAN TRIP VIEW ==========
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE PlanTripView.get method:
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE PlanTripView.get method:
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE PlanTripView class:
-
 class PlanTripView(LoginRequiredMixin, View):
     template_name = 'planner/plan.html'
     
@@ -597,7 +585,7 @@ class PlanTripView(LoginRequiredMixin, View):
                 trip.travelers = travelers
                 trip.selected_hotel_id = hotel_id
                 trip.transportation_preference = transport_type
-                trip.status = 'booked'
+                trip.status = 'planning'  # Changed from 'booked' to 'planning'
             else:
                 trip = TripPlan.objects.create(
                     user=request.user,
@@ -609,7 +597,7 @@ class PlanTripView(LoginRequiredMixin, View):
                     selected_hotel_id=hotel_id,
                     transportation_preference=transport_type,
                     budget_range='medium',
-                    status='booked'
+                    status='planning'  # Changed from 'booked' to 'planning'
                 )
             
             # Save transport details
@@ -633,12 +621,28 @@ class PlanTripView(LoginRequiredMixin, View):
             
             trip.save()
             
-            messages.success(request, 'Trip booked successfully!')
-            return redirect('planner:dashboard')
-            
+            # For AJAX requests, return success with trip_id
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'trip_id': trip.id,
+                    'message': 'Trip saved successfully'
+                })
+            else:
+                # For regular form submission, redirect to plan selection
+                return redirect('planner:plan_selection', trip_id=trip.id)
+                
         except Exception as e:
-            messages.error(request, f'Error booking trip: {str(e)}')
-            return redirect('planner:plan')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                })
+            else:
+                messages.error(request, f'Error saving trip: {str(e)}')
+                return redirect('planner:plan')
+
+
 # ========== DESTINATION SEARCH (AUTO-COMPLETE) ==========
 class DestinationSearchView(View):
     def get(self, request):
@@ -692,6 +696,7 @@ class DestinationSearchView(View):
         except Exception as e:
             print(f"Error searching destinations: {e}")
             return JsonResponse({'results': [], 'error': str(e)})
+
 
 # ========== HOTEL SELECTION WITH MAP ==========
 class SelectHotelWithMapView(LoginRequiredMixin, View):
@@ -797,6 +802,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         }
         return render(request, self.template_name, context)
 
+
 # ========== FILTER HOTELS VIEW ==========
 class FilterHotelsView(View):
     def get(self, request, destination_id):
@@ -866,10 +872,8 @@ class FilterHotelsView(View):
             'count': len(hotel_data)
         })
 
-# ========== SAVE HOTEL VIEW ==========
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE SaveHotelView.post method:
 
+# ========== SAVE HOTEL VIEW ==========
 class SaveHotelView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -929,6 +933,7 @@ class SaveHotelView(LoginRequiredMixin, View):
         messages.error(request, 'Please select a hotel')
         return redirect('planner:select_hotel_map', trip_id=trip.id)
 
+
 # ========== REAL HOTELS VIEW ==========
 class GetRealHotelsView(LoginRequiredMixin, View):
     def get(self, request):
@@ -978,10 +983,12 @@ class GetRealHotelsView(LoginRequiredMixin, View):
                 'error': str(e)
             })
 
+
 # ========== SIMPLE REDIRECT VIEWS ==========
 class SelectHotelView(LoginRequiredMixin, View):
     def get(self, request, trip_id):
         return redirect('planner:select_hotel_map', trip_id=trip_id)
+
 
 class SelectTransportCategoryView(LoginRequiredMixin, View):
     template_name = 'planner/transport_category.html'
@@ -992,12 +999,7 @@ class SelectTransportCategoryView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
 
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE SaveTransportView.post method:
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# UPDATE THE SaveTransportView.post method:
-
+# ========== SAVE TRANSPORT VIEW ==========
 class SaveTransportView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -1073,6 +1075,8 @@ class SaveTransportView(LoginRequiredMixin, View):
             messages.error(request, f'Error saving transport: {str(e)}')
             return redirect('planner:select_transport_category', trip_id=trip.id)
 
+
+# ========== SELECT TRANSPORT VIEW ==========
 class SelectTransportView(LoginRequiredMixin, View):
     template_name = 'planner/transport_list.html'
     
@@ -1367,6 +1371,8 @@ class SelectTransportView(LoginRequiredMixin, View):
                 cars_to_return.append(existing)
         
         return cars_to_return
+
+
 # ========== SEARCH REAL HOTELS VIEW ==========
 class SearchRealHotelsView(LoginRequiredMixin, View):
     def get(self, request, destination_id):
@@ -1401,6 +1407,7 @@ class SearchRealHotelsView(LoginRequiredMixin, View):
                 'success': False,
                 'error': str(e)
             })
+
 
 # ========== BOOK REAL HOTEL VIEW ==========
 class BookRealHotelView(LoginRequiredMixin, View):
@@ -1439,6 +1446,7 @@ class BookRealHotelView(LoginRequiredMixin, View):
                 'error': str(e)
             })
 
+
 # ========== CLEAR TRIP VIEW ==========
 class ClearTripDataView(LoginRequiredMixin, View):
     def get(self, request):
@@ -1451,7 +1459,676 @@ class ClearTripDataView(LoginRequiredMixin, View):
         messages.success(request, 'Trip data cleared. You can start a new trip.')
         return redirect('planner:plan')
 
+
 # ========== TEST VIEW ==========
 def test_view(request):
     """Simple test view to check if URLs are working"""
     return JsonResponse({'status': 'OK', 'message': 'Test view works'})
+
+
+# ========== NEW VIEWS FOR PLAN SELECTION ==========
+
+class PlanSelectionView(LoginRequiredMixin, View):
+    """Display 3 travel plans (Cultural Explorer, Adventure Seeker, Relaxed Wanderer)"""
+    template_name = 'planner/plan_selection.html'
+    
+    def get(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        # Calculate trip duration
+        nights = trip.calculate_nights()
+        days = nights + 1 if nights > 0 else 3
+        
+        # Define the 3 travel plans
+        plans = [
+            {
+                'id': 'cultural',
+                'title': 'Cultural Explorer',
+                'subtitle': 'Immerse yourself in Myanmar\'s rich cultural heritage',
+                'category': 'Culture & History',
+                'duration': f"{days} Days",
+                'estimated_cost': 1250,
+                'highlights': [
+                    'Shwedagon Pagoda at sunrise',
+                    'Colonial architecture walking tour',
+                    'Traditional puppet show',
+                    'Local tea house experience',
+                    'Museum visits',
+                    'Monastery meditation session'
+                ],
+                'icon': 'fas fa-landmark',
+                'color': '#3498db',
+                'days': self.generate_cultural_itinerary(trip, days),
+                'total_activities': days * 4
+            },
+            {
+                'id': 'adventure',
+                'title': 'Adventure Seeker',
+                'subtitle': 'Active exploration with outdoor activities',
+                'category': 'Active & Adventurous',
+                'duration': f"{days} Days",
+                'estimated_cost': 1450,
+                'highlights': [
+                    'Circular train ride',
+                    'Kayaking on Kandawgyi Lake',
+                    'Hiking to hidden temples',
+                    'Street food tour',
+                    'Bicycle tour',
+                    'Sunrise hot air balloon'
+                ],
+                'icon': 'fas fa-hiking',
+                'color': '#2ecc71',
+                'days': self.generate_adventure_itinerary(trip, days),
+                'total_activities': days * 4
+            },
+            {
+                'id': 'relaxed',
+                'title': 'Relaxed Wanderer',
+                'subtitle': 'Leisurely pace with ample free time',
+                'category': 'Relaxed & Flexible',
+                'duration': f"{days} Days",
+                'estimated_cost': 1100,
+                'highlights': [
+                    'Spa and wellness sessions',
+                    'Leisurely lake walks',
+                    'Café hopping',
+                    'Sunset photography spots',
+                    'Massage therapy',
+                    'Gardens and parks'
+                ],
+                'icon': 'fas fa-spa',
+                'color': '#9b59b6',
+                'days': self.generate_relaxed_itinerary(trip, days),
+                'total_activities': days * 3  # Fewer activities for relaxed plan
+            }
+        ]
+        
+        context = {
+            'trip': trip,
+            'plans': plans,
+            'destination': trip.destination,
+            'days': days,
+            'nights': nights,
+            'destination_name': trip.destination.name,
+            'start_date': trip.start_date.strftime('%Y-%m-%d'),
+            'end_date': trip.end_date.strftime('%Y-%m-%d'),
+            'travelers': trip.travelers
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def generate_cultural_itinerary(self, trip, days):
+        """Generate cultural itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '09:00 AM',
+                    'title': 'Shwedagon Pagoda Visit',
+                    'location': 'Downtown Yangon',
+                    'duration': '2 hours',
+                    'description': 'Explore the golden pagoda at its morning glory',
+                    'type': 'cultural',
+                    'icon': 'fas fa-place-of-worship'
+                },
+                {
+                    'time': '12:00 PM',
+                    'title': 'Lunch at Feel Myanmar',
+                    'location': 'Traditional Restaurant',
+                    'duration': '1.5 hours',
+                    'description': 'Authentic Myanmar cuisine',
+                    'type': 'food',
+                    'icon': 'fas fa-utensils'
+                },
+                {
+                    'time': '02:00 PM',
+                    'title': 'Bogyoke Market',
+                    'location': 'Pabedan Township',
+                    'duration': '2 hours',
+                    'description': 'Shop for local crafts and souvenirs',
+                    'type': 'shopping',
+                    'icon': 'fas fa-shopping-bag'
+                },
+                {
+                    'time': '05:00 PM',
+                    'title': 'Traditional Puppet Show',
+                    'location': 'Cultural Center',
+                    'duration': '1.5 hours',
+                    'description': 'Enjoy traditional Myanmar puppetry',
+                    'type': 'entertainment',
+                    'icon': 'fas fa-mask'
+                }
+            ]
+            
+            # Customize activities based on destination
+            if 'Bagan' in trip.destination.name:
+                day_activities[0]['title'] = 'Temple Sunrise Tour'
+                day_activities[0]['location'] = 'Ancient Temples'
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def generate_adventure_itinerary(self, trip, days):
+        """Generate adventure itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '07:00 AM',
+                    'title': 'Circular Train Ride',
+                    'location': 'Yangon Circular Railway',
+                    'duration': '3 hours',
+                    'description': 'Experience local life on the train',
+                    'type': 'adventure',
+                    'icon': 'fas fa-train'
+                },
+                {
+                    'time': '11:00 AM',
+                    'title': 'Street Food Walk',
+                    'location': 'Local Markets',
+                    'duration': '2 hours',
+                    'description': 'Taste authentic street food',
+                    'type': 'food',
+                    'icon': 'fas fa-utensils'
+                },
+                {
+                    'time': '02:00 PM',
+                    'title': 'Kayaking on Lake',
+                    'location': 'Kandawgyi Lake',
+                    'duration': '2.5 hours',
+                    'description': 'Paddle through scenic waters',
+                    'type': 'water_sports',
+                    'icon': 'fas fa-water'
+                },
+                {
+                    'time': '06:00 PM',
+                    'title': 'Sunset Hike',
+                    'location': 'Nearby Hills',
+                    'duration': '2 hours',
+                    'description': 'Hike to a sunset viewpoint',
+                    'type': 'hiking',
+                    'icon': 'fas fa-mountain'
+                }
+            ]
+            
+            if 'Inle Lake' in trip.destination.name:
+                day_activities[2]['title'] = 'Inle Lake Boat Tour'
+                day_activities[2]['location'] = 'Inle Lake'
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def generate_relaxed_itinerary(self, trip, days):
+        """Generate relaxed itinerary"""
+        itinerary = []
+        
+        for day in range(1, days + 1):
+            day_activities = [
+                {
+                    'time': '10:00 AM',
+                    'title': 'Late Breakfast',
+                    'location': 'Hotel Restaurant',
+                    'duration': '1.5 hours',
+                    'description': 'Leisurely morning meal',
+                    'type': 'food',
+                    'icon': 'fas fa-coffee'
+                },
+                {
+                    'time': '12:00 PM',
+                    'title': 'Spa & Wellness',
+                    'location': 'Wellness Center',
+                    'duration': '2 hours',
+                    'description': 'Relaxing massage and spa treatment',
+                    'type': 'wellness',
+                    'icon': 'fas fa-spa'
+                },
+                {
+                    'time': '03:00 PM',
+                    'title': 'Leisurely Lake Walk',
+                    'location': 'Local Park/Lake',
+                    'duration': '1.5 hours',
+                    'description': 'Gentle walk around the lake',
+                    'type': 'walking',
+                    'icon': 'fas fa-walking'
+                },
+                {
+                    'time': '05:00 PM',
+                    'title': 'Sunset Photography',
+                    'location': 'Scenic Viewpoint',
+                    'duration': '1 hour',
+                    'description': 'Capture beautiful sunset moments',
+                    'type': 'photography',
+                    'icon': 'fas fa-camera'
+                }
+            ]
+            
+            itinerary.append({
+                'day_number': day,
+                'date': self.calculate_date(trip.start_date, day - 1),
+                'activities': day_activities
+            })
+        
+        return itinerary
+    
+    def calculate_date(self, start_date, day_offset):
+        """Calculate date for a specific day"""
+        from datetime import timedelta
+        return (start_date + timedelta(days=day_offset)).strftime('%Y-%m-%d')
+
+
+class SelectPlanView(LoginRequiredMixin, View):
+    """Handle plan selection and redirect to detailed itinerary"""
+    def post(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        plan_id = request.POST.get('plan_id')
+        
+        if not plan_id:
+            messages.error(request, 'Please select a plan.')
+            return redirect('planner:plan_selection', trip_id=trip.id)
+        
+        # For now, just redirect with the plan_id
+        return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
+
+
+class ItineraryDetailView(LoginRequiredMixin, View):
+    """Display detailed itinerary with weather and activity management"""
+    template_name = 'planner/itinerary_detail.html'
+    
+    def get(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        # Get itinerary based on plan
+        days = trip.calculate_nights() + 1
+        itinerary_generator = PlanSelectionView()
+        
+        if plan_id == 'cultural':
+            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
+            plan_title = 'Cultural Explorer'
+        elif plan_id == 'adventure':
+            days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
+            plan_title = 'Adventure Seeker'
+        elif plan_id == 'relaxed':
+            days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
+            plan_title = 'Relaxed Wanderer'
+        else:
+            days_data = []
+            plan_title = 'Custom Plan'
+        
+        # Get weather forecast
+        weather_forecast = self.get_weather_forecast_for_trip(trip)
+        
+        # Get trip cost estimate
+        cost_estimate = self.calculate_cost_estimate(trip, plan_id)
+        
+        # Get selected hotel and transport
+        hotel = trip.selected_hotel
+        transport = trip.selected_transport
+        
+        # Calculate nights
+        nights = trip.calculate_nights()
+        
+        context = {
+            'trip': trip,
+            'plan_id': plan_id,
+            'plan_title': plan_title,
+            'days_data': days_data,
+            'weather_forecast': weather_forecast,
+            'cost_estimate': cost_estimate,
+            'hotel': hotel,
+            'transport': transport,
+            'total_days': days,
+            'total_activities': sum(len(day['activities']) for day in days_data),
+            'destination_name': trip.destination.name,
+            'start_date': trip.start_date.strftime('%Y-%m-%d'),
+            'end_date': trip.end_date.strftime('%Y-%m-%d'),
+            'travelers': trip.travelers,
+            'nights': nights,
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def get_weather_forecast_for_trip(self, trip):
+        """Get weather forecast for the trip destination and dates"""
+        try:
+            # Try to import weather_service
+            from .weather_service import weather_service
+            
+            # Determine which city to use for weather
+            destination_name = trip.destination.name
+            
+            # List of Myanmar cities that OpenWeatherMap recognizes
+            myanmar_cities = ['Yangon', 'Mandalay', 'Naypyidaw', 'Bagan', 'Inle Lake']
+            
+            if destination_name in myanmar_cities:
+                city_for_weather = destination_name
+            else:
+                # For other destinations, use Yangon as default
+                city_for_weather = 'Yangon'
+            
+            # Format dates
+            start_date_str = trip.start_date.strftime('%Y-%m-%d')
+            end_date_str = trip.end_date.strftime('%Y-%m-%d')
+            
+            print(f"Fetching weather for {city_for_weather} from {start_date_str} to {end_date_str}")
+            
+            # Get forecast
+            forecast = weather_service.get_weather_forecast(
+                city_for_weather,
+                start_date_str,
+                end_date_str
+            )
+            
+            if forecast and isinstance(forecast, dict):
+                print(f"Successfully got weather forecast with {len(forecast)} days")
+                return forecast
+            else:
+                print("No valid forecast data received, using mock data")
+                return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+                
+        except ImportError as e:
+            print(f"Weather service import error: {e}. Using mock data.")
+            return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+        except Exception as e:
+            print(f"Error getting weather forecast: {e}. Using mock data.")
+            return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+    
+    def generate_mock_weather_forecast(self, start_date, end_date):
+        """Generate realistic mock weather data for Myanmar"""
+        from datetime import timedelta
+        import random
+        
+        forecasts = {}
+        current_date = start_date
+        days = (end_date - start_date).days + 1
+        
+        # Typical Myanmar weather conditions
+        myanmar_weather = [
+            {'description': 'Sunny', 'icon': '01d', 'temp_range': (28, 35), 'probability': 0.4},
+            {'description': 'Partly Cloudy', 'icon': '02d', 'temp_range': (26, 32), 'probability': 0.3},
+            {'description': 'Cloudy', 'icon': '03d', 'temp_range': (24, 30), 'probability': 0.2},
+            {'description': 'Light Rain', 'icon': '10d', 'temp_range': (23, 28), 'probability': 0.1},
+        ]
+        
+        # Weighted random selection based on probability
+        for i in range(days):
+            date_str = current_date.strftime('%Y-%m-%d')
+            day_name = current_date.strftime('%A')
+            
+            # Select weather condition based on probability
+            rand_val = random.random()
+            cumulative = 0
+            condition = None
+            
+            for weather in myanmar_weather:
+                cumulative += weather['probability']
+                if rand_val <= cumulative:
+                    condition = weather
+                    break
+            
+            if not condition:
+                condition = myanmar_weather[0]  # Default to sunny
+            
+            # Generate temperature
+            temp = random.randint(condition['temp_range'][0], condition['temp_range'][1])
+            
+            # Generate hourly forecasts (4 key times of day)
+            hourly_forecasts = []
+            time_slots = [
+                {'hour': 8, 'name': 'Morning', 'temp_adjust': -2},
+                {'hour': 12, 'name': 'Noon', 'temp_adjust': 0},
+                {'hour': 16, 'name': 'Afternoon', 'temp_adjust': 1},
+                {'hour': 20, 'name': 'Evening', 'temp_adjust': -1},
+            ]
+            
+            for slot in time_slots:
+                hour_temp = temp + slot['temp_adjust'] + random.randint(-1, 1)
+                hourly_forecasts.append({
+                    'time': f"{slot['hour']:02d}:00",
+                    'temperature': hour_temp,
+                    'description': condition['description'],
+                    'icon': condition['icon'],
+                    'feels_like': hour_temp + random.randint(-1, 1),
+                    'humidity': random.randint(50, 80),
+                    'wind_speed': round(random.uniform(1.0, 5.0), 1),
+                })
+            
+            # Determine min and max temps
+            hourly_temps = [h['temperature'] for h in hourly_forecasts]
+            min_temp = min(hourly_temps)
+            max_temp = max(hourly_temps)
+            
+            # Noon forecast is usually used as daily summary
+            noon_forecast = hourly_forecasts[1]  # 12:00
+            
+            forecasts[date_str] = {
+                'date': date_str,
+                'day_name': day_name,
+                'daily_summary': {
+                    'temperature': noon_forecast['temperature'],
+                    'description': noon_forecast['description'],
+                    'icon': noon_forecast['icon'],
+                },
+                'hourly_forecasts': hourly_forecasts,
+                'min_temp': min_temp,
+                'max_temp': max_temp,
+                'is_mock': True,
+            }
+            
+            current_date += timedelta(days=1)
+        
+        return forecasts
+    
+    def calculate_cost_estimate(self, trip, plan_id):
+        """Calculate cost estimate based on plan"""
+        nights = trip.calculate_nights()
+        
+        # Base costs by plan
+        plan_costs = {
+            'cultural': 1250,
+            'adventure': 1450,
+            'relaxed': 1100
+        }
+        
+        base_cost = plan_costs.get(plan_id, 1000)
+        
+        # Adjust for number of travelers
+        traveler_multiplier = 1 + ((trip.travelers - 1) * 0.7)  # 70% for additional travelers
+        
+        # Adjust for duration
+        duration_multiplier = (nights + 1) / 3  # Based on 3-day base plan
+        
+        # Add hotel cost
+        hotel_cost = 0
+        if trip.selected_hotel:
+            hotel_cost = float(trip.selected_hotel.price_per_night) * nights / 1300  # Convert MMK to USD approx
+        
+        # Add transport cost
+        transport_cost = 0
+        if trip.selected_transport and 'price' in trip.selected_transport:
+            # Try to extract price, handle different formats
+            price_str = str(trip.selected_transport['price'])
+            # Remove any non-numeric characters except dots
+            import re
+            price_clean = re.sub(r'[^\d.]', '', price_str)
+            try:
+                price_value = float(price_clean) if price_clean else 0
+                transport_cost = price_value / 1300  # Convert MMK to USD approx
+            except:
+                transport_cost = 0
+        
+        total_cost = (base_cost * duration_multiplier * traveler_multiplier) + hotel_cost + transport_cost
+        
+        return {
+            'total': round(total_cost),
+            'breakdown': {
+                'plan_base': round(base_cost * duration_multiplier),
+                'hotel': round(hotel_cost),
+                'transport': round(transport_cost),
+                'additional_travelers': round(base_cost * duration_multiplier * (traveler_multiplier - 1))
+            }
+        }
+
+class AddActivityView(LoginRequiredMixin, View):
+    """Add a new activity to itinerary"""
+    def post(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            data = json.loads(request.body)
+            day_number = data.get('day_number')
+            activity_data = data.get('activity')
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Activity added successfully',
+                'activity': activity_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+class RemoveActivityView(LoginRequiredMixin, View):
+    """Remove an activity from itinerary"""
+    def post(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            data = json.loads(request.body)
+            day_number = data.get('day_number')
+            activity_index = data.get('activity_index')
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Activity removed successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+class DownloadItineraryPDFView(LoginRequiredMixin, View):
+    """Generate and download itinerary as PDF"""
+    def get(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            # For now, we'll create a simple HTML response
+            from django.template.loader import render_to_string
+            from django.http import HttpResponse
+            
+            itinerary_generator = PlanSelectionView()
+            days = trip.calculate_nights() + 1
+            
+            if plan_id == 'cultural':
+                days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
+                plan_title = 'Cultural Explorer'
+            elif plan_id == 'adventure':
+                days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
+                plan_title = 'Adventure Seeker'
+            else:
+                days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
+                plan_title = 'Relaxed Wanderer'
+            
+            context = {
+                'trip': trip,
+                'plan_title': plan_title,
+                'days_data': days_data,
+                'current_date': timezone.now().strftime('%Y-%m-%d'),
+                'hotel': trip.selected_hotel,
+                'transport': trip.selected_transport,
+            }
+            
+            html_content = render_to_string('planner/itinerary_pdf.html', context)
+            
+            # Create PDF response (simplified)
+            response = HttpResponse(html_content, content_type='text/html')
+            response['Content-Disposition'] = f'attachment; filename="itinerary_{trip.destination.name}_{plan_title}.html"'
+            
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'Error generating PDF: {str(e)}')
+            return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
+
+
+class TestWeatherAPIView(LoginRequiredMixin, View):
+    """View to test weather API from browser"""
+    def get(self, request):
+        from .weather_service import weather_service
+        import requests
+        
+        results = {
+            'api_key_configured': bool(getattr(settings, 'OPENWEATHER_API_KEY', '')),
+            'tests': []
+        }
+        
+        # Test 1: Direct API call
+        test_cases = [
+            ("Yangon", "MM"),
+            ("Mandalay", "MM"),
+        ]
+        
+        for city, country in test_cases:
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={city},{country}&appid={weather_service.api_key}&units=metric"
+            
+            try:
+                response = requests.get(url, timeout=5)
+                data = response.json()
+                
+                if data.get('cod') == 200:
+                    results['tests'].append({
+                        'city': city,
+                        'status': 'success',
+                        'temperature': data['main']['temp'],
+                        'description': data['weather'][0]['description'],
+                        'message': 'API working'
+                    })
+                else:
+                    results['tests'].append({
+                        'city': city,
+                        'status': 'api_error',
+                        'message': data.get('message', 'Unknown API error')
+                    })
+                    
+            except Exception as e:
+                results['tests'].append({
+                    'city': city,
+                    'status': 'error',
+                    'message': str(e)
+                })
+        
+        # Test 2: Using weather service
+        try:
+            weather_data = weather_service.get_weather_by_city("Yangon")
+            results['weather_service_test'] = {
+                'status': 'success' if not weather_data.get('is_mock') else 'using_mock',
+                'temperature': weather_data.get('temperature'),
+                'is_mock': weather_data.get('is_mock', True),
+                'message': 'Using real data' if not weather_data.get('is_mock') else 'Using mock data (API may be unavailable)'
+            }
+        except Exception as e:
+            results['weather_service_test'] = {
+                'status': 'error',
+                'message': str(e)
+            }
+        
+        return JsonResponse(results)

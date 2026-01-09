@@ -1,0 +1,657 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load weather_filters %}  <!-- Add this line! -->
+{% block title %}Your Itinerary - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Hero Header -->
+    <div class="itinerary-hero py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container py-5">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'planner:dashboard' %}" class="text-white">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'planner:plan_selection' trip_id=trip.id %}" class="text-white">Plans</a></li>
+                            <li class="breadcrumb-item active text-white" aria-current="page">{{ plan_title }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="display-5 fw-bold text-white mb-3">{{ plan_title }} Itinerary</h1>
+                    <p class="lead text-white mb-0">
+                        {{ destination_name }} • {{ start_date }} to {{ end_date }} • {{ travelers }} traveler{{ travelers|pluralize }}
+                    </p>
+                </div>
+                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                    <button class="btn btn-light btn-lg me-2" id="printItinerary">
+                        <i class="fas fa-print me-2"></i>Print
+                    </button>
+                    <a href="{% url 'planner:download_itinerary_pdf' trip_id=trip.id plan_id=plan_id %}" 
+                       class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-download me-2"></i>Download PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container py-5">
+        <div class="row">
+            <!-- Left Column - Itinerary -->
+            <div class="col-lg-8">
+                <!-- Trip Summary Cards -->
+                <div class="row mb-5">
+                    <div class="col-md-4 mb-4">
+                        <div class="card stat-card h-100">
+                            <div class="card-body text-center py-4">
+                                <div class="stat-icon mb-3">
+                                    <i class="fas fa-calendar-alt fa-2x"></i>
+                                </div>
+                                <h3 class="stat-number">{{ total_days }}</h3>
+                                <p class="stat-label">Total Days</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card stat-card h-100">
+                            <div class="card-body text-center py-4">
+                                <div class="stat-icon mb-3">
+                                    <i class="fas fa-tasks fa-2x"></i>
+                                </div>
+                                <h3 class="stat-number">{{ total_activities }}</h3>
+                                <p class="stat-label">Activities</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card stat-card h-100">
+                            <div class="card-body text-center py-4">
+                                <div class="stat-icon mb-3">
+                                    <i class="fas fa-dollar-sign fa-2x"></i>
+                                </div>
+                                <h3 class="stat-number">${{ cost_estimate.total }}</h3>
+                                <p class="stat-label">Estimated Cost</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Days Navigation -->
+                <div class="mb-4">
+                    <nav>
+                        <div class="nav nav-tabs" id="daysTab" role="tablist">
+                            {% for day in days_data %}
+                            <button class="nav-link {% if forloop.first %}active{% endif %}" 
+                                    id="day{{ day.day_number }}-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#day{{ day.day_number }}" type="button" role="tab">
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="small">Day</span>
+                                    <strong class="fs-5">{{ day.day_number }}</strong>
+                                    <small class="xsmall">{{ day.date }}</small>
+                                </div>
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </nav>
+                </div>
+                
+                <!-- Days Content -->
+                <div class="tab-content" id="daysTabContent">
+                    {% for day in days_data %}
+                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
+                         id="day{{ day.day_number }}" role="tabpanel">
+                         
+                        <!-- Day Header with Weather -->
+                        <div class="card-glass p-4 mb-4">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h3 class="fw-bold mb-1">Day {{ day.day_number }}: {{ day.date }}</h3>
+                                    <p class="text-gray mb-0">
+                                        <i class="fas fa-calendar-day me-2"></i>
+                                        {% with day_index=forloop.counter0 %}
+                                            {% if weather_forecast %}
+                                                {{ weather_forecast|get_day_name:day_index }}
+                                            {% else %}
+                                                {% now "l" %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6 text-md-end">
+                                    {% with weather=weather_forecast|get_item:day.date %}
+                                    {% if weather %}
+                                    <div class="weather-widget d-inline-block">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3">
+                                                <img src="https://openweathermap.org/img/wn/{{ weather.daily_summary.icon }}.png" 
+                                                     alt="{{ weather.daily_summary.description }}" 
+                                                     width="50" height="50">
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ weather.daily_summary.temperature }}°C</div>
+                                                <div class="small text-muted">{{ weather.daily_summary.description }}</div>
+                                                <div class="xsmall">
+                                                    H: {{ weather.max_temp }}° L: {{ weather.min_temp }}°
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="weather-widget d-inline-block">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3">
+                                                <i class="fas fa-sun fa-2x text-warning"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">25°C</div>
+                                                <div class="small text-muted">Weather data unavailable</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Activities Timeline -->
+                        <div class="timeline">
+                            {% for activity in day.activities %}
+                            <div class="timeline-item" id="activity-{{ day.day_number }}-{{ forloop.counter0 }}">
+                                <div class="timeline-marker">
+                                    <i class="{{ activity.icon }}"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <div class="card activity-card mb-4">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-8">
+                                                    <div class="d-flex align-items-start">
+                                                        <div class="me-4">
+                                                            <span class="badge bg-primary px-3 py-2">
+                                                                {{ activity.time }}
+                                                            </span>
+                                                            <div class="mt-2 xsmall text-center">{{ activity.duration }}</div>
+                                                        </div>
+                                                        <div>
+                                                            <h5 class="fw-bold mb-2">{{ activity.title }}</h5>
+                                                            <p class="text-gray mb-3">{{ activity.description }}</p>
+                                                            <div class="d-flex align-items-center">
+                                                                <i class="fas fa-map-marker-alt me-2 text-muted"></i>
+                                                                <span class="small">{{ activity.location }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-end">
+                                                        <!-- Weather for this time -->
+                                                        {% with time_arg=day.date|add:":"|add:activity.time|cut:" " %}
+                                                            {% with weather=weather_forecast|get_hourly_weather:time_arg %}
+                                                            {% if weather %}
+                                                            <div class="weather-at-time mb-3">
+                                                                <div class="d-flex align-items-center justify-content-end">
+                                                                    <span class="me-2">{{ weather.temperature }}°C</span>
+                                                                    <img src="https://openweathermap.org/img/wn/{{ weather.icon }}.png" 
+                                                                         alt="{{ weather.description }}" width="30" height="30">
+                                                                </div>
+                                                                <div class="xsmall text-muted">{{ weather.description }}</div>
+                                                            </div>
+                                                            {% endif %}
+                                                            {% endwith %}
+                                                        {% endwith %}
+                                                        
+                                                        <!-- Action Buttons -->
+                                                        <div class="btn-group">
+                                                            <button class="btn btn-sm btn-outline-danger delete-activity" 
+                                                                    data-day="{{ day.day_number }}" 
+                                                                    data-index="{{ forloop.counter0 }}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-secondary edit-activity">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            <!-- Add Activity Button -->
+                            <div class="timeline-item">
+                                <div class="timeline-marker">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
+                                            data-day="{{ day.day_number }}">
+                                        <i class="fas fa-plus-circle me-2"></i>Add Custom Activity
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Right Column - Sidebar -->
+            <div class="col-lg-4">
+                <!-- Weather Forecast Widget -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="fw-bold mb-4">
+                        <i class="fas fa-cloud-sun me-2"></i>Weather Forecast
+                    </h5>
+                    <div class="weather-forecast">
+                        {% for date, forecast in weather_forecast.items %}
+                        <div class="weather-day mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold">{{ forecast.day_name }}</div>
+                                    <div class="xsmall text-muted">{{ date }}</div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="d-flex align-items-center">
+                                        <img src="https://openweathermap.org/img/wn/{{ forecast.daily_summary.icon }}.png" 
+                                             alt="{{ forecast.daily_summary.description }}" width="40" height="40">
+                                        <div class="ms-2">
+                                            <div class="fw-bold">{{ forecast.daily_summary.temperature }}°C</div>
+                                            <div class="xsmall">{{ forecast.daily_summary.description }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-cloud-sun fa-2x text-muted mb-2"></i>
+                            <p class="small text-muted">Weather forecast not available</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Cost Breakdown -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="fw-bold mb-4">
+                        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown
+                    </h5>
+                    <div class="cost-breakdown">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Plan Base Cost</span>
+                                <span class="fw-bold">${{ cost_estimate.breakdown.plan_base }}</span>
+                            </div>
+                            {% if hotel %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Hotel ({{ nights }} nights)</span>
+                                <span class="fw-bold">${{ cost_estimate.breakdown.hotel }}</span>
+                            </div>
+                            {% endif %}
+                            {% if transport %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Transport</span>
+                                <span class="fw-bold">${{ cost_estimate.breakdown.transport }}</span>
+                            </div>
+                            {% endif %}
+                            {% if travelers > 1 %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Additional Travelers</span>
+                                <span class="fw-bold">${{ cost_estimate.breakdown.additional_travelers }}</span>
+                            </div>
+                            {% endif %}
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold">Total Estimated Cost</span>
+                                <span class="fw-bold fs-5 text-primary">${{ cost_estimate.total }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hotel & Transport Info -->
+                <div class="card-glass p-4">
+                    <h5 class="fw-bold mb-4">
+                        <i class="fas fa-info-circle me-2"></i>Trip Details
+                    </h5>
+                    {% if hotel %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-2">
+                            <i class="fas fa-hotel me-2 text-primary"></i>Accommodation
+                        </h6>
+                        <div class="ps-3">
+                            <div class="fw-bold">{{ hotel.name }}</div>
+                            <div class="xsmall text-muted mb-2">{{ hotel.address }}</div>
+                            <div class="badge bg-light text-dark">{{ hotel.get_category_display }}</div>
+                            <div class="mt-2">
+                                <span class="badge bg-primary">${{ hotel.price_per_night }} per night</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if transport %}
+                    <div>
+                        <h6 class="fw-bold mb-2">
+                            <i class="fas fa-{{ transport.type|default:'bus' }} me-2 text-success"></i>Transportation
+                        </h6>
+                        <div class="ps-3">
+                            <div class="fw-bold">{{ transport.name }}</div>
+                            {% if transport.booking_details %}
+                            <div class="xsmall text-muted mb-2">
+                                Booking Ref: {{ transport.booking_details.booking_id }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Activity Modal -->
+<div class="modal fade" id="addActivityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Custom Activity</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addActivityForm">
+                    <input type="hidden" id="activityDay" name="day_number">
+                    <div class="mb-3">
+                        <label class="form-label">Activity Name</label>
+                        <input type="text" class="form-control" name="activity_name" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Time</label>
+                            <input type="time" class="form-control" name="activity_time" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Duration</label>
+                            <select class="form-select" name="activity_duration">
+                                <option value="30 mins">30 minutes</option>
+                                <option value="1 hour">1 hour</option>
+                                <option value="1.5 hours">1.5 hours</option>
+                                <option value="2 hours">2 hours</option>
+                                <option value="3 hours">3 hours</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input type="text" class="form-control" name="activity_location">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="activity_description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" name="activity_type">
+                            <option value="sightseeing">Sightseeing</option>
+                            <option value="food">Food & Dining</option>
+                            <option value="shopping">Shopping</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="transport">Transport</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveActivityBtn">Add Activity</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.itinerary-hero {
+    background-size: cover;
+    background-position: center;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 40px;
+}
+
+.timeline:before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #667eea, #764ba2);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -40px;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #667eea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #667eea;
+}
+
+.timeline-content {
+    padding-left: 20px;
+}
+
+.activity-card {
+    border-left: 4px solid #667eea !important;
+    transition: transform 0.2s;
+}
+
+.activity-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.stat-card {
+    border: none;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 15px;
+}
+
+.stat-icon {
+    color: #667eea;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    color: #666;
+    padding: 15px 20px;
+    border-radius: 10px 10px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+    background: white;
+    color: #667eea;
+    font-weight: bold;
+    border-bottom: 3px solid #667eea;
+}
+
+.weather-widget {
+    background: rgba(255,255,255,0.9);
+    padding: 10px 15px;
+    border-radius: 10px;
+}
+
+.weather-at-time {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: inline-block;
+}
+</style>
+<script>
+// Get Django variables first
+const tripId = "{{ trip.id }}";
+const planId = "{{ plan_id }}";
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    
+    // Print functionality
+    document.getElementById('printItinerary')?.addEventListener('click', function() {
+        window.print();
+    });
+    
+    // Add activity modal
+    const addActivityModal = document.getElementById('addActivityModal');
+    if (addActivityModal) {
+        const addActivityModalInstance = new bootstrap.Modal(addActivityModal);
+        const addActivityBtns = document.querySelectorAll('.add-activity-btn');
+        const activityDayInput = document.getElementById('activityDay');
+        const saveActivityBtn = document.getElementById('saveActivityBtn');
+        const addActivityForm = document.getElementById('addActivityForm');
+        
+        addActivityBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const day = this.getAttribute('data-day');
+                if (activityDayInput) {
+                    activityDayInput.value = day;
+                }
+                
+                // Set default time
+                const timeInput = addActivityForm?.querySelector('[name="activity_time"]');
+                if (timeInput) {
+                    const now = new Date();
+                    timeInput.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                }
+                
+                addActivityModalInstance.show();
+            });
+        });
+        
+        // Save activity
+        if (saveActivityBtn) {
+            saveActivityBtn.addEventListener('click', function() {
+                if (!addActivityForm) return;
+                
+                const formData = new FormData(addActivityForm);
+                const dayNumber = activityDayInput?.value;
+                
+                const activity = {
+                    time: (formData.get('activity_time') || '12:00') + ' PM',
+                    title: formData.get('activity_name') || 'New Activity',
+                    location: formData.get('activity_location') || 'Location',
+                    duration: formData.get('activity_duration') || '1 hour',
+                    description: formData.get('activity_description') || 'Description',
+                    type: formData.get('activity_type') || 'sightseeing',
+                    icon: 'fas fa-star',
+                    is_custom: true
+                };
+                
+                // Send AJAX request to add activity
+                fetch(`/planner/trip/${tripId}/plan/${planId}/add-activity/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        day_number: dayNumber,
+                        activity: activity
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reload the page
+                        location.reload();
+                    } else {
+                        alert('Error adding activity: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+                
+                addActivityModalInstance.hide();
+            });
+        }
+    }
+    
+    // Delete activity
+    document.querySelectorAll('.delete-activity').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const day = this.getAttribute('data-day');
+            const index = this.getAttribute('data-index');
+            
+            if (confirm('Are you sure you want to remove this activity?')) {
+                fetch(`/planner/trip/${tripId}/plan/${planId}/remove-activity/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        day_number: day,
+                        activity_index: index
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the activity element
+                        const activityElement = document.getElementById(`activity-${day}-${index}`);
+                        if (activityElement) {
+                            activityElement.remove();
+                        }
+                    } else {
+                        alert('Error removing activity: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

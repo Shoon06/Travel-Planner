@@ -194,17 +194,16 @@
                 </form>
                 
                 <!-- Clear Form Button -->
-<div class="text-center mt-4">
-    <button type="button" class="btn btn-outline-secondary" id="clearFormBtn">
-        <i class="fas fa-redo me-2"></i>Clear Form & Start Over
-    </button>
-</div>
+                <div class="text-center mt-4">
+                    <button type="button" class="btn btn-outline-secondary" id="clearFormBtn">
+                        <i class="fas fa-redo me-2"></i>Clear Form & Start Over
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </div>
-<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\plan.html -->
-<!-- UPDATE THE SCRIPT SECTION: -->
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const originInput = document.getElementById('origin');
@@ -603,8 +602,8 @@
             });
         }
         
-        // ========== FORM SUBMISSION ==========
-        tripForm.addEventListener('submit', function(e) {
+        // ========== FORM SUBMISSION - UPDATED FOR PLAN SELECTION ==========
+        tripForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             if (!originIdInput.value) {
@@ -638,34 +637,39 @@
             continueBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
             continueBtn.disabled = true;
             
-            // Submit the form directly (not via AJAX)
-            const formData = new FormData(tripForm);
-            
-            fetch('{% url "planner:plan" %}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            })
-            .then(response => {
-                if (response.redirected) {
-                    window.location.href = response.url;
+            try {
+                // First, save the trip to get trip_id
+                const formData = new FormData(tripForm);
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                
+                // Make AJAX request to save trip
+                const response = await fetch('{% url "planner:plan" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.trip_id) {
+                    // Success! Redirect to plan selection page
+                    window.location.href = `/planner/trip/${data.trip_id}/plans/`;
                 } else {
-                    return response.text().then(text => {
-                        console.error('Unexpected response:', text);
-                        alert('An error occurred. Please try again.');
-                        continueBtn.innerHTML = originalText;
-                        continueBtn.disabled = false;
-                    });
+                    // Handle error
+                    alert(data.error || 'An error occurred. Please try again.');
+                    continueBtn.innerHTML = originalText;
+                    continueBtn.disabled = false;
                 }
-            })
-            .catch(error => {
+                
+            } catch (error) {
                 console.error('Error:', error);
                 alert('An error occurred. Please try again.');
                 continueBtn.innerHTML = originalText;
                 continueBtn.disabled = false;
-            });
+            }
             
             return false;
         });
@@ -679,7 +683,6 @@
         setTimeout(updateContinueButton, 100);
     });
 </script>
-
 
 <style>
 .suggestions-dropdown {

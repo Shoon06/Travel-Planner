@@ -135,3 +135,10 @@ LEAFLET_CONFIG = {
     'TILES': [('OpenStreetMap', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
                {'attribution': '&copy; OpenStreetMap contributors'})],
 }
+
+# Add to your settings.py
+
+# OpenWeatherMap API Key (get from https://openweathermap.org/api)
+OPENWEATHER_API_KEY = 'faaa7d6b2a26f70743cf1f9f485b8853'  # Replace with your actual key
+
+# If you don't have an API key, the weather service will use mock data

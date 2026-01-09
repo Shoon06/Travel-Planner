@@ -1,0 +1,209 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\plan_selection.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select Your Travel Plan - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold mb-3">AI Generated Travel Plans</h1>
+        <p class="lead text-gray mb-4">Select the plan that best matches your travel style</p>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            Your trip to <strong>{{ destination.name }}</strong> from {{ start_date }} to {{ end_date }} ({{ days }} days)
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    </div>
+    
+    <!-- Travel Plans Grid -->
+    <div class="row g-4 mb-5">
+        {% for plan in plans %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card plan-card h-100 border-0 shadow-lg" style="border-top: 5px solid {{ plan.color }} !important;">
+                <div class="card-header bg-white border-0 py-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="plan-icon me-3" style="background-color: {{ plan.color }};">
+                            <i class="{{ plan.icon }} text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="h5 fw-bold mb-1">{{ plan.title }}</h3>
+                            <p class="text-muted small mb-0">{{ plan.subtitle }}</p>
+                        </div>
+                    </div>
+                    <div class="badge bg-light text-dark px-3 py-2 mb-3">
+                        <i class="fas fa-tag me-2"></i>{{ plan.category }}
+                    </div>
+                </div>
+                
+                <div class="card-body py-3">
+                    <!-- Plan Details -->
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <div class="text-center py-2">
+                                <div class="text-gray small">Duration</div>
+                                <div class="fw-bold">{{ plan.duration }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center py-2">
+                                <div class="text-gray small">Estimated Cost</div>
+                                <div class="fw-bold">${{ plan.estimated_cost }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Plan Highlights -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-star me-2" style="color: {{ plan.color }};"></i>Plan Highlights</h6>
+                        <div class="ps-3">
+                            {% for highlight in plan.highlights|slice:":4" %}
+                            <div class="d-flex align-items-start mb-2">
+                                <i class="fas fa-check-circle mt-1 me-2" style="color: {{ plan.color }}; font-size: 0.8rem;"></i>
+                                <span class="small">{{ highlight }}</span>
+                            </div>
+                            {% endfor %}
+                            {% if plan.highlights|length > 4 %}
+                            <div class="text-center mt-2">
+                                <button class="btn btn-sm btn-link see-more-btn" data-bs-toggle="collapse" 
+                                        data-bs-target="#highlights{{ forloop.counter }}">
+                                    +{{ plan.highlights|length|add:"-4" }} more highlights
+                                </button>
+                                <div class="collapse mt-2" id="highlights{{ forloop.counter }}">
+                                    {% for highlight in plan.highlights|slice:"4:" %}
+                                    <div class="d-flex align-items-start mb-2">
+                                        <i class="fas fa-check-circle mt-1 me-2" style="color: {{ plan.color }}; font-size: 0.8rem;"></i>
+                                        <span class="small">{{ highlight }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Sample Day Preview -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-calendar-day me-2" style="color: {{ plan.color }};"></i>Sample Day 1</h6>
+                        <div class="sample-day ps-3">
+                            {% for activity in plan.days.0.activities|slice:":3" %}
+                            <div class="d-flex mb-2">
+                                <div class="activity-time me-3" style="min-width: 70px;">
+                                    <span class="badge bg-light text-dark">{{ activity.time }}</span>
+                                </div>
+                                <div>
+                                    <div class="small fw-bold">{{ activity.title }}</div>
+                                    <div class="xsmall text-muted">{{ activity.location }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <div class="text-center">
+                                <button class="btn btn-sm btn-link see-more-btn" 
+                                        onclick="window.location.href='{% url 'planner:itinerary_detail' trip_id=trip.id plan_id=plan.id %}'">
+                                    + more activities...
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white border-0 py-3">
+                    <form method="post" action="{% url 'planner:select_plan' trip_id=trip.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                        <button type="submit" class="btn btn-primary w-100 py-3">
+                            <i class="fas fa-check-circle me-2"></i>Select This Plan
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Trip Summary -->
+    <div class="card-glass p-4 mb-5">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="fw-bold mb-3">Your Trip Summary</h5>
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="text-gray small">Destination</div>
+                        <div class="fw-bold">{{ destination.name }}</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="text-gray small">Travel Dates</div>
+                        <div class="fw-bold">{{ start_date }} to {{ end_date }}</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="text-gray small">Duration</div>
+                        <div class="fw-bold">{{ days }} days, {{ nights }} nights</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="text-gray small">Travelers</div>
+                        <div class="fw-bold">{{ travelers }} person{{ travelers|pluralize }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="bg-light p-4 rounded">
+                    <h6 class="fw-bold mb-3">Need help choosing?</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-user-friends me-2 text-primary"></i><strong>Cultural Explorer:</strong> Perfect for history buffs and culture enthusiasts</li>
+                        <li class="mb-2"><i class="fas fa-hiking me-2 text-success"></i><strong>Adventure Seeker:</strong> Ideal for active travelers who love outdoor activities</li>
+                        <li class="mb-2"><i class="fas fa-spa me-2 text-purple"></i><strong>Relaxed Wanderer:</strong> Best for those who prefer a leisurely pace</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.plan-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 15px !important;
+    overflow: hidden;
+}
+
+.plan-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
+}
+
+.plan-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.sample-day {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.see-more-btn {
+    text-decoration: none;
+    color: var(--primary-color);
+    font-size: 0.85rem;
+}
+
+.see-more-btn:hover {
+    text-decoration: underline;
+}
+
+.activity-time .badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+.text-purple {
+    color: #9b59b6 !important;
+}
+</style>
+{% endblock %}
