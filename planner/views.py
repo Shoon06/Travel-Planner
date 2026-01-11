@@ -2410,4 +2410,154 @@ class TestWeatherAPIView(LoginRequiredMixin, View):
             }
         
         return JsonResponse(results)
+# ========== DESTINATION BROWSING VIEWS ==========
+
+class DestinationListView(View):
+    """Browse destinations by region/city"""
+    template_name = 'planner/destinations.html'
+    
+    def get(self, request):
+        # Get filter parameters
+        region_filter = request.GET.get('region', 'all')
+        type_filter = request.GET.get('type', 'all')
+        search_query = request.GET.get('search', '')
+        
+        # Get all destinations
+        destinations = Destination.objects.filter(is_active=True)
+        
+        # Apply filters
+        if region_filter != 'all':
+            destinations = destinations.filter(region__iexact=region_filter)
+        
+        if type_filter != 'all':
+            destinations = destinations.filter(type=type_filter)
+        
+        if search_query:
+            destinations = destinations.filter(
+                Q(name__icontains=search_query) | 
+                Q(description__icontains=search_query) |
+                Q(region__icontains=search_query)
+            )
+        
+        # Group by region
+        destinations_by_region = {}
+        for destination in destinations.order_by('region', 'name'):
+            region = destination.region
+            if region not in destinations_by_region:
+                destinations_by_region[region] = []
+            destinations_by_region[region].append(destination)
+        
+        # Get unique regions for filter
+        all_regions = Destination.objects.filter(is_active=True).values_list('region', flat=True).distinct()
+        all_types = Destination.objects.filter(is_active=True).values_list('type', flat=True).distinct()
+        
+        context = {
+            'destinations_by_region': destinations_by_region,
+            'all_regions': all_regions,
+            'all_types': all_types,
+            'selected_region': region_filter,
+            'selected_type': type_filter,
+            'search_query': search_query,
+            'destinations_count': destinations.count(),
+        }
+        
+        return render(request, self.template_name, context)
+
+
+class DestinationDetailView(View):
+    """Detailed view of a destination"""
+    template_name = 'planner/destination_detail.html'
+    
+    def get(self, request, destination_id):
+        destination = get_object_or_404(Destination, id=destination_id, is_active=True)
+        
+        # Get weather forecast for this destination
+        weather_service_instance = weather_service
+        weather_data = weather_service_instance.get_weather_by_city(destination.name)
+        
+        # Get hotels in this destination
+        hotels = Hotel.objects.filter(destination=destination, is_active=True).order_by('price_per_night')[:5]
+        
+        # Get similar destinations (same region)
+        similar_destinations = Destination.objects.filter(
+            region=destination.region,
+            is_active=True
+        ).exclude(id=destination.id).order_by('?')[:4]
+        
+        # Get popular attractions (for major cities)
+        attractions = []
+        if destination.name.lower() in ['yangon', 'mandalay', 'bagan']:
+            attractions = self.get_popular_attractions(destination.name)
+        
+        context = {
+            'destination': destination,
+            'weather_data': weather_data,
+            'hotels': hotels,
+            'similar_destinations': similar_destinations,
+            'attractions': attractions,
+            'has_coordinates': bool(destination.latitude and destination.longitude),
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def get_popular_attractions(self, city_name):
+        """Get popular attractions for major cities"""
+        attractions_map = {
+            'yangon': [
+                {'name': 'Shwedagon Pagoda', 'type': 'Religious Site', 'description': 'Gilded pagoda with beautiful sunset views'},
+                {'name': 'Bogyoke Market', 'type': 'Market', 'description': 'Colonial-era market with local crafts'},
+                {'name': 'Kandawgyi Park', 'type': 'Park', 'description': 'Beautiful park with royal barge'},
+                {'name': 'Sule Pagoda', 'type': 'Religious Site', 'description': 'Ancient pagoda in city center'},
+                {'name': 'National Museum', 'type': 'Museum', 'description': 'Largest museum in Myanmar'},
+            ],
+            'mandalay': [
+                {'name': 'Mandalay Palace', 'type': 'Historical Site', 'description': 'Last royal palace of Myanmar'},
+                {'name': 'Mandalay Hill', 'type': 'Natural Site', 'description': 'Hill with panoramic city views'},
+                {'name': 'U Bein Bridge', 'type': 'Bridge', 'description': 'World\'s longest teak bridge'},
+                {'name': 'Kuthodaw Pagoda', 'type': 'Religious Site', 'description': 'Home to the world\'s largest book'},
+                {'name': 'Mingun Pahtodawgyi', 'type': 'Historical Site', 'description': 'Massive unfinished stupa'},
+            ],
+            'bagan': [
+                {'name': 'Ananda Temple', 'type': 'Temple', 'description': 'One of Bagan\'s most beautiful temples'},
+                {'name': 'Shwezigon Pagoda', 'type': 'Pagoda', 'description': 'Gilded pagoda built in 11th century'},
+                {'name': 'Dhammayangyi Temple', 'type': 'Temple', 'description': 'Largest temple in Bagan'},
+                {'name': 'Sunset at Buledi', 'type': 'Viewpoint', 'description': 'Popular sunset viewing spot'},
+                {'name': 'Hot Air Balloon Ride', 'type': 'Activity', 'description': 'Spectacular sunrise over temples'},
+            ]
+        }
+        
+        city_lower = city_name.lower()
+        for key, attractions in attractions_map.items():
+            if key in city_lower:
+                return attractions
+        
+        return []
+
+
+class DestinationAutocompleteView(View):
+    """AJAX endpoint for destination autocomplete"""
+    def get(self, request):
+        query = request.GET.get('q', '').strip().lower()
+        
+        if len(query) < 2:
+            return JsonResponse({'results': []})
+        
+        destinations = Destination.objects.filter(
+            Q(name__icontains=query) | 
+            Q(region__icontains=query),
+            is_active=True
+        ).order_by('name')[:10]
+        
+        results = []
+        for dest in destinations:
+            results.append({
+                'id': dest.id,
+                'name': dest.name,
+                'region': dest.region,
+                'type': dest.get_type_display(),
+                'full_name': f"{dest.name}, {dest.region}",
+                'image_url': dest.image.url if dest.image else '',
+            })
+        
+        return JsonResponse({'results': results})
  

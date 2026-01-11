@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% block title %}Explore Myanmar Destinations - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-md-8">
+            <h1 class="display-5 fw-bold mb-3">Explore Myanmar</h1>
+            <p class="lead text-gray">Discover beautiful destinations across Myanmar. Filter by region or search for specific places.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <span class="badge bg-primary p-2 fs-6">
+                {{ destinations_count }} Destinations
+            </span>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="card-glass p-4 mb-5">
+        <div class="row g-3">
+            <!-- Search -->
+            <div class="col-md-4">
+                <form method="get" class="position-relative">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="fas fa-search text-purple"></i>
+                        </span>
+                        <input type="text" 
+                               name="search" 
+                               class="form-control border-start-0" 
+                               placeholder="Search destinations..."
+                               value="{{ search_query }}"
+                               id="searchInput">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Region Filter -->
+            <div class="col-md-3">
+                <form method="get" id="regionForm">
+                    <select name="region" class="form-select" onchange="this.form.submit()">
+                        <option value="all" {% if selected_region == 'all' %}selected{% endif %}>All Regions</option>
+                        {% for region in all_regions %}
+                            <option value="{{ region }}" {% if selected_region == region %}selected{% endif %}>{{ region }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+
+            <!-- Type Filter -->
+            <div class="col-md-3">
+                <form method="get" id="typeForm">
+                    <select name="type" class="form-select" onchange="this.form.submit()">
+                        <option value="all" {% if selected_type == 'all' %}selected{% endif %}>All Types</option>
+                        {% for type in all_types %}
+                            <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>
+                                {{ type|title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+
+            <!-- Clear Filters -->
+            <div class="col-md-2">
+                <a href="{% url 'planner:destinations' %}" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-times me-1"></i>Clear
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Destinations by Region -->
+    {% if destinations_by_region %}
+        {% for region, destinations in destinations_by_region.items %}
+        <div class="mb-5">
+            <!-- Region Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold">
+                    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                    {{ region }}
+                </h2>
+                <span class="badge bg-light text-dark p-2">
+                    {{ destinations|length }} places
+                </span>
+            </div>
+
+            <!-- Destination Cards -->
+            <div class="row g-4">
+                {% for destination in destinations %}
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                    <div class="card destination-card h-100 border-0 shadow-sm">
+                        {% if destination.image %}
+                        <img src="{{ destination.image.url }}" 
+                             class="card-img-top destination-image" 
+                             alt="{{ destination.name }}"
+                             style="height: 200px; object-fit: cover;">
+                        {% else %}
+                        <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" 
+                             style="height: 200px;">
+                            <i class="fas fa-mountain-sun fa-3x text-light opacity-50"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="card-body d-flex flex-column">
+                            <div class="mb-2">
+                                <span class="badge bg-purple-light text-purple">
+                                    {{ destination.get_type_display }}
+                                </span>
+                            </div>
+                            
+                            <h5 class="card-title fw-bold mb-2">
+                                {{ destination.name }}
+                            </h5>
+                            
+                            <p class="card-text text-gray small mb-3 flex-grow-1">
+                                {{ destination.description|truncatechars:100|default:"Explore this beautiful destination in Myanmar." }}
+                            </p>
+                            
+                            <div class="mt-auto">
+                                <a href="{% url 'planner:destination_detail' destination.id %}" 
+                                   class="btn btn-primary btn-sm w-100">
+                                    <i class="fas fa-eye me-1"></i>View Details
+                                </a>
+                            </div>
+                        </div>
+                        
+                        {% if destination.has_airport %}
+                        <div class="card-footer bg-transparent border-top-0 pt-0">
+                            <small class="text-success">
+                                <i class="fas fa-plane me-1"></i>Has Airport
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% if not forloop.last %}
+        <hr class="my-5">
+        {% endif %}
+        
+        {% endfor %}
+    {% else %}
+        <!-- No Results -->
+        <div class="text-center py-5">
+            <i class="fas fa-map-marked-alt fa-4x text-muted mb-4"></i>
+            <h3 class="mb-3">No destinations found</h3>
+            <p class="text-gray mb-4">Try adjusting your search or filters</p>
+            <a href="{% url 'planner:destinations' %}" class="btn btn-primary">
+                <i class="fas fa-redo me-1"></i>Reset Filters
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit search when typing stops
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        this.form.submit();
+    }, 500);
+});
+
+// Add hover effects to destination cards
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.destination-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+
+<style>
+.destination-card {
+    transition: all 0.3s ease;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.destination-card:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.destination-image {
+    transition: transform 0.5s ease;
+}
+
+.destination-card:hover .destination-image {
+    transform: scale(1.05);
+}
+
+.bg-purple-light {
+    background-color: rgba(107, 71, 164, 0.1);
+}
+</style>
+{% endblock %}

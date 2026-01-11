@@ -24,6 +24,7 @@ from .views import (
     DownloadItineraryPDFView,
     TestWeatherAPIView,
     test_view,
+    DestinationListView, DestinationDetailView, DestinationAutocompleteView,
 )
 
 app_name = 'planner'
@@ -56,4 +57,9 @@ urlpatterns = [
     
     # Weather testing URL - FIXED: Only TestWeatherAPIView exists
     path('test-weather/', TestWeatherAPIView.as_view(), name='test_weather'),
+      
+    # Destination browsing URLs
+    path('destinations/', DestinationListView.as_view(), name='destinations'),
+    path('destinations/<int:destination_id>/', DestinationDetailView.as_view(), name='destination_detail'),
+    path('destinations-autocomplete/', DestinationAutocompleteView.as_view(), name='destinations_autocomplete'),
 ]

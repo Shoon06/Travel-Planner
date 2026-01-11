@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}{{ destination.name }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'planner:destinations' %}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Destinations
+        </a>
+    </div>
+
+    <!-- Destination Header -->
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <!-- Image Gallery -->
+            {% if destination.image %}
+            <div class="position-relative">
+                <img src="{{ destination.image.url }}" 
+                     alt="{{ destination.name }}" 
+                     class="img-fluid rounded-3 shadow" 
+                     style="max-height: 400px; width: 100%; object-fit: cover;">
+                <div class="position-absolute bottom-0 start-0 p-4">
+                    <span class="badge bg-primary fs-6 p-2">
+                        {{ destination.get_type_display }}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Destination Info -->
+            <div class="card-glass p-4 h-100">
+                <h1 class="fw-bold mb-3">{{ destination.name }}</h1>
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-map-marker-alt text-primary me-2"></i>
+                    <span class="fs-5">{{ destination.region }}, Myanmar</span>
+                </div>
+                
+                <!-- Weather Widget -->
+                <div class="weather-widget mb-4 p-3 rounded-3" 
+                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="d-flex justify-content-between align-items-center text-white">
+                        <div>
+                            <h4 class="mb-1">{{ weather_data.temperature }}°C</h4>
+                            <p class="mb-0">{{ weather_data.description }}</p>
+                            <small>Humidity: {{ weather_data.humidity }}% | Wind: {{ weather_data.wind_speed }} m/s</small>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-cloud-sun fa-3x"></i>
+                            {% if weather_data.is_mock %}
+                            <small class="d-block opacity-75">Sample Weather</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Info -->
+                <div class="mb-4">
+                    <h5 class="mb-3">Quick Facts</h5>
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-plane me-2 text-success"></i>
+                                <span>{% if destination.has_airport %}Has Airport{% else %}No Airport{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-users me-2 text-info"></i>
+                                <span>{{ destination.get_type_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Plan Trip Button -->
+                <a href="{% url 'planner:plan' %}?destination_id={{ destination.id }}&destination_name={{ destination.name }}" 
+                   class="btn btn-primary w-100">
+                    <i class="fas fa-calendar-plus me-2"></i>Plan Trip to {{ destination.name }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Destination Description -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card-glass p-4">
+                <h3 class="mb-4">About {{ destination.name }}</h3>
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="fs-5 text-gray mb-4">
+                            {{ destination.description|default:"This beautiful destination in "|add:destination.region|add:" offers unique experiences for travelers. From cultural sites to natural wonders, there's something for everyone to enjoy." }}
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        {% if has_coordinates %}
+                        <div class="text-center">
+                            <i class="fas fa-map-marked-alt fa-3x text-primary mb-3"></i>
+                            <p class="mb-0">Coordinates: {{ destination.latitude }}, {{ destination.longitude }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popular Attractions -->
+    {% if attractions %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="fw-bold mb-4">
+                <i class="fas fa-star me-2 text-warning"></i>
+                Popular Attractions
+            </h2>
+            <div class="row g-4">
+                {% for attraction in attractions %}
+                <div class="col-md-6 col-lg-3">
+                    <div class="card attraction-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <span class="badge bg-purple-light text-purple mb-2">
+                                {{ attraction.type }}
+                            </span>
+                            <h5 class="card-title fw-bold mb-2">{{ attraction.name }}</h5>
+                            <p class="card-text text-gray small">{{ attraction.description }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Hotels in this Destination -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold">
+                    <i class="fas fa-hotel me-2 text-primary"></i>
+                    Hotels in {{ destination.name }}
+                </h2>
+                <a href="{% url 'planner:plan' %}?destination_id={{ destination.id }}&destination_name={{ destination.name }}" 
+                   class="btn btn-outline-primary">
+                    View All Hotels
+                </a>
+            </div>
+            
+            {% if hotels %}
+            <div class="row g-4">
+                {% for hotel in hotels %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card hotel-card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title fw-bold mb-0">{{ hotel.name }}</h5>
+                                <span class="badge bg-{{ hotel.category }}">
+                                    {{ hotel.get_category_display }}
+                                </span>
+                            </div>
+                            
+                            <p class="text-gray small mb-2">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                {{ hotel.address|truncatechars:40 }}
+                            </p>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <i class="fas fa-star text-warning"></i>
+                                    <span class="fw-bold">{{ hotel.rating }}</span>
+                                    <small class="text-gray">({{ hotel.review_count }} reviews)</small>
+                                </div>
+                                <div class="fw-bold text-primary">
+                                    {{ hotel.price_in_mmk }}/night
+                                </div>
+                            </div>
+                            
+                            {% if hotel.amenities %}
+                            <div class="mb-3">
+                                <small class="text-gray">
+                                    <i class="fas fa-wifi me-1"></i>
+                                    {{ hotel.amenities|slice:":3"|join:", " }}
+                                </small>
+                            </div>
+                            {% endif %}
+                            
+                            <button class="btn btn-sm btn-outline-primary w-100" 
+                                    onclick="selectHotel('{{ hotel.id }}', '{{ hotel.name }}')">
+                                <i class="fas fa-check me-1"></i>Select Hotel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-hotel fa-3x text-muted mb-3"></i>
+                <p class="text-gray">No hotels available for this destination yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Similar Destinations -->
+    {% if similar_destinations %}
+    <div class="row">
+        <div class="col-12">
+            <h2 class="fw-bold mb-4">
+                <i class="fas fa-compass me-2 text-info"></i>
+                Explore {{ destination.region }}
+            </h2>
+            <div class="row g-4">
+                {% for similar in similar_destinations %}
+                <div class="col-md-6 col-lg-3">
+                    <div class="card similar-card h-100 border-0 shadow-sm">
+                        {% if similar.image %}
+                        <img src="{{ similar.image.url }}" 
+                             class="card-img-top" 
+                             alt="{{ similar.name }}"
+                             style="height: 150px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold">{{ similar.name }}</h5>
+                            <p class="card-text text-gray small mb-3">
+                                {{ similar.description|truncatechars:80|default:"Explore this destination" }}
+                            </p>
+                            <a href="{% url 'planner:destination_detail' similar.id %}" 
+                               class="btn btn-sm btn-outline-primary w-100">
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectHotel(hotelId, hotelName) {
+    // Store hotel selection
+    localStorage.setItem('selected_hotel_id', hotelId);
+    localStorage.setItem('selected_hotel_name', hotelName);
+    
+    // Show success message
+    alert(`Hotel "${hotelName}" selected! You can now plan your trip with this hotel.`);
+    
+    // Redirect to plan page
+    window.location.href = "{% url 'planner:plan' %}?hotel_id=" + hotelId + "&hotel_name=" + encodeURIComponent(hotelName) + "&destination_id={{ destination.id }}&destination_name={{ destination.name|urlencode }}";
+}
+
+// Add card hover effects
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.hotel-card, .similar-card, .attraction-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+
+<style>
+.weather-widget {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.hotel-card, .similar-card, .attraction-card {
+    transition: all 0.3s ease;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.hotel-card:hover, .similar-card:hover, .attraction-card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.bg-budget {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+}
+
+.bg-medium {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #2980b9;
+}
+
+.bg-luxury {
+    background-color: rgba(155, 89, 182, 0.1);
+    color: #8e44ad;
+}
+</style>
+{% endblock %}
