@@ -20,7 +20,7 @@
     <style>
         /* Additional inline styles for select dropdowns */
         select.form-select option {
-            background: rgba(235, 235, 242, 0.95) !important;
+            background-color: rgba(235, 235, 242, 0.95) !important;
             color: #2c3e50 !important;
             padding: 10px !important;
         }
@@ -34,7 +34,7 @@
         /* Suggestions dropdown styling */
         .suggestions-dropdown {
             position: absolute;
-            background: rgba(235, 235, 242, 0.98);
+            background-color: rgba(235, 235, 242, 0.98);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(183, 158, 220, 0.3);
             border-radius: 10px;
@@ -70,18 +70,88 @@
             font-size: 0.9em;
             color: #7f8c8d;
         }
+        
+        /* Fix for background-clip property */
+        .gradient-text {
+            background: linear-gradient(135deg, #DEB56D, #C44D56);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Notification badge styling */
+        .notification-badge {
+            font-size: 0.7em;
+            padding: 0.25em 0.6em;
+            top: 5px;
+            right: -5px;
+        }
+        
+        /* Currency badge */
+        .currency-badge {
+            background: rgba(183, 158, 220, 0.1);
+            border: 1px solid rgba(183, 158, 220, 0.3);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.9em;
+            color: #6B47A4;
+        }
+        
+        /* Social icons */
+        .social-icon {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            line-height: 36px;
+            text-align: center;
+            background: rgba(183, 158, 220, 0.1);
+            border-radius: 50%;
+            margin-right: 10px;
+            color: #6B47A4;
+            transition: all 0.3s ease;
+        }
+        
+        .social-icon:hover {
+            background: linear-gradient(135deg, #DEB56D, #C44D56);
+            color: white;
+            transform: translateY(-3px);
+        }
+        
+        /* Text color utilities */
+        .text-gray {
+            color: #7f8c8d !important;
+        }
+        
+        /* Button styling */
+        .btn-gold {
+            background: linear-gradient(135deg, #DEB56D, #C44D56);
+            border: none;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .btn-gold:hover {
+            background: linear-gradient(135deg, #C44D56, #DEB56D);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(222, 181, 109, 0.3);
+        }
+        
+        .gradient-gold {
+            background: linear-gradient(135deg, #DEB56D, #C44D56);
+            color: white;
+        }
     </style>
 </head>
 <body>
-    <!-- ... rest of base.html remains the same ... -->
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container">
-           <!-- Update this section in the navbar -->
-<a class="navbar-brand" href="{% url 'home' %}">
-    <i class="fas fa-map-marked-alt me-2" style="color: #DEB56D;"></i>
-    <span style="background: linear-gradient(135deg, #DEB56D, #C44D56); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">GoMyanmar</span>
-</a>
+            <!-- Brand -->
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="fas fa-map-marked-alt me-2" style="color: #DEB56D;"></i>
+                <span class="gradient-text">GoMyanmar</span>
+            </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -94,6 +164,7 @@
                             <i class="fas fa-home me-1"></i>Home
                         </a>
                     </li>
+                    
                     {% if user.is_authenticated %}
                         {% if user.is_admin_user %}
                         <li class="nav-item">
@@ -114,6 +185,29 @@
                         </li>
                         {% endif %}
                     {% endif %}
+                    
+                    <!-- COMMUNITY LINK -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'posts' in request.path %}active{% endif %}" href="{% url 'posts:post_list' %}">
+                            <i class="fas fa-comments me-1"></i>Community
+                        </a>
+                    </li>
+                    
+                    <!-- NOTIFICATIONS LINK -->
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link position-relative {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'posts:notifications' %}">
+                            <i class="fas fa-bell"></i>
+                            {% if unread_notifications and unread_notifications > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge">
+                                {{ unread_notifications }}
+                                <span class="visually-hidden">unread notifications</span>
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    
                     <li class="nav-item">
                         <a class="nav-link" href="#">
                             <i class="fas fa-compass me-1"></i>Destinations
@@ -134,18 +228,32 @@
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle me-1"></i>{{ user.username }}
                             {% if user.is_admin_user %}
                             <span class="badge gradient-gold text-dark ms-1">Admin</span>
                             {% endif %}
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="#">
                                 <i class="fas fa-user me-2"></i>Profile
                             </a></li>
                             <li><a class="dropdown-item" href="#">
                                 <i class="fas fa-cog me-2"></i>Settings
+                            </a></li>
+                            <!-- COMMUNITY LINKS IN DROPDOWN -->
+                            <li><a class="dropdown-item" href="{% url 'posts:post_list' %}">
+                                <i class="fas fa-comments me-2"></i>Community Posts
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'posts:post_create' %}">
+                                <i class="fas fa-edit me-2"></i>Create Post
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'posts:notifications' %}">
+                                <i class="fas fa-bell me-2"></i>
+                                Notifications
+                                {% if unread_notifications and unread_notifications > 0 %}
+                                <span class="badge bg-danger float-end">{{ unread_notifications }}</span>
+                                {% endif %}
                             </a></li>
                             {% if user.is_admin_user %}
                             <li><a class="dropdown-item" href="/admin/">
@@ -154,7 +262,7 @@
                             {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form method="post" action="{% url 'users:logout' %}" class="d-inline w-100">
+                                <form method="post" action="{% url 'users:logout' %}" id="logout-form" class="d-inline w-100">
                                     {% csrf_token %}
                                     <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start" style="cursor: pointer;">
                                         <i class="fas fa-sign-out-alt me-2"></i>Logout
@@ -226,6 +334,8 @@
                     <h5 class="mb-3">Quick Links</h5>
                     <ul class="list-unstyled">
                         <li class="mb-2"><a href="{% url 'home' %}" class="text-decoration-none text-gray">Home</a></li>
+                        <li class="mb-2"><a href="{% url 'posts:post_list' %}" class="text-decoration-none text-gray">Community</a></li>
+                        <li class="mb-2"><a href="{% url 'posts:notifications' %}" class="text-decoration-none text-gray">Notifications</a></li>
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Destinations</a></li>
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">How It Works</a></li>
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Contact Us</a></li>
@@ -239,6 +349,7 @@
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Hotel Booking</a></li>
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Budget Calculator</a></li>
                         <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Interactive Maps</a></li>
+                        <li class="mb-2"><a href="{% url 'posts:post_list' %}" class="text-decoration-none text-gray">Travel Community</a></li>
                     </ul>
                 </div>
                 
@@ -276,7 +387,9 @@
         // Add active class to current nav link
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
-            document.querySelectorAll('.nav-link').forEach(link => {
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            navLinks.forEach(function(link) {
                 if (link.getAttribute('href') === currentPath) {
                     link.classList.add('active');
                 }
@@ -289,11 +402,48 @@
             });
             
             // Prevent dropdown from closing when clicking inside
-            document.querySelectorAll('.dropdown-menu').forEach(function(dropdown) {
+            var dropdownMenus = document.querySelectorAll('.dropdown-menu');
+            dropdownMenus.forEach(function(dropdown) {
                 dropdown.addEventListener('click', function(e) {
                     e.stopPropagation();
                 });
             });
+            
+            // Auto-refresh notification badge every 30 seconds
+            function updateNotificationBadge() {
+                fetch('/posts/notifications/count/')
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        var badge = document.querySelector('.notification-badge');
+                        if (badge) {
+                            if (data.count > 0) {
+                                badge.textContent = data.count;
+                                badge.style.display = 'inline-block';
+                            } else {
+                                badge.style.display = 'none';
+                            }
+                        }
+                    })
+                    .catch(function(error) {
+                        console.log('Error fetching notification count:', error);
+                    });
+            }
+            
+            // Update notification count every 30 seconds if user is logged in
+            {% if user.is_authenticated %}
+            setInterval(updateNotificationBadge, 30000);
+            {% endif %}
+            
+            // Handle logout form submission
+            var logoutForm = document.getElementById('logout-form');
+            if (logoutForm) {
+                logoutForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    this.submit();
+                });
+            }
         });
     </script>
 </body>

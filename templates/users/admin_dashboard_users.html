@@ -19,7 +19,7 @@
                 <a href="{% url 'users:admin_add_user' %}" class="btn btn-primary">
                     <i class="fas fa-user-plus me-2"></i>Add New User
                 </a>
-                <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-outline-primary">
+                <a href="{% url 'users:admin_user_roles' %}" class="btn btn-outline-primary">  <!-- CHANGED THIS LINE -->
                     <i class="fas fa-user-tag me-2"></i>Manage Roles
                 </a>
             </div>
@@ -173,7 +173,7 @@
                                    class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit in Admin">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="{% url 'users:admin_dashboard_user_roles' %}" 
+                                <a href="{% url 'users:admin_user_roles' %}"  <!-- CHANGED THIS LINE -->
                                    class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Manage Role">
                                     <i class="fas fa-user-tag"></i>
                                 </a>
@@ -260,7 +260,7 @@
                 </a>
             </div>
             <div class="col-md-4">
-                <a href="{% url 'users:admin_dashboard_user_roles' %}" class="btn btn-outline-primary w-100">
+                <a href="{% url 'users:admin_user_roles' %}" class="btn btn-outline-primary w-100">  <!-- CHANGED THIS LINE -->
                     <i class="fas fa-user-tag me-2"></i>Manage User Roles
                 </a>
             </div>

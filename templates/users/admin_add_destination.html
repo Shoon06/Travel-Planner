@@ -7,69 +7,31 @@
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="card-glass p-5">
-                <div class="text-center mb-5">
-                    <div class="feature-icon gradient-teal mx-auto mb-4">
-                        <i class="fas fa-map-marked-alt fa-2x text-white"></i>
-                    </div>
-                    <h2 class="fw-bold" style="color: #2c3e50;">Add New Destination</h2>
-                    <p class="text-gray">Add a new travel destination</p>
-                </div>
+                <h2 class="mb-4">Add New Destination</h2>
                 
-                <form method="post" enctype="multipart/form-data" novalidate>
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Destination Name</label>
-                        <input type="text" name="name" class="form-control" 
-                               placeholder="e.g., Bagan, Inle Lake, Mandalay" required>
-                        {% if form.name.errors %}
-                        <div class="text-danger small mt-1">{{ form.name.errors }}</div>
+                    <!-- Coordinates help text -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>Coordinates Required for Maps</h6>
+                        <p class="mb-0">Please enter accurate latitude and longitude coordinates for the destination center. This is required for proper map display.</p>
+                    </div>
+                    
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
                         {% endif %}
                     </div>
+                    {% endfor %}
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Region</label>
-                            <select name="region" class="form-select" required>
-                                <option value="">Select Region</option>
-                                <option value="Yangon">Yangon Region</option>
-                                <option value="Mandalay">Mandalay Region</option>
-                                <option value="Bago">Bago Region</option>
-                                <option value="Sagaing">Sagaing Region</option>
-                                <option value="Ayeyarwady">Ayeyarwady Region</option>
-                                <option value="Magway">Magway Region</option>
-                                <option value="Tanintharyi">Tanintharyi Region</option>
-                                <option value="Shan">Shan State</option>
-                                <option value="Kachin">Kachin State</option>
-                                <option value="Kayin">Kayin State</option>
-                                <option value="Mon">Mon State</option>
-                                <option value="Rakhine">Rakhine State</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Type</label>
-                            <select name="type" class="form-select" required>
-                                <option value="city">City</option>
-                                <option value="town">Town</option>
-                                <option value="attraction">Attraction</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Description</label>
-                        <textarea name="description" class="form-control" rows="4" 
-                                  placeholder="Describe the destination..."></textarea>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Destination Image</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
-                        <div class="form-text">Upload an image of the destination (optional)</div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{% url 'users:admin_destinations' %}" class="btn btn-outline-secondary me-md-2">
                             Cancel
                         </a>
@@ -77,14 +39,6 @@
                             <i class="fas fa-plus me-2"></i>Add Destination
                         </button>
                     </div>
-                    
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger mt-4">
-                        {% for error in form.non_field_errors %}
-                        {{ error }}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
                 </form>
             </div>
         </div>

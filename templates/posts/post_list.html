@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\posts\post_list.html -->
 {% extends 'base.html' %}
 {% block title %}Community Posts - GoMyanmar{% endblock %}
 
@@ -21,7 +22,7 @@
             <!-- Filters -->
             <div class="card-glass p-4 mb-4">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-bold">Filter by Destination</label>
                         <select class="form-select" id="destinationFilter">
                             <option value="">All Destinations</option>
@@ -30,12 +31,20 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-bold">Sort By</label>
                         <select class="form-select" id="sortFilter">
                             <option value="newest">Newest First</option>
                             <option value="popular">Most Popular</option>
                             <option value="oldest">Oldest First</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Posts per page</label>
+                        <select class="form-select" id="pageSize">
+                            <option value="10">10 posts</option>
+                            <option value="20">20 posts</option>
+                            <option value="50">50 posts</option>
                         </select>
                     </div>
                 </div>
@@ -58,6 +67,11 @@
                                     <i class="fas fa-map-marker-alt me-1"></i>{{ post.destination.name }}
                                 </span>
                                 {% endif %}
+                                {% if post.trip %}
+                                <span class="ms-2">
+                                    <i class="fas fa-suitcase me-1"></i>{{ post.trip.destination.name }} Trip
+                                </span>
+                                {% endif %}
                             </p>
                         </div>
                     </div>
@@ -72,6 +86,9 @@
                             {% else %}
                             <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report</a></li>
                             {% endif %}
+                            <li><a class="dropdown-item share-post" href="#" data-post-id="{{ post.id }}">
+                                <i class="fas fa-share-alt me-2"></i>Share
+                            </a></li>
                         </ul>
                     </div>
                 </div>
@@ -107,6 +124,11 @@
                                 data-post-id="{{ post.id }}">
                             <i class="fas fa-heart me-1"></i>
                             <span class="love-count">{{ post.loves.count }}</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-light dislike-btn {% if request.user in post.dislikes.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-thumbs-down me-1"></i>
+                            <span class="dislike-count">{{ post.dislikes.count }}</span>
                         </button>
                     </div>
                     <a href="{% url 'posts:post_detail' post.id %}" class="btn btn-sm btn-outline-light">
@@ -174,7 +196,7 @@
                 <ul class="pagination justify-content-center">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.destination %}&destination={{ request.GET.destination }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">Previous</a>
                     </li>
                     {% endif %}
                     
@@ -182,13 +204,13 @@
                     {% if page_obj.number == num %}
                     <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
                     {% else %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.destination %}&destination={{ request.GET.destination }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">{{ num }}</a></li>
                     {% endif %}
                     {% endfor %}
                     
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.destination %}&destination={{ request.GET.destination }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">Next</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -217,20 +239,26 @@
             <!-- Top Contributors -->
             <div class="card-glass p-4 mb-4">
                 <h5 class="mb-3">Top Contributors</h5>
-                {% with top_users=posts|slice:":5" %}
-                {% for post in top_users %}
+                {% for top_user in top_users %}
                 <div class="d-flex align-items-center mb-3">
                     <div class="rounded-circle bg-light p-2 me-3">
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <h6 class="mb-1">{{ post.user.username }}</h6>
-                        <p class="text-gray small mb-0">{{ post.user.posts.count }} posts</p>
+                        <h6 class="mb-1">{{ top_user.username }}</h6>
+                        <p class="text-gray small mb-0">{{ top_user.posts.count }} posts</p>
                     </div>
-                    <span class="badge gradient-gold">{{ post.total_reactions }} reactions</span>
+                    {% with total_reactions=0 %}
+                    {% for post in top_user.posts.all %}
+                        {% with post_reactions=post.total_reactions %}
+                        {% endwith %}
+                    {% endfor %}
+                    <span class="badge gradient-gold">{{ total_reactions }} reactions</span>
+                    {% endwith %}
                 </div>
+                {% empty %}
+                <p class="text-gray small">No contributors yet</p>
                 {% endfor %}
-                {% endwith %}
             </div>
             
             <!-- Community Guidelines -->
@@ -249,10 +277,22 @@
 </div>
 
 <style>
-    .like-btn.active, .love-btn.active {
-        background: linear-gradient(135deg, #33699B, #2C3E50);
+    .like-btn.active {
+        background: linear-gradient(135deg, #4CAF50, #2E7D32);
         color: white !important;
-        border-color: #33699B;
+        border-color: #4CAF50;
+    }
+    
+    .love-btn.active {
+        background: linear-gradient(135deg, #E91E63, #C2185B);
+        color: white !important;
+        border-color: #E91E63;
+    }
+    
+    .dislike-btn.active {
+        background: linear-gradient(135deg, #F44336, #C62828);
+        color: white !important;
+        border-color: #F44336;
     }
     
     .post-card {
@@ -276,6 +316,7 @@
                 const postId = this.getAttribute('data-post-id');
                 const likeBtn = this;
                 const loveBtn = document.querySelector(`.love-btn[data-post-id="${postId}"]`);
+                const dislikeBtn = document.querySelector(`.dislike-btn[data-post-id="${postId}"]`);
                 
                 fetch(`/posts/${postId}/like/`, {
                     method: 'POST',
@@ -289,12 +330,14 @@
                     if (data.liked) {
                         likeBtn.classList.add('active');
                         loveBtn.classList.remove('active');
+                        dislikeBtn.classList.remove('active');
                     } else {
                         likeBtn.classList.remove('active');
                     }
                     
                     likeBtn.querySelector('.like-count').textContent = data.likes_count;
                     loveBtn.querySelector('.love-count').textContent = data.loves_count;
+                    dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
                 });
             });
         });
@@ -305,6 +348,7 @@
                 const postId = this.getAttribute('data-post-id');
                 const loveBtn = this;
                 const likeBtn = document.querySelector(`.like-btn[data-post-id="${postId}"]`);
+                const dislikeBtn = document.querySelector(`.dislike-btn[data-post-id="${postId}"]`);
                 
                 fetch(`/posts/${postId}/love/`, {
                     method: 'POST',
@@ -318,12 +362,46 @@
                     if (data.loved) {
                         loveBtn.classList.add('active');
                         likeBtn.classList.remove('active');
+                        dislikeBtn.classList.remove('active');
                     } else {
                         loveBtn.classList.remove('active');
                     }
                     
                     loveBtn.querySelector('.love-count').textContent = data.loves_count;
                     likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                    dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
+                });
+            });
+        });
+        
+        // Dislike button functionality
+        document.querySelectorAll('.dislike-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                const dislikeBtn = this;
+                const likeBtn = document.querySelector(`.like-btn[data-post-id="${postId}"]`);
+                const loveBtn = document.querySelector(`.love-btn[data-post-id="${postId}"]`);
+                
+                fetch(`/posts/${postId}/dislike/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.disliked) {
+                        dislikeBtn.classList.add('active');
+                        likeBtn.classList.remove('active');
+                        loveBtn.classList.remove('active');
+                    } else {
+                        dislikeBtn.classList.remove('active');
+                    }
+                    
+                    dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
+                    likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                    loveBtn.querySelector('.love-count').textContent = data.loves_count;
                 });
             });
         });
@@ -377,16 +455,31 @@
         // Filter functionality
         const destinationFilter = document.getElementById('destinationFilter');
         const sortFilter = document.getElementById('sortFilter');
+        const pageSize = document.getElementById('pageSize');
+        
+        // Set current values from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('destination')) {
+            destinationFilter.value = urlParams.get('destination');
+        }
+        if (urlParams.get('sort')) {
+            sortFilter.value = urlParams.get('sort');
+        }
+        if (urlParams.get('page_size')) {
+            pageSize.value = urlParams.get('page_size');
+        }
         
         function applyFilters() {
             const destination = destinationFilter.value;
             const sort = sortFilter.value;
+            const size = pageSize.value;
             
             let url = window.location.pathname;
             const params = new URLSearchParams();
             
             if (destination) params.append('destination', destination);
             if (sort !== 'newest') params.append('sort', sort);
+            if (size !== '10') params.append('page_size', size);
             
             const queryString = params.toString();
             if (queryString) {
@@ -398,6 +491,31 @@
         
         destinationFilter.addEventListener('change', applyFilters);
         sortFilter.addEventListener('change', applyFilters);
+        pageSize.addEventListener('change', applyFilters);
+        
+        // Share functionality
+        document.querySelectorAll('.share-post').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const postId = this.getAttribute('data-post-id');
+                const url = `${window.location.origin}/posts/${postId}/`;
+                const text = "Check out this travel post on GoMyanmar!";
+                
+                // Create share modal or use Web Share API
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'GoMyanmar Travel Post',
+                        text: text,
+                        url: url
+                    });
+                } else {
+                    // Fallback to copy link
+                    navigator.clipboard.writeText(url).then(() => {
+                        alert('Link copied to clipboard!');
+                    });
+                }
+            });
+        });
     });
 </script>
 {% endblock %}

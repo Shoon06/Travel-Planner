@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\select_hotel_map_real.html -->
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% load static %}
@@ -9,65 +10,70 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <style>
     #hotelMap {
-        height: 500px;
-        width: 100%;
+        height: 500px !important; /* FIXED: Force height */
+        width: 100% !important; /* FIXED: Force width */
         border-radius: 15px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
         z-index: 1;
+        position: relative; /* FIXED: Add position */
+        overflow: hidden; /* FIXED: Prevent overflow */
     }
     
     .map-container {
         position: relative;
         margin-bottom: 2rem;
+        width: 100%; /* FIXED: Ensure full width */
+        height: 500px; /* FIXED: Set container height */
     }
     
-    .price-badge {
-        background: linear-gradient(135deg, #10B981, #059669);
-        color: white;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .real-hotel-badge {
-        background: linear-gradient(135deg, #EF4444, #DC2626);
-        color: white;
-        padding: 3px 10px;
+    /* FIXED: Add clear container for map */
+    #hotelMapContainer {
+        width: 100%;
+        height: 500px;
+        position: relative;
         border-radius: 15px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        display: inline-block;
+        overflow: hidden;
     }
     
-    .hotel-item {
-        cursor: pointer;
-        transition: all 0.3s;
-        border-left: 3px solid transparent;
-        margin-bottom: 1rem;
+    /* Loading overlay */
+    #mapLoading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        border-radius: 15px;
+        flex-direction: column;
     }
     
-    .hotel-item:hover {
-        background-color: #f8fafc;
-        border-left-color: #3b82f6;
-        transform: translateY(-2px);
-    }
-    
-    .hotel-item.selected {
-        background-color: #e0f2fe;
-        border-left: 3px solid #3b82f6;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    /* Map controls */
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        max-width: 250px;
     }
     
     /* Custom marker styles */
     .custom-marker {
-        background-color: #3b82f6;
         border-radius: 50%;
         border: 3px solid white;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .budget-marker {
@@ -102,32 +108,34 @@
         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
     }
     
-    /* Map controls */
-    .map-controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        max-width: 250px;
+    /* Hotel list styles */
+    .hotel-item {
+        cursor: pointer;
+        transition: all 0.3s;
+        border-left: 3px solid transparent;
+        margin-bottom: 1rem;
     }
     
-    /* Loading overlay */
-    #mapLoading {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1001;
-        border-radius: 15px;
+    .hotel-item:hover {
+        background-color: #f8fafc;
+        border-left-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+    
+    .hotel-item.selected {
+        background-color: #e0f2fe;
+        border-left: 3px solid #3b82f6;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .price-badge {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
     }
 </style>
 {% endblock %}
@@ -153,22 +161,26 @@
         </div>
     </div>
     
-    <!-- Interactive Map Section -->
+    <!-- Interactive Map Section - FIXED -->
     <div class="card-glass p-4 mb-4">
         <h5 class="mb-3">
-            <i class="fas fa-map-marked-alt me-2"></i>Interactive Map
-            <small class="text-gray ms-2">Click on any hotel marker to see details and book</small>
+            <i class="fas fa-map-marked-alt me-2"></i>Interactive Map of {{ trip.destination.name }}
+            <small class="text-gray ms-2">Click on any hotel marker to see details</small>
         </h5>
         
         <div class="map-container">
-            <div id="hotelMap">
+            <!-- FIXED: Separate container for map -->
+            <div id="hotelMapContainer">
+                <div id="hotelMap"></div>
                 <div id="mapLoading" class="text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading map...</span>
                     </div>
-                    <p class="mt-2">Loading map and hotels...</p>
+                    <p class="mt-2">Loading map of {{ trip.destination.name }}...</p>
                 </div>
             </div>
+            
+            <!-- Map Controls -->
             <div class="map-controls">
                 <h6 class="mb-3">Map Controls</h6>
                 <div class="form-check mb-2">
@@ -192,18 +204,12 @@
                         Luxury Hotels
                     </label>
                 </div>
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" id="showRealHotels" checked>
-                    <label class="form-check-label" for="showRealHotels">
-                        <i class="fas fa-map-marker-alt text-purple me-1"></i>Real Hotels
-                    </label>
-                </div>
                 <hr class="my-2">
                 <button class="btn btn-sm btn-outline-primary w-100" id="fitBounds">
                     <i class="fas fa-expand me-1"></i>Show All Hotels
                 </button>
                 <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="resetView">
-                    <i class="fas fa-location-arrow me-1"></i>Reset View
+                    <i class="fas fa-location-arrow me-1"></i>Center on {{ trip.destination.name }}
                 </button>
             </div>
         </div>
@@ -228,7 +234,7 @@
                          data-rating="{{ hotel.rating }}"
                          data-lat="{{ hotel.latitude|default:'' }}"
                          data-lng="{{ hotel.longitude|default:'' }}"
-                         data-is-real="{{ hotel.is_real_hotel|yesno:'true,false' }}">
+                         data-is-real="false">
                         <div class="row">
                             <!-- Hotel Image -->
                             <div class="col-md-3">
@@ -245,12 +251,7 @@
                             
                             <!-- Hotel Details -->
                             <div class="col-md-6">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="fw-bold mb-1">{{ hotel.name }}</h6>
-                                    {% if hotel.is_real_hotel %}
-                                    <span class="real-hotel-badge">Real Hotel</span>
-                                    {% endif %}
-                                </div>
+                                <h6 class="fw-bold mb-1">{{ hotel.name }}</h6>
                                 
                                 <p class="text-gray small mb-2">
                                     <i class="fas fa-map-marker-alt me-1"></i>
@@ -382,9 +383,47 @@
     let markers = [];
     let markerCluster;
     let selectedHotelId = null;
-    const centerLat = {{ center_lat|default:"21.9162" }};
-    const centerLng = {{ center_lng|default:"95.9560" }};
+    
+    // FIXED: Get destination coordinates from Django template
+    const centerLat = {{ center_lat|default:"21.9588" }};
+    const centerLng = {{ center_lng|default:"96.0891" }};
     const nights = {{ nights }};
+    
+    // FIXED: Get hotel markers from Django template
+    const hotelMarkers = {{ hotel_markers|safe|default:"[]" }};
+    console.log('Loaded', hotelMarkers.length, 'hotel markers');
+    
+    // Define city bounds for Myanmar cities
+    const cityBounds = {
+        'yangon': {
+            bounds: [[16.7, 96.0], [17.0, 96.4]],  // Southwest, Northeast
+            zoom: 13
+        },
+        'mandalay': {
+            bounds: [[21.8, 95.9], [22.1, 96.3]],
+            zoom: 13
+        },
+        'bagan': {
+            bounds: [[21.0, 94.7], [21.3, 95.1]],
+            zoom: 14
+        },
+        'inle lake': {
+            bounds: [[20.4, 96.8], [20.7, 97.0]],
+            zoom: 12
+        },
+        'naypyidaw': {
+            bounds: [[19.6, 96.0], [19.9, 96.3]],
+            zoom: 13
+        },
+        'pyin oo lwin': {
+            bounds: [[21.9, 96.3], [22.2, 96.6]],
+            zoom: 13
+        },
+        'ngapali': {
+            bounds: [[18.3, 94.1], [18.5, 94.5]],
+            zoom: 12
+        }
+    };
     
     // Define marker colors by category
     const markerColors = {
@@ -415,7 +454,6 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    animation: ${isSelected ? 'pulse 1.5s infinite' : 'none'};
                 ">
                     <i class="fas fa-hotel" style="color: white; font-size: ${isSelected ? '14px' : '10px'};"></i>
                 </div>
@@ -426,29 +464,47 @@
     }
     
     // Function to get marker color by category
-    function getMarkerColor(hotel) {
-        if (hotel.is_real_hotel) {
-            return markerColors.real;
-        }
-        return markerColors[hotel.category] || markerColors.medium;
+    function getMarkerColor(category) {
+        return markerColors[category] || markerColors.medium;
     }
     
     // Initialize Leaflet map
     function initMap() {
         console.log('Initializing map at:', centerLat, centerLng);
         
-        // Initialize map
-        map = L.map('hotelMap').setView([centerLat, centerLng], 13);
+        // Get city name for bounds
+        const cityName = "{{ trip.destination.name|lower }}".trim().toLowerCase();
         
-        // Add OpenStreetMap tiles (FREE, no API key needed)
+        // Initialize map
+        map = L.map('hotelMap', {
+            zoomControl: true,
+            scrollWheelZoom: true,
+            dragging: true,
+            tap: true,
+            maxBoundsViscosity: 1.0
+        });
+        
+        // Set view based on city
+        let initialZoom = 13;
+        if (cityBounds[cityName]) {
+            map.setView([centerLat, centerLng], cityBounds[cityName].zoom);
+            const bounds = L.latLngBounds(cityBounds[cityName].bounds);
+            map.setMaxBounds(bounds);
+            initialZoom = cityBounds[cityName].zoom;
+            console.log(`Restricting map to ${cityName} bounds`);
+        } else {
+            map.setView([centerLat, centerLng], 13);
+        }
+        
+        // FIXED: Add OpenStreetMap tiles with zoom limits
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19,
-            minZoom: 3
+            maxZoom: 18,
+            minZoom: 11  // Don't zoom out too far
         }).addTo(map);
         
-        // Add a marker for the destination center
-        L.marker([centerLat, centerLng], {
+        // FIXED: Add a marker for the destination center
+        const destinationMarker = L.marker([centerLat, centerLng], {
             icon: createMarkerIcon(markerColors.destination, 40)
         }).addTo(map)
         .bindPopup(`
@@ -458,7 +514,7 @@
             </div>
         `);
         
-        // Initialize marker cluster
+        // FIXED: Initialize marker cluster
         markerCluster = L.markerClusterGroup({
             maxClusterRadius: 50,
             spiderfyOnMaxZoom: true,
@@ -468,142 +524,90 @@
         
         map.addLayer(markerCluster);
         
-        // Load hotels from the server
-        loadHotels();
+        // FIXED: Load hotels from the hotelMarkers variable (from Django template)
+        addHotelMarkersFromTemplate();
+        
+        // FIXED: Set map bounds to show destination properly
+        if (hotelMarkers.length > 0) {
+            fitMapToMarkers();
+        } else {
+            // If no hotels, just center on destination with proper zoom
+            map.setView([centerLat, centerLng], initialZoom);
+        }
         
         // Hide loading indicator
-        document.getElementById('mapLoading').style.display = 'none';
+        setTimeout(() => {
+            document.getElementById('mapLoading').style.display = 'none';
+        }, 500);
     }
     
-    // Load hotels from the server
-    function loadHotels() {
-        const destinationId = {{ trip.destination.id }};
-        const url = `/planner/filter-hotels/${destinationId}/`;
+    // FIXED: Add hotels from template data
+    function addHotelMarkersFromTemplate() {
+        console.log('Adding', hotelMarkers.length, 'hotel markers to map');
         
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    console.log(`Loaded ${data.hotels.length} hotels`);
-                    addHotelMarkers(data.hotels);
-                    
-                    // Update hotel count
-                    document.getElementById('hotelCount').textContent = data.hotels.length;
-                } else {
-                    console.error('Error loading hotels:', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching hotels:', error);
-                // Use template hotels as fallback
-                addTemplateHotels();
-            });
-    }
-    
-    // Add hotels from template data (fallback)
-    function addTemplateHotels() {
-        const hotelElements = document.querySelectorAll('.hotel-item');
-        console.log(`Found ${hotelElements.length} hotels in template`);
-        
-        hotelElements.forEach(hotelElement => {
-            const hotelId = hotelElement.dataset.hotelId;
-            const lat = parseFloat(hotelElement.dataset.lat);
-            const lng = parseFloat(hotelElement.dataset.lng);
-            const category = hotelElement.dataset.category;
-            const isReal = hotelElement.dataset.isReal === 'true';
-            const name = hotelElement.querySelector('h6').textContent;
-            const price = parseFloat(hotelElement.dataset.price);
-            
+        hotelMarkers.forEach(hotel => {
             // Only add marker if coordinates are valid
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                const hotelData = {
-                    id: parseInt(hotelId),
-                    name: name,
-                    latitude: lat,
-                    longitude: lng,
-                    category: category,
-                    price: price,
-                    is_real_hotel: isReal,
-                    rating: parseFloat(hotelElement.dataset.rating) || 3.5
-                };
-                
-                addHotelMarker(hotelData);
-            } else {
-                console.log(`Hotel ${name} has invalid coordinates: ${lat}, ${lng}`);
-            }
-        });
-        
-        // Fit bounds to show all markers
-        fitMapToMarkers();
-    }
-    
-    // Add a single hotel marker
-    function addHotelMarker(hotel) {
-        const color = getMarkerColor(hotel);
-        const icon = createMarkerIcon(color);
-        
-        const marker = L.marker([hotel.latitude, hotel.longitude], { icon: icon });
-        
-        // Create popup content
-        const popupContent = `
-            <div style="min-width: 250px; padding: 10px;">
-                <h6 style="margin: 0 0 10px 0; font-size: 1rem; color: #1f2937;">${hotel.name}</h6>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="color: #fbbf24;">
-                        <i class="fas fa-star"></i> ${hotel.rating || '3.5'}
-                    </span>
-                    <span style="font-weight: bold; color: #10b981;">
-                        MMK ${hotel.price ? hotel.price.toLocaleString() : '50,000'}
-                    </span>
-                </div>
-                <p style="margin-bottom: 15px;">
-                    <span class="badge ${hotel.category === 'budget' ? 'bg-success' : hotel.category === 'medium' ? 'bg-warning' : 'bg-danger'}">
-                        ${hotel.category || 'medium'}
-                    </span>
-                    ${hotel.is_real_hotel ? '<span class="badge bg-danger ms-1">Real Hotel</span>' : ''}
-                </p>
-                <button onclick="selectHotelOnMap(${hotel.id})" 
-                        style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 5px; width: 100%; cursor: pointer; font-size: 0.9rem;">
-                    <i class="fas fa-check me-2"></i>Select Hotel
-                </button>
-            </div>
-        `;
-        
-        marker.bindPopup(popupContent);
-        marker.hotelId = hotel.id;
-        marker.hotelData = hotel;
-        
-        // Add click event
-        marker.on('click', function(e) {
-            selectHotelOnMap(hotel.id);
-        });
-        
-        // Add to markers array
-        markers.push({
-            marker: marker,
-            hotelId: hotel.id,
-            hotelData: hotel
-        });
-        
-        // Add to marker cluster
-        markerCluster.addLayer(marker);
-    }
-    
-    // Add multiple hotel markers
-    function addHotelMarkers(hotels) {
-        hotels.forEach(hotel => {
             if (hotel.latitude && hotel.longitude && 
-                !isNaN(parseFloat(hotel.latitude)) && 
-                !isNaN(parseFloat(hotel.longitude))) {
+                hotel.latitude != 0 && hotel.longitude != 0) {
                 
-                addHotelMarker(hotel);
+                const color = getMarkerColor(hotel.category);
+                const icon = createMarkerIcon(color);
+                
+                const marker = L.marker([hotel.latitude, hotel.longitude], { 
+                    icon: icon 
+                });
+                
+                // Create popup content
+                const popupContent = `
+                    <div style="min-width: 250px; padding: 10px;">
+                        <h6 style="margin: 0 0 10px 0; font-size: 1rem; color: #1f2937;">${hotel.name}</h6>
+                        <p style="color: #666; margin-bottom: 10px; font-size: 0.9rem;">${hotel.address || ''}</p>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: #fbbf24;">
+                                <i class="fas fa-star"></i> ${hotel.rating || '3.5'}
+                            </span>
+                            <span style="font-weight: bold; color: #10b981;">
+                                MMK ${hotel.price ? parseInt(hotel.price).toLocaleString() : '50,000'}
+                            </span>
+                        </div>
+                        <p style="margin-bottom: 15px;">
+                            <span class="badge ${hotel.category === 'budget' ? 'bg-success' : hotel.category === 'medium' ? 'bg-warning' : 'bg-danger'}">
+                                ${hotel.category_display || hotel.category || 'medium'}
+                            </span>
+                        </p>
+                        <button onclick="selectHotelOnMap(${hotel.id})" 
+                                style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 5px; width: 100%; cursor: pointer; font-size: 0.9rem;">
+                            <i class="fas fa-check me-2"></i>Select Hotel
+                        </button>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                marker.hotelId = hotel.id;
+                marker.hotelData = hotel;
+                
+                // Add click event
+                marker.on('click', function(e) {
+                    selectHotelOnMap(hotel.id);
+                });
+                
+                // Add to markers array
+                markers.push({
+                    marker: marker,
+                    hotelId: hotel.id,
+                    hotelData: hotel
+                });
+                
+                // Add to marker cluster
+                markerCluster.addLayer(marker);
+                
+                console.log(`Added marker for ${hotel.name} at ${hotel.latitude}, ${hotel.longitude}`);
+            } else {
+                console.log(`Skipping ${hotel.name} - invalid coordinates`);
             }
         });
         
-        // Fit bounds to show all markers
-        if (markers.length > 0) {
-            fitMapToMarkers();
-        }
+        console.log('Total markers added:', markers.length);
     }
     
     // Select hotel from map
@@ -611,18 +615,21 @@
         // Update marker styles
         markers.forEach(item => {
             const isSelected = item.hotelId === hotelId;
-            const color = isSelected ? markerColors.selected : getMarkerColor(item.hotelData);
+            const color = isSelected ? markerColors.selected : getMarkerColor(item.hotelData.category);
             
             item.marker.setIcon(createMarkerIcon(color, 25, isSelected));
             
             // Open popup if selected
             if (isSelected) {
                 item.marker.openPopup();
+                
+                // Center map on selected hotel with zoom
+                map.setView(item.marker.getLatLng(), 15);
             }
         });
         
         // Update hotel list selection
-        document.querySelectorAll('.hotel-item').forEach(item => {
+        document.querySelectorAll('.hotel-item[data-is-real="false"]').forEach(item => {
             const itemHotelId = parseInt(item.dataset.hotelId);
             item.classList.toggle('selected', itemHotelId === hotelId);
             
@@ -683,10 +690,10 @@
             markers.map(m => m.marker.getLatLng())
         );
         
-        // Add padding
+        // Add padding but don't zoom out too much
         map.fitBounds(bounds, { 
             padding: [50, 50],
-            maxZoom: 15
+            maxZoom: 15  // Don't zoom in too close if only few markers
         });
     }
     
@@ -695,27 +702,21 @@
         const showBudget = document.getElementById('showBudget').checked;
         const showMedium = document.getElementById('showMedium').checked;
         const showLuxury = document.getElementById('showLuxury').checked;
-        const showRealHotels = document.getElementById('showRealHotels').checked;
         
         markers.forEach(item => {
             let shouldShow = true;
             
             // Check category
-            if (!item.hotelData.is_real_hotel) {
-                switch(item.hotelData.category) {
-                    case 'budget':
-                        shouldShow = shouldShow && showBudget;
-                        break;
-                    case 'medium':
-                        shouldShow = shouldShow && showMedium;
-                        break;
-                    case 'luxury':
-                        shouldShow = shouldShow && showLuxury;
-                        break;
-                }
-            } else {
-                // Real hotels
-                shouldShow = shouldShow && showRealHotels;
+            switch(item.hotelData.category) {
+                case 'budget':
+                    shouldShow = shouldShow && showBudget;
+                    break;
+                case 'medium':
+                    shouldShow = shouldShow && showMedium;
+                    break;
+                case 'luxury':
+                    shouldShow = shouldShow && showLuxury;
+                    break;
             }
             
             if (shouldShow) {
@@ -728,19 +729,10 @@
     
     // Event Listeners
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize map
-        initMap();
-        
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.7); }
-                70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(124, 58, 237, 0); }
-                100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
-            }
-        `;
-        document.head.appendChild(style);
+        // Initialize map after DOM is loaded
+        setTimeout(() => {
+            initMap();
+        }, 100);
         
         // Hotel item click
         document.querySelectorAll('.hotel-item').forEach(item => {
@@ -784,12 +776,16 @@
         document.getElementById('showBudget').addEventListener('change', filterMarkers);
         document.getElementById('showMedium').addEventListener('change', filterMarkers);
         document.getElementById('showLuxury').addEventListener('change', filterMarkers);
-        document.getElementById('showRealHotels').addEventListener('change', filterMarkers);
         
         document.getElementById('fitBounds').addEventListener('click', fitMapToMarkers);
         
         document.getElementById('resetView').addEventListener('click', function() {
-            map.setView([centerLat, centerLng], 13);
+            const cityName = "{{ trip.destination.name|lower }}".trim().toLowerCase();
+            let zoomLevel = 13;
+            if (cityBounds[cityName]) {
+                zoomLevel = cityBounds[cityName].zoom;
+            }
+            map.setView([centerLat, centerLng], zoomLevel);
         });
     });
 </script>

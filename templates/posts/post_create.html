@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\posts\post_create.html -->
 {% extends 'base.html' %}
 {% block title %}Create Post - GoMyanmar{% endblock %}
 
@@ -22,14 +23,25 @@
                         <input type="text" name="title" class="form-control" placeholder="Give your post a catchy title" required maxlength="200">
                     </div>
                     
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Destination (Optional)</label>
-                        <select name="destination" class="form-select">
-                            <option value="">Select a destination</option>
-                            {% for destination in destinations %}
-                            <option value="{{ destination.id }}">{{ destination.name }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Destination (Optional)</label>
+                            <select name="destination" class="form-select">
+                                <option value="">Select a destination</option>
+                                {% for destination in destinations %}
+                                <option value="{{ destination.id }}">{{ destination.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Link to Trip (Optional)</label>
+                            <select name="trip" class="form-select">
+                                <option value="">Select a trip</option>
+                                {% for trip in user_trips %}
+                                <option value="{{ trip.id }}">{{ trip.destination.name }} ({{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d" }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="mb-4">

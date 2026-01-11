@@ -353,3 +353,68 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         context['total_revenue'] = total_revenue
         
         return context
+    # Add these function-based views at the end of views.py
+
+def login_view(request):
+    """Function-based login view"""
+    if request.user.is_authenticated:
+        # Redirect authenticated users to appropriate dashboard
+        if request.user.is_admin_user():
+            return redirect('users:admin_dashboard')
+        else:
+            return redirect('planner:dashboard')
+    
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            
+            # Specify backend
+            from django.conf import settings
+            backend_path = settings.AUTHENTICATION_BACKENDS[0]
+            
+            login(request, user, backend=backend_path)
+            
+            if user.is_admin_user():
+                messages.success(request, f'Welcome back, Admin {user.username}!')
+                return redirect('users:admin_dashboard')
+            else:
+                messages.success(request, f'Welcome back, {user.username}!')
+                return redirect('planner:dashboard')
+    else:
+        form = CustomAuthenticationForm()
+    
+    return render(request, 'users/login.html', {'form': form})
+
+def signup_view(request):
+    """Function-based signup view"""
+    if request.user.is_authenticated:
+        return redirect('planner:dashboard')
+    
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            try:
+                user = form.save()
+                
+                # Specify backend
+                from django.conf import settings
+                backend_path = settings.AUTHENTICATION_BACKENDS[0]
+                
+                login(request, user, backend=backend_path)
+                
+                messages.success(request, f'Account created successfully! Welcome, {user.username}!')
+                return redirect('planner:dashboard')
+            except Exception as e:
+                messages.error(request, f'Error creating account: {str(e)}')
+                print(f"Error details: {traceback.format_exc()}")
+    else:
+        form = CustomUserCreationForm()
+    
+    return render(request, 'users/signup.html', {'form': form})
+
+def logout_view(request):
+    """Function-based logout view"""
+    logout(request)
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('home')

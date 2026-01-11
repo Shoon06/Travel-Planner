@@ -9,13 +9,23 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.conf import settings
 import json
 from datetime import datetime
 
 from .models import CustomUser
-from planner.models import TripPlan, Destination, Hotel, Flight, BusService, CarRental
+from planner.models import TripPlan, Destination, Hotel, Flight, BusService, CarRental, Airline
 from posts.models import Post
-from .forms_admin import CustomUserAdminForm, DestinationForm, HotelForm, FlightForm, BusServiceForm
+from .forms_admin import (
+    CustomUserAdminForm,
+    AdminAddDestinationForm, AdminEditDestinationForm,
+    AdminAddHotelForm, AdminEditHotelForm,
+    AdminAddFlightForm, AdminEditFlightForm,
+    AdminAddBusForm, AdminEditBusForm,
+    AdminAddCarForm, AdminEditCarForm,
+    AdminAddAirlineForm, AdminEditAirlineForm,
+    HotelFormWithMap
+)
 
 # ==================== ADMIN CHECK ====================
 def is_admin(user):
@@ -53,7 +63,7 @@ def admin_dashboard(request):
     
     return render(request, 'users/admin_dashboard.html', context)
 
-# ==================== HOTEL MANAGEMENT (Function-Based) ====================
+# ==================== HOTEL MANAGEMENT ====================
 @user_passes_test(is_admin)
 def admin_hotels(request):
     """Admin hotel management view"""
@@ -108,9 +118,9 @@ def admin_hotels(request):
 
 @user_passes_test(is_admin)
 def admin_add_hotel(request):
-    """Add new hotel view"""
+    """Add new hotel with manual coordinate input"""
     if request.method == 'POST':
-        form = HotelForm(request.POST, request.FILES)
+        form = AdminAddHotelForm(request.POST, request.FILES)
         if form.is_valid():
             hotel = form.save()
             messages.success(request, f'Hotel "{hotel.name}" added successfully!')
@@ -118,7 +128,7 @@ def admin_add_hotel(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = HotelForm()
+        form = AdminAddHotelForm()
     
     destinations = Destination.objects.all()
     context = {
@@ -126,62 +136,36 @@ def admin_add_hotel(request):
         'destinations': destinations,
     }
     return render(request, 'users/admin_add_hotel.html', context)
-# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
-# Add this new view function (add it near other hotel management views):
 
 @user_passes_test(is_admin)
 def admin_add_hotel_with_map(request):
     """Add new hotel with map location picker"""
     if request.method == 'POST':
-        # Parse amenities from comma-separated string
-        amenities_text = request.POST.get('amenities', '')
-        amenities = [amenity.strip() for amenity in amenities_text.split(',') if amenity.strip()]
-        
-        # Prepare data for form
-        form_data = request.POST.copy()
-        form_data['amenities'] = json.dumps(amenities)
-        
-        form = HotelForm(form_data, request.FILES)
-        
+        form = HotelFormWithMap(request.POST, request.FILES)
         if form.is_valid():
-            hotel = form.save(commit=False)
-            
-            # Set coordinates if provided
-            lat = request.POST.get('latitude')
-            lng = request.POST.get('longitude')
-            
-            if lat and lng:
-                try:
-                    hotel.latitude = float(lat)
-                    hotel.longitude = float(lng)
-                except (ValueError, TypeError):
-                    pass
-            
-            hotel.created_by_admin = True
-            hotel.save()
-            
+            hotel = form.save()
             messages.success(request, f'Hotel "{hotel.name}" added successfully with location!')
             return redirect('users:admin_hotels')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = HotelForm()
+        form = HotelFormWithMap()
     
     destinations = Destination.objects.all()
     context = {
         'form': form,
         'destinations': destinations,
+        'google_maps_api_key': getattr(settings, 'GOOGLE_MAPS_API_KEY', ''),
     }
     return render(request, 'users/admin_add_hotel_maps.html', context)
 
-# Also update your admin_hotels template to add a button for the new map-based form
 @user_passes_test(is_admin)
 def admin_edit_hotel(request, hotel_id):
     """Edit hotel view"""
     hotel = get_object_or_404(Hotel, id=hotel_id)
     
     if request.method == 'POST':
-        form = HotelForm(request.POST, request.FILES, instance=hotel)
+        form = AdminEditHotelForm(request.POST, request.FILES, instance=hotel)
         if form.is_valid():
             form.save()
             messages.success(request, f'Hotel "{hotel.name}" updated successfully!')
@@ -189,7 +173,7 @@ def admin_edit_hotel(request, hotel_id):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = HotelForm(instance=hotel)
+        form = AdminEditHotelForm(instance=hotel)
     
     context = {
         'form': form,
@@ -218,7 +202,7 @@ class AdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return is_admin(self.request.user)
 
-# ==================== USER MANAGEMENT (Class-Based) ====================
+# ==================== USER MANAGEMENT ====================
 class AdminUserListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     model = CustomUser
     template_name = 'users/admin_dashboard_users.html'
@@ -292,7 +276,7 @@ class AdminUserRolesView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         
         return context
 
-# ==================== AJAX FUNCTIONS ====================
+# ==================== AJAX USER FUNCTIONS ====================
 def admin_update_user_role(request):
     """Update user role via AJAX"""
     if request.method == 'POST' and is_admin(request.user):
@@ -372,6 +356,138 @@ def admin_toggle_user_active(request, user_id):
         'error': 'Invalid request'
     })
 
+# ==================== DESTINATION MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_destinations(request):
+    """Admin destinations view"""
+    destinations = Destination.objects.all().order_by('-created_at')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        destinations = destinations.filter(
+            Q(name__icontains=search_query) |
+            Q(region__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Filter by type
+    dest_type = request.GET.get('type', '')
+    if dest_type:
+        destinations = destinations.filter(type=dest_type)
+    
+    # Filter by status
+    status = request.GET.get('status', '')
+    if status == 'active':
+        destinations = destinations.filter(is_active=True)
+    elif status == 'inactive':
+        destinations = destinations.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(destinations, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_destinations = Destination.objects.count()
+    active_destinations = Destination.objects.filter(is_active=True).count()
+    
+    # Calculate popular destinations based on trips
+    popular_destinations = []
+    for dest in Destination.objects.all():
+        trip_count = TripPlan.objects.filter(destination=dest).count()
+        hotel_count = Hotel.objects.filter(destination=dest).count()
+        if trip_count > 0 or hotel_count > 0:
+            popular_destinations.append({
+                'destination': dest,
+                'trip_count': trip_count,
+                'hotel_count': hotel_count
+            })
+    
+    popular_destinations.sort(key=lambda x: x['trip_count'], reverse=True)
+    
+    context = {
+        'destinations': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_destinations': total_destinations,
+        'active_destinations': active_destinations,
+        'popular_destinations': popular_destinations[:5],
+        'destination_types': Destination._meta.get_field('type').choices,
+    }
+    
+    return render(request, 'users/admin_destinations.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_destination(request):
+    """Add new destination with coordinates"""
+    if request.method == 'POST':
+        form = AdminAddDestinationForm(request.POST, request.FILES)
+        if form.is_valid():
+            destination = form.save()
+            messages.success(request, f'Destination "{destination.name}" added successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAddDestinationForm()
+    
+    context = {
+        'form': form,
+        'title': 'Add Destination'
+    }
+    return render(request, 'users/admin_add_destination.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_destination(request, destination_id):
+    """Edit destination view"""
+    destination = get_object_or_404(Destination, id=destination_id)
+    
+    if request.method == 'POST':
+        form = AdminEditDestinationForm(request.POST, request.FILES, instance=destination)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Destination "{destination.name}" updated successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditDestinationForm(instance=destination)
+    
+    context = {
+        'form': form,
+        'destination': destination,
+        'title': f'Edit {destination.name}'
+    }
+    return render(request, 'users/admin_add_destination.html', context)
+
+@user_passes_test(is_admin)
+def admin_delete_destination(request, destination_id):
+    """Delete destination view (AJAX)"""
+    if request.method == 'POST':
+        try:
+            destination = Destination.objects.get(id=destination_id)
+            destination_name = destination.name
+            
+            # Check if destination has hotels or trips
+            hotel_count = Hotel.objects.filter(destination=destination).count()
+            trip_count = TripPlan.objects.filter(destination=destination).count()
+            
+            if hotel_count > 0 or trip_count > 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot delete destination with {hotel_count} hotels and {trip_count} trips'
+                })
+            
+            destination.delete()
+            return JsonResponse({'success': True, 'message': f'Destination "{destination_name}" deleted successfully!'})
+        except Destination.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Destination not found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
 # ==================== TRIP MANAGEMENT ====================
 class AdminTripListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     model = TripPlan
@@ -444,7 +560,6 @@ class AdminTripAnalyticsView(LoginRequiredMixin, AdminRequiredMixin, TemplateVie
         context['total_revenue'] = total_revenue
         
         # Popular destinations (count trips per destination)
-        from django.db.models import Count
         popular_destinations = []
         for dest in Destination.objects.all():
             trip_count = TripPlan.objects.filter(destination=dest).count()
@@ -476,286 +591,469 @@ class AdminTripAnalyticsView(LoginRequiredMixin, AdminRequiredMixin, TemplateVie
         
         return context
 
-# ==================== CONTENT MANAGEMENT ====================
-class AdminContentView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
-    template_name = 'users/admin_content.html'
+@user_passes_test(is_admin)
+def admin_trip_details(request, trip_id):
+    """View trip details"""
+    trip = get_object_or_404(TripPlan, id=trip_id)
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Get counts for each content type
-        context['destinations_count'] = Destination.objects.count()
-        context['hotels_count'] = Hotel.objects.count()
-        context['flights_count'] = Flight.objects.count()
-        context['buses_count'] = BusService.objects.count()
-        context['cars_count'] = CarRental.objects.count()
-        context['posts_count'] = Post.objects.count()
+    context = {
+        'trip': trip,
+        'nights': trip.calculate_nights(),
+        'total_cost': trip.get_total_cost(),
+    }
+    
+    return render(request, 'users/admin_trip_details.html', context)
+
+# ==================== FLIGHT MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_flights(request):
+    """Admin flights view"""
+    flights = Flight.objects.select_related('departure', 'arrival').order_by('-created_at')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        flights = flights.filter(
+            Q(airline__icontains=search_query) |
+            Q(flight_number__icontains=search_query) |
+            Q(departure__name__icontains=search_query) |
+            Q(arrival__name__icontains=search_query)
+        )
+    
+    # Filter by category
+    category = request.GET.get('category', '')
+    if category:
+        flights = flights.filter(category=category)
+    
+    # Filter by status
+    status = request.GET.get('status', '')
+    if status == 'active':
+        flights = flights.filter(is_active=True)
+    elif status == 'inactive':
+        flights = flights.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(flights, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_flights = Flight.objects.count()
+    active_flights = Flight.objects.filter(is_active=True).count()
+    
+    context = {
+        'flights': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_flights': total_flights,
+        'active_flights': active_flights,
+        'flight_categories': Flight._meta.get_field('category').choices,
+    }
+    
+    return render(request, 'users/admin_flights.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_flight(request):
+    """Add new flight"""
+    if request.method == 'POST':
+        form = AdminAddFlightForm(request.POST, request.FILES)
+        if form.is_valid():
+            flight = form.save()
+            messages.success(request, f'Flight {flight.airline} {flight.flight_number} added successfully!')
+            return redirect('users:admin_flights')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAddFlightForm()
+    
+    context = {
+        'form': form,
+        'title': 'Add Flight'
+    }
+    return render(request, 'users/admin_add_flight.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_flight(request, flight_id):
+    """Edit flight view"""
+    flight = get_object_or_404(Flight, id=flight_id)
+    
+    if request.method == 'POST':
+        form = AdminEditFlightForm(request.POST, request.FILES, instance=flight)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Flight {flight.airline} {flight.flight_number} updated successfully!')
+            return redirect('users:admin_flights')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditFlightForm(instance=flight)
+    
+    context = {
+        'form': form,
+        'flight': flight,
+        'title': f'Edit Flight {flight.flight_number}'
+    }
+    return render(request, 'users/admin_add_flight.html', context)
+
+# ==================== BUS MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_buses(request):
+    """Admin buses view"""
+    buses = BusService.objects.select_related('departure', 'arrival').order_by('-created_at')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        buses = buses.filter(
+            Q(company__icontains=search_query) |
+            Q(bus_number__icontains=search_query) |
+            Q(departure__name__icontains=search_query) |
+            Q(arrival__name__icontains=search_query)
+        )
+    
+    # Filter by bus type
+    bus_type = request.GET.get('bus_type', '')
+    if bus_type:
+        buses = buses.filter(bus_type=bus_type)
+    
+    # Filter by status
+    status = request.GET.get('status', '')
+    if status == 'active':
+        buses = buses.filter(is_active=True)
+    elif status == 'inactive':
+        buses = buses.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(buses, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_buses = BusService.objects.count()
+    active_buses = BusService.objects.filter(is_active=True).count()
+    
+    context = {
+        'buses': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_buses': total_buses,
+        'active_buses': active_buses,
+        'bus_types': BusService._meta.get_field('bus_type').choices,
+    }
+    
+    return render(request, 'users/admin_buses.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_bus(request):
+    """Add new bus service"""
+    if request.method == 'POST':
+        form = AdminAddBusForm(request.POST, request.FILES)
+        if form.is_valid():
+            bus = form.save()
+            messages.success(request, f'Bus service {bus.company} added successfully!')
+            return redirect('users:admin_buses')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAddBusForm()
+    
+    context = {
+        'form': form,
+        'title': 'Add Bus Service'
+    }
+    return render(request, 'users/admin_add_bus.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_bus(request, bus_id):
+    """Edit bus service view"""
+    bus = get_object_or_404(BusService, id=bus_id)
+    
+    if request.method == 'POST':
+        form = AdminEditBusForm(request.POST, request.FILES, instance=bus)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Bus service {bus.company} updated successfully!')
+            return redirect('users:admin_buses')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditBusForm(instance=bus)
+    
+    context = {
+        'form': form,
+        'bus': bus,
+        'title': f'Edit Bus Service {bus.bus_number}'
+    }
+    return render(request, 'users/admin_add_bus.html', context)
+
+# ==================== CAR RENTAL MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_cars(request):
+    """Admin car rentals view"""
+    cars = CarRental.objects.select_related('location').order_by('-created_at')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        cars = cars.filter(
+            Q(company__icontains=search_query) |
+            Q(car_model__icontains=search_query) |
+            Q(location__name__icontains=search_query)
+        )
+    
+    # Filter by car type
+    car_type = request.GET.get('car_type', '')
+    if car_type:
+        cars = cars.filter(car_type=car_type)
+    
+    # Filter by availability
+    available = request.GET.get('available', '')
+    if available == 'available':
+        cars = cars.filter(is_available=True)
+    elif available == 'unavailable':
+        cars = cars.filter(is_available=False)
+    
+    # Pagination
+    paginator = Paginator(cars, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_cars = CarRental.objects.count()
+    available_cars = CarRental.objects.filter(is_available=True).count()
+    
+    context = {
+        'cars': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_cars': total_cars,
+        'available_cars': available_cars,
+        'car_types': CarRental._meta.get_field('car_type').choices,
+    }
+    
+    return render(request, 'users/admin_cars.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_car(request):
+    """Add new car rental"""
+    if request.method == 'POST':
+        form = AdminAddCarForm(request.POST, request.FILES)
+        if form.is_valid():
+            car = form.save()
+            messages.success(request, f'Car rental {car.company} - {car.car_model} added successfully!')
+            return redirect('users:admin_cars')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAddCarForm()
+    
+    context = {
+        'form': form,
+        'title': 'Add Car Rental'
+    }
+    return render(request, 'users/admin_add_car.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_car(request, car_id):
+    """Edit car rental view"""
+    car = get_object_or_404(CarRental, id=car_id)
+    
+    if request.method == 'POST':
+        form = AdminEditCarForm(request.POST, request.FILES, instance=car)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Car rental {car.company} - {car.car_model} updated successfully!')
+            return redirect('users:admin_cars')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditCarForm(instance=car)
+    
+    context = {
+        'form': form,
+        'car': car,
+        'title': f'Edit Car Rental {car.car_model}'
+    }
+    return render(request, 'users/admin_add_car.html', context)
+
+# ==================== AIRLINE MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_airlines(request):
+    """Admin airlines view"""
+    airlines = Airline.objects.all().order_by('-created_at')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        airlines = airlines.filter(
+            Q(name__icontains=search_query) |
+            Q(code__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Filter by status
+    status = request.GET.get('status', '')
+    if status == 'active':
+        airlines = airlines.filter(is_active=True)
+    elif status == 'inactive':
+        airlines = airlines.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(airlines, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_airlines = Airline.objects.count()
+    active_airlines = Airline.objects.filter(is_active=True).count()
+    default_domestic = Airline.objects.filter(is_default_for_domestic=True).count()
+    
+    context = {
+        'airlines': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_airlines': total_airlines,
+        'active_airlines': active_airlines,
+        'default_domestic': default_domestic,
+    }
+    
+    return render(request, 'users/admin_airlines.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_airline(request):
+    """Add new airline"""
+    if request.method == 'POST':
+        form = AdminAddAirlineForm(request.POST, request.FILES)
+        if form.is_valid():
+            airline = form.save()
+            messages.success(request, f'Airline {airline.name} ({airline.code}) added successfully!')
+            return redirect('users:admin_airlines')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAddAirlineForm()
+    
+    context = {
+        'form': form,
+        'title': 'Add Airline'
+    }
+    return render(request, 'users/admin_add_airline.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_airline(request, airline_id):
+    """Edit airline view"""
+    airline = get_object_or_404(Airline, id=airline_id)
+    
+    if request.method == 'POST':
+        form = AdminEditAirlineForm(request.POST, request.FILES, instance=airline)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Airline {airline.name} ({airline.code}) updated successfully!')
+            return redirect('users:admin_airlines')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditAirlineForm(instance=airline)
+    
+    context = {
+        'form': form,
+        'airline': airline,
+        'title': f'Edit Airline {airline.name}'
+    }
+    return render(request, 'users/admin_add_airline.html', context)
+
+# ==================== CONTENT MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_content(request):
+    """Admin content dashboard"""
+    # Statistics
+    context = {
+        'destinations_count': Destination.objects.count(),
+        'hotels_count': Hotel.objects.count(),
+        'flights_count': Flight.objects.count(),
+        'buses_count': BusService.objects.count(),
+        'cars_count': CarRental.objects.count(),
+        'airlines_count': Airline.objects.count(),
+        'posts_count': Post.objects.count(),
         
         # Recent content
-        context['recent_destinations'] = Destination.objects.order_by('-created_at')[:5]
-        context['recent_hotels'] = Hotel.objects.order_by('-created_at')[:5]
-        context['recent_posts'] = Post.objects.order_by('-created_at')[:5]
-        
-        return context
-
-class AdminDestinationsView(LoginRequiredMixin, AdminRequiredMixin, ListView):
-    model = Destination
-    template_name = 'users/admin_destinations.html'
-    context_object_name = 'destinations'
-    paginate_by = 20
+        'recent_destinations': Destination.objects.order_by('-created_at')[:5],
+        'recent_hotels': Hotel.objects.order_by('-created_at')[:5],
+        'recent_flights': Flight.objects.order_by('-created_at')[:5],
+        'recent_buses': BusService.objects.order_by('-created_at')[:5],
+        'recent_posts': Post.objects.order_by('-created_at')[:5],
+    }
     
-    def get_queryset(self):
-        queryset = Destination.objects.all().order_by('-created_at')
-        
-        search = self.request.GET.get('search', '')
-        if search:
-            queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(region__icontains=search)
-            )
-        
-        return queryset
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['total_destinations'] = Destination.objects.count()
-        
-        # Calculate popular destinations based on trips
-        popular_destinations = []
-        for dest in Destination.objects.all():
-            trip_count = TripPlan.objects.filter(destination=dest).count()
-            if trip_count > 0:
-                popular_destinations.append({
-                    'destination': dest,
-                    'trip_count': trip_count
-                })
-        
-        popular_destinations.sort(key=lambda x: x['trip_count'], reverse=True)
-        context['popular_destinations'] = popular_destinations[:5]
-        
-        return context
-
-class AdminAddDestinationView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
-    model = Destination
-    form_class = DestinationForm
-    template_name = 'users/admin_add_destination.html'
-    success_url = reverse_lazy('users:admin_destinations')
-    
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, f'Destination {self.object.name} added successfully!')
-        return response
-
-class AdminFlightsView(LoginRequiredMixin, AdminRequiredMixin, ListView):
-    model = Flight
-    template_name = 'users/admin_flights.html'
-    context_object_name = 'flights'
-    paginate_by = 20
-    
-    def get_queryset(self):
-        queryset = Flight.objects.select_related('departure', 'arrival').order_by('-created_at')
-        
-        search = self.request.GET.get('search', '')
-        if search:
-            queryset = queryset.filter(
-                Q(airline__icontains=search) |
-                Q(flight_number__icontains=search)
-            )
-        
-        return queryset
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['total_flights'] = Flight.objects.count()
-        context['active_flights'] = Flight.objects.filter(is_active=True).count()
-        return context
-
-class AdminAddFlightView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
-    model = Flight
-    form_class = FlightForm
-    template_name = 'users/admin_add_flight.html'
-    success_url = reverse_lazy('users:admin_flights')
-    
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, f'Flight {self.object.flight_number} added successfully!')
-        return response
-
-class AdminBusesView(LoginRequiredMixin, AdminRequiredMixin, ListView):
-    model = BusService
-    template_name = 'users/admin_buses.html'
-    context_object_name = 'buses'
-    paginate_by = 20
-    
-    def get_queryset(self):
-        queryset = BusService.objects.select_related('departure', 'arrival').order_by('-created_at')
-        
-        search = self.request.GET.get('search', '')
-        if search:
-            queryset = queryset.filter(
-                Q(company__icontains=search) |
-                Q(bus_type__icontains=search)
-            )
-        
-        return queryset
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['total_buses'] = BusService.objects.count()
-        context['active_buses'] = BusService.objects.filter(is_active=True).count()
-        return context
-
-class AdminAddBusView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
-    model = BusService
-    form_class = BusServiceForm
-    template_name = 'users/admin_add_bus.html'
-    success_url = reverse_lazy('users:admin_buses')
-    
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, f'Bus service {self.object.company} added successfully!')
-        return response
+    return render(request, 'users/admin_content.html', context)
 
 # ==================== SYSTEM SETTINGS ====================
-class AdminSystemSettingsView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
-    template_name = 'users/admin_system_settings.html'
+@user_passes_test(is_admin)
+def admin_system_settings(request):
+    """System settings view"""
+    # System statistics
+    context = {
+        'total_users': CustomUser.objects.count(),
+        'total_trips': TripPlan.objects.count(),
+        'total_destinations': Destination.objects.count(),
+        'total_hotels': Hotel.objects.count(),
+        'total_flights': Flight.objects.count(),
+        'total_buses': BusService.objects.count(),
+        'total_cars': CarRental.objects.count(),
+        'total_airlines': Airline.objects.count(),
+        'total_posts': Post.objects.count(),
+    }
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    # Database info
+    import sqlite3
+    import os
+    
+    db_path = settings.DATABASES['default']['NAME']
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
+        context['db_size'] = f"{db_size:.2f} MB"
         
-        # System statistics
-        context['total_users'] = CustomUser.objects.count()
-        context['total_trips'] = TripPlan.objects.count()
-        context['total_destinations'] = Destination.objects.count()
-        context['total_hotels'] = Hotel.objects.count()
-        context['total_flights'] = Flight.objects.count()
-        context['total_buses'] = BusService.objects.count()
-        
-        # Database info
-        import sqlite3
-        import os
-        from django.conf import settings
-        
-        db_path = settings.DATABASES['default']['NAME']
-        if os.path.exists(db_path):
-            db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
-            context['db_size'] = f"{db_size:.2f} MB"
-            
-            # Get table counts
+        # Get table counts
+        try:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = cursor.fetchall()
             context['table_count'] = len(tables)
             conn.close()
-        
-        return context
-
-class AdminDatabaseBackupView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
-    template_name = 'users/admin_database_backup.html'
+        except:
+            context['table_count'] = 'N/A'
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # List existing backups
-        import os
-        import glob
-        from django.conf import settings
-        
-        backup_dir = os.path.join(settings.BASE_DIR, 'backups')
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir)
-        
-        backups = []
-        backup_files = glob.glob(os.path.join(backup_dir, '*.sqlite3'))
-        for file in backup_files:
-            size = os.path.getsize(file) / (1024 * 1024)
-            backups.append({
-                'name': os.path.basename(file),
-                'size': f"{size:.2f} MB",
-                'date': datetime.fromtimestamp(os.path.getmtime(file))
-            })
-        
-        context['backups'] = sorted(backups, key=lambda x: x['date'], reverse=True)
-        return context
+    return render(request, 'users/admin_system_settings.html', context)
+
+@user_passes_test(is_admin)
+def admin_database_backup(request):
+    """Database backup view"""
+    # List existing backups
+    import os
+    import glob
+    
+    backup_dir = os.path.join(settings.BASE_DIR, 'backups')
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    
+    backups = []
+    backup_files = glob.glob(os.path.join(backup_dir, '*.sqlite3'))
+    for file in backup_files:
+        size = os.path.getsize(file) / (1024 * 1024)
+        backups.append({
+            'name': os.path.basename(file),
+            'size': f"{size:.2f} MB",
+            'date': datetime.fromtimestamp(os.path.getmtime(file))
+        })
+    
+    context = {
+        'backups': sorted(backups, key=lambda x: x['date'], reverse=True)
+    }
+    return render(request, 'users/admin_database_backup.html', context)
 
 # ==================== SIMPLIFIED VIEWS ====================
+@user_passes_test(is_admin)
 def admin_trip_content_view(request):
+    """Redirect to Django admin for trip content management"""
     messages.info(request, 'Redirecting to Django admin for trip content management')
     return redirect('/admin/planner/tripplan/')
-# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
-# Add this new view
-@user_passes_test(is_admin)
-def admin_add_hotel_with_map(request):
-    """Add new hotel with Google Maps location picker"""
-    if request.method == 'POST':
-        form = HotelForm(request.POST, request.FILES)
-        if form.is_valid():
-            hotel = form.save()
-            messages.success(request, f'Hotel "{hotel.name}" added successfully at selected location!')
-            return redirect('users:admin_hotels')
-        else:
-            messages.error(request, 'Please correct the errors below.')
-    else:
-        form = HotelForm()
-    
-    destinations = Destination.objects.all()
-    context = {
-        'form': form,
-        'destinations': destinations,
-        'google_maps_api_key': settings.GOOGLE_MAPS_API_KEY,
-    }
-    return render(request, 'users/admin_add_hotel_maps.html', context)
-
-# Update the existing admin_hotels view to link to new template
-@user_passes_test(is_admin)
-def admin_hotels(request):
-    """Admin hotel management view"""
-    hotels = Hotel.objects.all().order_by('-created_at')
-    
-    # Search functionality
-    search_query = request.GET.get('search', '')
-    if search_query:
-        hotels = hotels.filter(
-            Q(name__icontains=search_query) |
-            Q(address__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
-    
-    # Filter by destination
-    destination_id = request.GET.get('destination', '')
-    if destination_id:
-        hotels = hotels.filter(destination_id=destination_id)
-    
-    # Filter by category
-    category = request.GET.get('category', '')
-    if category:
-        hotels = hotels.filter(category=category)
-    
-    # Filter by status
-    status = request.GET.get('status', '')
-    if status == 'active':
-        hotels = hotels.filter(is_active=True)
-    elif status == 'inactive':
-        hotels = hotels.filter(is_active=False)
-    
-    # Pagination
-    paginator = Paginator(hotels, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Statistics
-    total_hotels = Hotel.objects.count()
-    active_hotels = Hotel.objects.filter(is_active=True).count()
-    destinations = Destination.objects.all()
-    
-    context = {
-        'hotels': page_obj,
-        'page_obj': page_obj,
-        'is_paginated': paginator.num_pages > 1,
-        'total_hotels': total_hotels,
-        'active_hotels': active_hotels,
-        'destinations': destinations,
-    }
-    
-    return render(request, 'users/admin_hotels.html', context)

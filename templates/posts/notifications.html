@@ -1,0 +1,194 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\posts\notifications.html -->
+{% extends 'base.html' %}
+{% block title %}Notifications - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-2">
+                            <i class="fas fa-bell me-2 text-warning"></i>
+                            Notifications
+                        </h2>
+                        <p class="text-gray mb-0">
+                            {% if unread_count > 0 %}
+                            <span class="badge bg-danger">{{ unread_count }} unread</span>
+                            {% else %}
+                            All caught up!
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if notifications %}
+                        <form method="post" action="{% url 'posts:mark_all_notifications_read' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-check-double me-1"></i>Mark all as read
+                            </button>
+                        </form>
+                        {% endif %}
+                        <a href="{% url 'posts:post_list' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Posts
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notifications List -->
+            <div class="card-glass p-0">
+                {% if notifications %}
+                    {% for notification in notifications %}
+                    <div class="notification-item p-4 {% if not notification.is_read %}bg-light-blue{% endif %}" 
+                         style="border-bottom: 1px solid rgba(183, 158, 220, 0.2);">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <div class="rounded-circle p-2 notification-icon 
+                                    {% if notification.notification_type == 'like' %}bg-success{% endif %}
+                                    {% if notification.notification_type == 'love' %}bg-danger{% endif %}
+                                    {% if notification.notification_type == 'dislike' %}bg-warning{% endif %}
+                                    {% if notification.notification_type == 'comment' or notification.notification_type == 'reply' %}bg-info{% endif %}">
+                                    {% if notification.notification_type == 'like' %}
+                                    <i class="fas fa-thumbs-up text-white"></i>
+                                    {% elif notification.notification_type == 'love' %}
+                                    <i class="fas fa-heart text-white"></i>
+                                    {% elif notification.notification_type == 'dislike' %}
+                                    <i class="fas fa-thumbs-down text-white"></i>
+                                    {% else %}
+                                    <i class="fas fa-comment text-white"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <p class="mb-1">
+                                            <strong>{{ notification.sender.username }}</strong> 
+                                            {{ notification.message }}
+                                        </p>
+                                        <p class="text-gray small mb-2">
+                                            <i class="fas fa-clock me-1"></i>
+                                            {{ notification.created_at|timesince }} ago
+                                        </p>
+                                    </div>
+                                    {% if not notification.is_read %}
+                                    <form method="post" action="{% url 'posts:mark_notification_read' notification.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Action buttons -->
+                                <div class="mt-2">
+                                    {% if notification.post %}
+                                    <a href="{% url 'posts:post_detail' notification.post.id %}" class="btn btn-sm btn-outline-light me-2">
+                                        <i class="fas fa-eye me-1"></i>View Post
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if notification.comment and notification.notification_type == 'reply' %}
+                                    <button class="btn btn-sm btn-outline-light reply-notification-btn" 
+                                            data-comment-id="{{ notification.comment.id }}">
+                                        <i class="fas fa-reply me-1"></i>Reply
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="p-5 text-center">
+                    <div class="feature-icon gradient-bg mx-auto mb-4">
+                        <i class="fas fa-bell-slash fa-2x text-white"></i>
+                    </div>
+                    <h4 class="mb-3">No notifications yet</h4>
+                    <p class="text-gray mb-4">When someone reacts or comments on your posts, you'll see notifications here.</p>
+                    <a href="{% url 'posts:post_list' %}" class="btn btn-primary">
+                        <i class="fas fa-comments me-2"></i>Browse Posts
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .notification-item {
+        transition: background-color 0.3s ease;
+    }
+    
+    .notification-item:hover {
+        background-color: rgba(183, 158, 220, 0.1) !important;
+    }
+    
+    .notification-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .bg-light-blue {
+        background-color: rgba(145, 179, 224, 0.1) !important;
+    }
+    
+    .bg-success {
+        background: linear-gradient(135deg, #4CAF50, #2E7D32) !important;
+    }
+    
+    .bg-danger {
+        background: linear-gradient(135deg, #E91E63, #C2185B) !important;
+    }
+    
+    .bg-warning {
+        background: linear-gradient(135deg, #FF9800, #F57C00) !important;
+    }
+    
+    .bg-info {
+        background: linear-gradient(135deg, #2196F3, #0D47A1) !important;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Reply to notification
+        document.querySelectorAll('.reply-notification-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                // Redirect to post with focus on the comment
+                // This would require additional logic to find the post
+                alert('This would focus on the comment reply form. Implementation depends on your post detail page.');
+            });
+        });
+        
+        // Auto-refresh notification count every 30 seconds
+        function updateNotificationCount() {
+            fetch('/posts/notifications/count/')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.querySelector('.notification-badge');
+                    if (badge) {
+                        if (data.count > 0) {
+                            badge.textContent = data.count;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                });
+        }
+        
+        // Update every 30 seconds
+        setInterval(updateNotificationCount, 30000);
+    });
+</script>
+{% endblock %}

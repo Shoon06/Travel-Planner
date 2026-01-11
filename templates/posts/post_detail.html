@@ -1,0 +1,725 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\posts\post_detail.html -->
+{% extends 'base.html' %}
+{% block title %}{{ post.title }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Back button -->
+            <div class="mb-4">
+                <a href="{% url 'posts:post_list' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Posts
+                </a>
+            </div>
+            
+            <!-- Post Content -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-light p-2 me-3">
+                            <i class="fas fa-user fa-lg"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">{{ post.user.username }}</h5>
+                            <p class="text-gray small mb-0">
+                                <i class="fas fa-clock me-1"></i>{{ post.created_at|date:"F d, Y" }}
+                                {% if post.destination %}
+                                <span class="ms-2">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ post.destination.name }}
+                                </span>
+                                {% endif %}
+                                {% if post.trip %}
+                                <span class="ms-2">
+                                    <i class="fas fa-suitcase me-1"></i>{{ post.trip.destination.name }} Trip
+                                </span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            {% if post.user == request.user %}
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report</a></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="#" id="sharePostBtn">
+                                <i class="fas fa-share-alt me-2"></i>Share
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h2 class="mb-4">{{ post.title }}</h2>
+                
+                {% if post.image %}
+                <div class="mb-4">
+                    <img src="{{ post.image.url }}" alt="{{ post.title }}" class="img-fluid rounded">
+                </div>
+                {% endif %}
+                
+                {% if post.video %}
+                <div class="mb-4">
+                    <video controls class="img-fluid rounded" style="max-height: 500px;">
+                        <source src="{{ post.video.url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                {% endif %}
+                
+                <div class="content mb-4">
+                    {{ post.content|linebreaks }}
+                </div>
+                
+                <!-- Reactions -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-light like-btn {% if request.user in post.likes.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-thumbs-up me-1"></i>
+                            <span class="like-count">{{ post.likes.count }}</span>
+                        </button>
+                        <button class="btn btn-outline-light love-btn {% if request.user in post.loves.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-heart me-1"></i>
+                            <span class="love-count">{{ post.loves.count }}</span>
+                        </button>
+                        <button class="btn btn-outline-light dislike-btn {% if request.user in post.dislikes.all %}active{% endif %}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="fas fa-thumbs-down me-1"></i>
+                            <span class="dislike-count">{{ post.dislikes.count }}</span>
+                        </button>
+                    </div>
+                    <div class="text-gray">
+                        <i class="fas fa-eye me-1"></i>Views: <span id="viewCount">1,234</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Comments Section -->
+            <div class="card-glass p-4">
+                <h4 class="mb-4">Comments ({{ post.comments.count }})</h4>
+                
+                <!-- Comment Form -->
+                <div class="mb-4">
+                    <form method="post" action="{% url 'posts:add_comment' post.id %}" class="comment-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="parent_id" id="parent_id">
+                        <div class="mb-3">
+                            <textarea name="content" class="form-control" rows="3" 
+                                      placeholder="Add a comment..." required id="comment-textarea"></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>
+                                <span id="submit-btn-text">Post Comment</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-light" id="cancel-reply" style="display: none;">
+                                <i class="fas fa-times me-1"></i>Cancel Reply
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Comments List -->
+                <div id="commentsList">
+                    {% for comment in comments %}
+                    <div class="d-flex mb-4 comment-item" data-comment-id="{{ comment.id }}">
+                        <div class="me-3">
+                            <div class="rounded-circle bg-light p-2">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="card-glass p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="mb-1">{{ comment.user.username }}</h6>
+                                        <p class="text-gray small mb-0">{{ comment.created_at|date:"F d, Y · g:i A" }}</p>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-h"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><button class="dropdown-item reply-btn" data-comment-id="{{ comment.id }}">
+                                                <i class="fas fa-reply me-2"></i>Reply
+                                            </button></li>
+                                            {% if comment.user == request.user %}
+                                            <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                            <li><a class="dropdown-item" href="#"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                            {% else %}
+                                            <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report</a></li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <p class="mb-2">{{ comment.content|linebreaks }}</p>
+                                
+                                <!-- Reply button -->
+                                <button class="btn btn-sm btn-outline-light reply-btn" data-comment-id="{{ comment.id }}">
+                                    <i class="fas fa-reply me-1"></i>Reply
+                                </button>
+                                
+                                <!-- View Replies button -->
+                                {% if comment.replies.count > 0 %}
+                                <button class="btn btn-sm btn-outline-light view-replies-btn" 
+                                        data-comment-id="{{ comment.id }}"
+                                        data-replies-count="{{ comment.replies.count }}">
+                                    <i class="fas fa-comments me-1"></i>
+                                    View {{ comment.replies.count }} repl{{ comment.replies.count|pluralize:"y,ies" }}
+                                </button>
+                                {% endif %}
+                                
+                                <!-- Replies container -->
+                                <div class="replies-container mt-3" id="replies-{{ comment.id }}" style="display: none;">
+                                    <!-- Replies will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-comments fa-3x text-gray mb-3"></i>
+                        <h5>No comments yet</h5>
+                        <p class="text-gray">Be the first to comment on this post!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- About Author -->
+            <div class="card-glass p-4 mb-4">
+                <h5 class="mb-3">About the Author</h5>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle bg-light p-3 me-3">
+                        <i class="fas fa-user fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1">{{ post.user.username }}</h6>
+                        <p class="text-gray small mb-0">Joined {{ post.user.date_joined|date:"F Y" }}</p>
+                    </div>
+                </div>
+                {% if post.user.bio %}
+                <p class="text-gray">{{ post.user.bio }}</p>
+                {% endif %}
+                <div class="d-flex justify-content-between mt-3">
+                    <div class="text-center">
+                        <h6 class="mb-1">{{ post.user.posts.count }}</h6>
+                        <p class="text-gray small mb-0">Posts</p>
+                    </div>
+                    <div class="text-center">
+                        <h6 class="mb-1">1.2K</h6>
+                        <p class="text-gray small mb-0">Followers</p>
+                    </div>
+                    <div class="text-center">
+                        <h6 class="mb-1">356</h6>
+                        <p class="text-gray small mb-0">Following</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Related Posts -->
+            <div class="card-glass p-4 mb-4">
+                <h5 class="mb-3">Related Posts</h5>
+                {% for related_post in related_posts %}
+                <a href="{% url 'posts:post_detail' related_post.id %}" class="d-flex align-items-center mb-3 text-decoration-none">
+                    <div class="rounded-circle bg-light p-2 me-3">
+                        <i class="fas fa-newspaper"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1">{{ related_post.title|truncatechars:40 }}</h6>
+                        <p class="text-gray small mb-0">{{ related_post.user.username }} · {{ related_post.created_at|timesince }} ago</p>
+                    </div>
+                </a>
+                {% empty %}
+                <p class="text-gray small">No related posts</p>
+                {% endfor %}
+            </div>
+            
+            <!-- Share Options -->
+            <div class="card-glass p-4">
+                <h5 class="mb-3">Share This Post</h5>
+                <div class="d-flex gap-2 mb-2">
+                    <button class="btn btn-outline-light flex-grow-1 share-facebook">
+                        <i class="fab fa-facebook-f me-2"></i>Facebook
+                    </button>
+                    <button class="btn btn-outline-light flex-grow-1 share-twitter">
+                        <i class="fab fa-twitter me-2"></i>Twitter
+                    </button>
+                </div>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="postUrl" value="{{ request.build_absolute_uri }}" readonly>
+                    <button class="btn btn-primary" id="copyUrlBtn">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div class="mt-2 text-center">
+                    <small class="text-gray" id="copyStatus"></small>
+                </div>
+            </div>
+            
+            <!-- Post Stats -->
+            <div class="card-glass p-4 mt-4">
+                <h5 class="mb-3">Post Stats</h5>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h6 class="mb-1 text-primary">{{ post.total_reactions }}</h6>
+                        <p class="text-gray small mb-0">Reactions</p>
+                    </div>
+                    <div class="col-4">
+                        <h6 class="mb-1 text-success">{{ post.comments.count }}</h6>
+                        <p class="text-gray small mb-0">Comments</p>
+                    </div>
+                    <div class="col-4">
+                        <h6 class="mb-1 text-warning" id="shareCount">0</h6>
+                        <p class="text-gray small mb-0">Shares</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .content {
+        font-size: 1.1rem;
+        line-height: 1.8;
+    }
+    
+    .content p {
+        margin-bottom: 1.5rem;
+    }
+    
+    .like-btn.active {
+        background: linear-gradient(135deg, #4CAF50, #2E7D32);
+        color: white !important;
+        border-color: #4CAF50;
+    }
+    
+    .love-btn.active {
+        background: linear-gradient(135deg, #E91E63, #C2185B);
+        color: white !important;
+        border-color: #E91E63;
+    }
+    
+    .dislike-btn.active {
+        background: linear-gradient(135deg, #F44336, #C62828);
+        color: white !important;
+        border-color: #F44336;
+    }
+    
+    .comment-item {
+        animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .replies-container {
+        border-left: 3px solid rgba(183, 158, 220, 0.3);
+        padding-left: 20px;
+        margin-left: 20px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Like button functionality
+        const likeBtn = document.querySelector('.like-btn');
+        const loveBtn = document.querySelector('.love-btn');
+        const dislikeBtn = document.querySelector('.dislike-btn');
+        
+        likeBtn?.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
+            
+            fetch(`/posts/${postId}/like/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.liked) {
+                    this.classList.add('active');
+                    loveBtn.classList.remove('active');
+                    dislikeBtn.classList.remove('active');
+                } else {
+                    this.classList.remove('active');
+                }
+                
+                this.querySelector('.like-count').textContent = data.likes_count;
+                loveBtn.querySelector('.love-count').textContent = data.loves_count;
+                dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
+            });
+        });
+        
+        // Love button functionality
+        loveBtn?.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
+            
+            fetch(`/posts/${postId}/love/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.loved) {
+                    this.classList.add('active');
+                    likeBtn.classList.remove('active');
+                    dislikeBtn.classList.remove('active');
+                } else {
+                    this.classList.remove('active');
+                }
+                
+                this.querySelector('.love-count').textContent = data.loves_count;
+                likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
+            });
+        });
+        
+        // Dislike button functionality
+        dislikeBtn?.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
+            
+            fetch(`/posts/${postId}/dislike/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.disliked) {
+                    this.classList.add('active');
+                    likeBtn.classList.remove('active');
+                    loveBtn.classList.remove('active');
+                } else {
+                    this.classList.remove('active');
+                }
+                
+                this.querySelector('.dislike-count').textContent = data.dislikes_count;
+                likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                loveBtn.querySelector('.love-count').textContent = data.loves_count;
+            });
+        });
+        
+        // Reply functionality
+        const commentTextarea = document.getElementById('comment-textarea');
+        const parentIdInput = document.getElementById('parent_id');
+        const submitBtnText = document.getElementById('submit-btn-text');
+        const cancelReplyBtn = document.getElementById('cancel-reply');
+        let replyingTo = null;
+        
+        // Reply button click
+        document.querySelectorAll('.reply-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                replyingTo = commentId;
+                parentIdInput.value = commentId;
+                commentTextarea.focus();
+                commentTextarea.placeholder = 'Write your reply...';
+                submitBtnText.textContent = 'Post Reply';
+                cancelReplyBtn.style.display = 'block';
+                
+                // Scroll to comment form
+                commentTextarea.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+        
+        // Cancel reply
+        cancelReplyBtn.addEventListener('click', function() {
+            replyingTo = null;
+            parentIdInput.value = '';
+            commentTextarea.value = '';
+            commentTextarea.placeholder = 'Add a comment...';
+            submitBtnText.textContent = 'Post Comment';
+            this.style.display = 'none';
+        });
+        
+        // View replies button
+        document.querySelectorAll('.view-replies-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                const repliesContainer = document.getElementById(`replies-${commentId}`);
+                
+                if (repliesContainer.style.display === 'none') {
+                    // Load replies
+                    fetch(`/posts/comment/${commentId}/replies/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            repliesContainer.innerHTML = '';
+                            data.replies.forEach(reply => {
+                                const replyHtml = `
+                                    <div class="d-flex mb-3">
+                                        <div class="me-2">
+                                            <div class="rounded-circle bg-light p-1">
+                                                <i class="fas fa-user fa-sm"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="card-glass p-2">
+                                                <p class="mb-1">
+                                                    <strong>${reply.user}</strong> 
+                                                    ${reply.content}
+                                                </p>
+                                                <p class="text-gray small mb-0">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    ${reply.created_at}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                repliesContainer.insertAdjacentHTML('beforeend', replyHtml);
+                            });
+                            
+                            // Add reply form for this comment
+                            const replyFormHtml = `
+                                <div class="mt-2">
+                                    <form method="post" action="{% url 'posts:add_comment' post.id %}" class="reply-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="parent_id" value="${commentId}">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control form-control-sm" 
+                                                   placeholder="Write a reply..." name="content" required>
+                                            <button type="submit" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            `;
+                            repliesContainer.insertAdjacentHTML('beforeend', replyFormHtml);
+                            
+                            // Handle reply form submission
+                            const replyForms = repliesContainer.querySelectorAll('.reply-form');
+                            replyForms.forEach(form => {
+                                form.addEventListener('submit', function(e) {
+                                    e.preventDefault();
+                                    const formData = new FormData(this);
+                                    const submitBtn = this.querySelector('button[type="submit"]');
+                                    const originalText = submitBtn.innerHTML;
+                                    
+                                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                                    submitBtn.disabled = true;
+                                    
+                                    fetch(this.getAttribute('action'), {
+                                        method: 'POST',
+                                        body: formData,
+                                        headers: {
+                                            'X-CSRFToken': '{{ csrf_token }}',
+                                        },
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            this.querySelector('input[name="content"]').value = '';
+                                            // Reload replies
+                                            button.click();
+                                        }
+                                    })
+                                    .finally(() => {
+                                        submitBtn.innerHTML = originalText;
+                                        submitBtn.disabled = false;
+                                    });
+                                });
+                            });
+                        });
+                    
+                    repliesContainer.style.display = 'block';
+                    this.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Hide replies';
+                } else {
+                    repliesContainer.style.display = 'none';
+                    this.innerHTML = `<i class="fas fa-comments me-1"></i>View ${this.getAttribute('data-replies-count')} repl${parseInt(this.getAttribute('data-replies-count')) === 1 ? 'y' : 'ies'}`;
+                }
+            });
+        });
+        
+        // Comment form submission
+        const commentForm = document.querySelector('.comment-form');
+        commentForm?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            // Show loading
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Posting...';
+            submitBtn.disabled = true;
+            
+            fetch(this.getAttribute('action'), {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear the textarea
+                    this.querySelector('textarea').value = '';
+                    
+                    // Reset reply form if it was a reply
+                    if (replyingTo) {
+                        replyingTo = null;
+                        parentIdInput.value = '';
+                        submitBtnText.textContent = 'Post Comment';
+                        cancelReplyBtn.style.display = 'none';
+                        commentTextarea.placeholder = 'Add a comment...';
+                    }
+                    
+                    // Add new comment to the list
+                    const commentsList = document.getElementById('commentsList');
+                    const commentHtml = `
+                        <div class="d-flex mb-4 comment-item" data-comment-id="${data.comment.id}">
+                            <div class="me-3">
+                                <div class="rounded-circle bg-light p-2">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="card-glass p-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ request.user.username }}</h6>
+                                            <p class="text-gray small mb-0">${data.comment.created_at}</p>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-h"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><button class="dropdown-item reply-btn" data-comment-id="${data.comment.id}">
+                                                    <i class="fas fa-reply me-2"></i>Reply
+                                                </button></li>
+                                                <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                                <li><a class="dropdown-item" href="#"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <p class="mb-2">${data.comment.content}</p>
+                                    <button class="btn btn-sm btn-outline-light reply-btn" data-comment-id="${data.comment.id}">
+                                        <i class="fas fa-reply me-1"></i>Reply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Remove empty state if exists
+                    const emptyState = commentsList.querySelector('.text-center');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
+                    
+                    commentsList.insertAdjacentHTML('afterbegin', commentHtml);
+                    
+                    // Add event listener to the new reply button
+                    const newReplyBtn = commentsList.querySelector(`.reply-btn[data-comment-id="${data.comment.id}"]`);
+                    if (newReplyBtn) {
+                        newReplyBtn.addEventListener('click', function() {
+                            const commentId = this.getAttribute('data-comment-id');
+                            replyingTo = commentId;
+                            parentIdInput.value = commentId;
+                            commentTextarea.focus();
+                            commentTextarea.placeholder = 'Write your reply...';
+                            submitBtnText.textContent = 'Post Reply';
+                            cancelReplyBtn.style.display = 'block';
+                            commentTextarea.scrollIntoView({ behavior: 'smooth' });
+                        });
+                    }
+                }
+            })
+            .finally(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+        });
+        
+        // Share functionality
+        const postUrl = document.getElementById('postUrl');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const copyStatus = document.getElementById('copyStatus');
+        const shareFacebook = document.querySelector('.share-facebook');
+        const shareTwitter = document.querySelector('.share-twitter');
+        const sharePostBtn = document.getElementById('sharePostBtn');
+        
+        // Copy URL button
+        copyUrlBtn?.addEventListener('click', function() {
+            postUrl.select();
+            navigator.clipboard.writeText(postUrl.value).then(() => {
+                copyStatus.textContent = 'Link copied to clipboard!';
+                copyStatus.style.color = '#4CAF50';
+                setTimeout(() => {
+                    copyStatus.textContent = '';
+                }, 3000);
+            });
+        });
+        
+        // Facebook share
+        shareFacebook?.addEventListener('click', function() {
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'width=600,height=400');
+        });
+        
+        // Twitter share
+        shareTwitter?.addEventListener('click', function() {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent("Check out this travel post on GoMyanmar!");
+            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=600,height=400');
+        });
+        
+        // Share post from dropdown
+        sharePostBtn?.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: '{{ post.title }}',
+                    text: 'Check out this travel post on GoMyanmar!',
+                    url: window.location.href
+                }).then(() => {
+                    // Increment share count
+                    const shareCount = document.getElementById('shareCount');
+                    let current = parseInt(shareCount.textContent) || 0;
+                    shareCount.textContent = current + 1;
+                });
+            } else {
+                // Fallback to copy
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    alert('Link copied to clipboard!');
+                    const shareCount = document.getElementById('shareCount');
+                    let current = parseInt(shareCount.textContent) || 0;
+                    shareCount.textContent = current + 1;
+                });
+            }
+        });
+        
+        // Increment view count (simulated)
+        setTimeout(() => {
+            const viewCount = document.getElementById('viewCount');
+            let current = parseInt(viewCount.textContent.replace(',', '')) || 1234;
+            viewCount.textContent = (current + 1).toLocaleString();
+        }, 1000);
+    });
+</script>
+{% endblock %}

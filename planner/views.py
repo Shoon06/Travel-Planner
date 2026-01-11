@@ -701,6 +701,9 @@ class DestinationSearchView(View):
 # ========== HOTEL SELECTION WITH MAP ==========
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# Replace the entire SelectHotelWithMapView class with this:
+
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     template_name = 'planner/select_hotel_map_real.html'
     
@@ -738,9 +741,9 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 'review_count': hotel.review_count,
                 'category': hotel.category,
                 'category_display': hotel.get_category_display(),
-                'amenities': hotel.amenities[:5],
+                'amenities': hotel.amenities[:5] if hotel.amenities else [],
                 'is_real_hotel': hotel.is_real_hotel,
-                'description': hotel.description[:100] + '...' if len(hotel.description) > 100 else (hotel.description or ''),
+                'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
                 'image_url': image_url,
                 'phone_number': hotel.phone_number or '',
                 'website': hotel.website or '',
@@ -790,19 +793,39 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 print(f"ERROR adding marker for hotel {hotel.id}: {e}")
         
         # Determine center coordinates for map
+        def get_default_city_coordinates(city_name):
+            """Get default coordinates for major Myanmar cities"""
+            city_coords = {
+                'yangon': (16.8409, 96.1735),
+                'mandalay': (21.9588, 96.0891),
+                'bagan': (21.1722, 94.8603),
+                'inle lake': (20.5550, 96.9150),
+                'naypyidaw': (19.7460, 96.1270),
+                'pyin oo lwin': (22.0339, 96.4561),
+                'ngapali': (18.4159, 94.2977),
+                'kalaw': (20.6260, 96.5623),
+                'taunggyi': (20.7853, 97.0374),
+                'hsipaw': (22.6286, 97.3375),
+            }
+            return city_coords.get(city_name.lower(), (21.9588, 96.0891))  # Default to Mandalay
+        
         if trip.destination.latitude and trip.destination.longitude:
             center_lat = float(trip.destination.latitude)
             center_lng = float(trip.destination.longitude)
+            print(f"Using destination coordinates from database: {center_lat}, {center_lng}")
         else:
-            # Try to get coordinates from the first hotel in this destination
-            first_hotel = hotels.filter(latitude__isnull=False, longitude__isnull=False).first()
-            if first_hotel:
-                center_lat = float(first_hotel.latitude)
-                center_lng = float(first_hotel.longitude)
-            else:
-                # Fallback to Myanmar center coordinates
-                center_lat = 21.0  # Myanmar center latitude
-                center_lng = 96.0  # Myanmar center longitude
+            # Use default city coordinates
+            center_lat, center_lng = get_default_city_coordinates(trip.destination.name)
+            print(f"Using default coordinates for {trip.destination.name}: {center_lat}, {center_lng}")
+            
+            # Try to save these coordinates to the database for future use
+            try:
+                trip.destination.latitude = center_lat
+                trip.destination.longitude = center_lng
+                trip.destination.save()
+                print(f"Saved coordinates for {trip.destination.name}: {center_lat}, {center_lng}")
+            except Exception as e:
+                print(f"Could not save coordinates: {e}")
         
         # Get all unique amenities for filtering
         all_amenities = set()
@@ -823,8 +846,6 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             'destination_id': trip.destination.id,
         }
         return render(request, self.template_name, context)
-
-
 # ========== FILTER HOTELS VIEW ==========
 class FilterHotelsView(View):
     def get(self, request, destination_id):

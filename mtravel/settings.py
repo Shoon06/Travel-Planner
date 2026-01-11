@@ -1,6 +1,4 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\mtravel\settings.py
-# FIXED VERSION - Remove duplicate LEAFLET_CONFIG
-
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -13,7 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-myanmar-travel-2025-secret
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
@@ -28,7 +26,6 @@ INSTALLED_APPS = [
     # Third party apps
     'crispy_forms',
     'crispy_bootstrap5',
-    'rest_framework',
     
     # Our apps
     'users',
@@ -41,7 +38,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    #'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -49,18 +46,22 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'mtravel.urls'
 
+# TEMPLATES CONFIGURATION - FIXED
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'APP_DIRS': True,
+        'DIRS': [
+            BASE_DIR / 'templates',  # Main templates directory
+        ],
+        'APP_DIRS': True,  # This allows Django to look for templates in each app's "templates" folder
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'planner.context_processors.leaflet_config',  # Keep this line
+                'planner.context_processors.leaflet_config',
+                'posts.context_processors.notifications_context',
             ],
         },
     },
@@ -95,14 +96,16 @@ TIME_ZONE = 'Asia/Yangon'
 USE_I18N = True
 USE_TZ = True
 
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
+    BASE_DIR / 'static',
 ]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Media files (Uploaded by users)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -113,6 +116,7 @@ AUTH_USER_MODEL = 'users.CustomUser'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
+# Authentication Backends
 AUTHENTICATION_BACKENDS = [
     'users.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
@@ -122,10 +126,6 @@ AUTHENTICATION_BACKENDS = [
 LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'planner:dashboard'
 LOGOUT_REDIRECT_URL = 'home'
-
-# Leaflet Configuration (KEEP ONLY THIS ONE - remove the one at the top)
-
-# settings.py - Remove Google Maps API section and keep only this:
 
 # Leaflet Configuration
 LEAFLET_CONFIG = {
@@ -139,9 +139,10 @@ LEAFLET_CONFIG = {
     'TILES': [('OpenStreetMap', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
                {'attribution': '&copy; OpenStreetMap contributors'})],
 }
-# Add to your settings.py
 
-# OpenWeatherMap API Key (get from https://openweathermap.org/api)
-OPENWEATHER_API_KEY = 'faaa7d6b2a26f70743cf1f9f485b8853'  # Replace with your actual key
+# OpenWeatherMap API Key
+OPENWEATHER_API_KEY = 'faaa7d6b2a26f70743cf1f9f485b8853'
 
-# If you don't have an API key, the weather service will use mock data
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
