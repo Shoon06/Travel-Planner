@@ -124,6 +124,10 @@ LOGIN_REDIRECT_URL = 'planner:dashboard'
 LOGOUT_REDIRECT_URL = 'home'
 
 # Leaflet Configuration (KEEP ONLY THIS ONE - remove the one at the top)
+
+# settings.py - Remove Google Maps API section and keep only this:
+
+# Leaflet Configuration
 LEAFLET_CONFIG = {
     'DEFAULT_CENTER': (16.8409, 96.1735),  # Yangon coordinates
     'DEFAULT_ZOOM': 10,
@@ -135,7 +139,6 @@ LEAFLET_CONFIG = {
     'TILES': [('OpenStreetMap', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
                {'attribution': '&copy; OpenStreetMap contributors'})],
 }
-
 # Add to your settings.py
 
 # OpenWeatherMap API Key (get from https://openweathermap.org/api)

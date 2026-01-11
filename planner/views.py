@@ -699,6 +699,8 @@ class DestinationSearchView(View):
 
 
 # ========== HOTEL SELECTION WITH MAP ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     template_name = 'planner/select_hotel_map_real.html'
     
@@ -746,10 +748,21 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 'has_image': bool(image_url),
             })
         
-        # Prepare hotel markers for map (JSON format)
+        # Prepare hotel markers for map (JSON format) with better data
         hotel_markers = []
-        for hotel in hotels:
-            if hotel.latitude and hotel.longitude:
+        hotels_with_coords = hotels.filter(latitude__isnull=False, longitude__isnull=False)
+        print(f"DEBUG: Found {hotels_with_coords.count()} hotels with coordinates out of {hotels.count()} total")
+        
+        for hotel in hotels_with_coords:
+            try:
+                # Get image URL safely
+                image_url = ''
+                if hotel.image and hasattr(hotel.image, 'url'):
+                    try:
+                        image_url = hotel.image.url
+                    except:
+                        image_url = ''
+                
                 marker_data = {
                     'id': hotel.id,
                     'name': hotel.name,
@@ -762,25 +775,34 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                     'review_count': hotel.review_count,
                     'category': hotel.category,
                     'category_display': hotel.get_category_display(),
-                    'amenities': hotel.amenities[:5],
+                    'amenities': hotel.amenities[:5] if hotel.amenities else [],
                     'is_real': hotel.is_real_hotel,
                     'is_our_hotel': hotel.created_by_admin,
-                    'description': hotel.description[:100] + '...' if len(hotel.description) > 100 else (hotel.description or '')
+                    'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
+                    'image_url': image_url,
+                    'phone': hotel.phone_number or '',
+                    'website': hotel.website or '',
+                    'gallery_images': hotel.gallery_images if hasattr(hotel, 'gallery_images') else []
                 }
                 hotel_markers.append(marker_data)
+                print(f"DEBUG: Added marker for {hotel.name} at {hotel.latitude}, {hotel.longitude}")
+            except Exception as e:
+                print(f"ERROR adding marker for hotel {hotel.id}: {e}")
         
         # Determine center coordinates for map
         if trip.destination.latitude and trip.destination.longitude:
             center_lat = float(trip.destination.latitude)
             center_lng = float(trip.destination.longitude)
         else:
-            # Default to Kalawe coordinates if destination doesn't have coordinates
-            if 'Kalawe' in trip.destination.name:
-                center_lat = 20.6333
-                center_lng = 96.5667
+            # Try to get coordinates from the first hotel in this destination
+            first_hotel = hotels.filter(latitude__isnull=False, longitude__isnull=False).first()
+            if first_hotel:
+                center_lat = float(first_hotel.latitude)
+                center_lng = float(first_hotel.longitude)
             else:
-                center_lat = 16.8409  # Yangon
-                center_lng = 96.1735
+                # Fallback to Myanmar center coordinates
+                center_lat = 21.0  # Myanmar center latitude
+                center_lng = 96.0  # Myanmar center longitude
         
         # Get all unique amenities for filtering
         all_amenities = set()
@@ -1468,6 +1490,8 @@ def test_view(request):
 
 # ========== NEW VIEWS FOR PLAN SELECTION ==========
 
+# ========== NEW VIEWS FOR PLAN SELECTION ==========
+
 class PlanSelectionView(LoginRequiredMixin, View):
     """Display 3 travel plans (Cultural Explorer, Adventure Seeker, Relaxed Wanderer)"""
     template_name = 'planner/plan_selection.html'
@@ -1479,23 +1503,16 @@ class PlanSelectionView(LoginRequiredMixin, View):
         nights = trip.calculate_nights()
         days = nights + 1 if nights > 0 else 3
         
-        # Define the 3 travel plans
+        # Define the 3 travel plans with DYNAMIC destination-specific content
         plans = [
             {
                 'id': 'cultural',
                 'title': 'Cultural Explorer',
-                'subtitle': 'Immerse yourself in Myanmar\'s rich cultural heritage',
+                'subtitle': f'Immerse yourself in {trip.destination.name}\'s rich cultural heritage',
                 'category': 'Culture & History',
                 'duration': f"{days} Days",
-                'estimated_cost': 1250,
-                'highlights': [
-                    'Shwedagon Pagoda at sunrise',
-                    'Colonial architecture walking tour',
-                    'Traditional puppet show',
-                    'Local tea house experience',
-                    'Museum visits',
-                    'Monastery meditation session'
-                ],
+                'estimated_cost': self.calculate_plan_cost(days, 'cultural'),
+                'highlights': self.get_cultural_highlights(trip.destination),
                 'icon': 'fas fa-landmark',
                 'color': '#3498db',
                 'days': self.generate_cultural_itinerary(trip, days),
@@ -1504,18 +1521,11 @@ class PlanSelectionView(LoginRequiredMixin, View):
             {
                 'id': 'adventure',
                 'title': 'Adventure Seeker',
-                'subtitle': 'Active exploration with outdoor activities',
+                'subtitle': f'Active exploration with outdoor activities in {trip.destination.name}',
                 'category': 'Active & Adventurous',
                 'duration': f"{days} Days",
-                'estimated_cost': 1450,
-                'highlights': [
-                    'Circular train ride',
-                    'Kayaking on Kandawgyi Lake',
-                    'Hiking to hidden temples',
-                    'Street food tour',
-                    'Bicycle tour',
-                    'Sunrise hot air balloon'
-                ],
+                'estimated_cost': self.calculate_plan_cost(days, 'adventure'),
+                'highlights': self.get_adventure_highlights(trip.destination),
                 'icon': 'fas fa-hiking',
                 'color': '#2ecc71',
                 'days': self.generate_adventure_itinerary(trip, days),
@@ -1524,18 +1534,11 @@ class PlanSelectionView(LoginRequiredMixin, View):
             {
                 'id': 'relaxed',
                 'title': 'Relaxed Wanderer',
-                'subtitle': 'Leisurely pace with ample free time',
+                'subtitle': f'Leisurely pace with ample free time in {trip.destination.name}',
                 'category': 'Relaxed & Flexible',
                 'duration': f"{days} Days",
-                'estimated_cost': 1100,
-                'highlights': [
-                    'Spa and wellness sessions',
-                    'Leisurely lake walks',
-                    'Café hopping',
-                    'Sunset photography spots',
-                    'Massage therapy',
-                    'Gardens and parks'
-                ],
+                'estimated_cost': self.calculate_plan_cost(days, 'relaxed'),
+                'highlights': self.get_relaxed_highlights(trip.destination),
                 'icon': 'fas fa-spa',
                 'color': '#9b59b6',
                 'days': self.generate_relaxed_itinerary(trip, days),
@@ -1557,54 +1560,283 @@ class PlanSelectionView(LoginRequiredMixin, View):
         
         return render(request, self.template_name, context)
     
-    def generate_cultural_itinerary(self, trip, days):
-        """Generate cultural itinerary"""
-        itinerary = []
+    def calculate_plan_cost(self, days, plan_type):
+        """Calculate dynamic cost based on destination and days"""
+        base_costs = {
+            'cultural': 1250,
+            'adventure': 1450,
+            'relaxed': 1100
+        }
         
-        for day in range(1, days + 1):
-            day_activities = [
-                {
-                    'time': '09:00 AM',
-                    'title': 'Shwedagon Pagoda Visit',
-                    'location': 'Downtown Yangon',
-                    'duration': '2 hours',
-                    'description': 'Explore the golden pagoda at its morning glory',
-                    'type': 'cultural',
-                    'icon': 'fas fa-place-of-worship'
-                },
-                {
-                    'time': '12:00 PM',
-                    'title': 'Lunch at Feel Myanmar',
-                    'location': 'Traditional Restaurant',
-                    'duration': '1.5 hours',
-                    'description': 'Authentic Myanmar cuisine',
-                    'type': 'food',
-                    'icon': 'fas fa-utensils'
-                },
-                {
-                    'time': '02:00 PM',
-                    'title': 'Bogyoke Market',
-                    'location': 'Pabedan Township',
-                    'duration': '2 hours',
-                    'description': 'Shop for local crafts and souvenirs',
-                    'type': 'shopping',
-                    'icon': 'fas fa-shopping-bag'
-                },
-                {
-                    'time': '05:00 PM',
-                    'title': 'Traditional Puppet Show',
-                    'location': 'Cultural Center',
-                    'duration': '1.5 hours',
-                    'description': 'Enjoy traditional Myanmar puppetry',
-                    'type': 'entertainment',
-                    'icon': 'fas fa-mask'
-                }
+        base_cost = base_costs.get(plan_type, 1000)
+        # Adjust for number of days (base cost is for 3 days)
+        return int(base_cost * (days / 3))
+    
+    def get_cultural_highlights(self, destination):
+        """Get destination-specific cultural highlights"""
+        destination_name = destination.name.lower()
+        
+        highlights_map = {
+            'yangon': [
+                'Shwedagon Pagoda at sunrise',
+                'Colonial architecture walking tour',
+                'Traditional puppet show',
+                'Local tea house experience',
+                'Bogyoke Market shopping',
+                'National Museum visit'
+            ],
+            'mandalay': [
+                'Mandalay Palace tour',
+                'Mandalay Hill sunset view',
+                'Gold leaf making workshop',
+                'Traditional marionette theater',
+                'Kuthodaw Pagoda (World\'s largest book)',
+                'U Bein Bridge at sunrise'
+            ],
+            'bagan': [
+                'Temple sunrise hot air balloon',
+                'Ancient temple exploration',
+                'Lacquerware workshop visit',
+                'Traditional horse cart ride',
+                'Local village life experience',
+                'Sunset at Buledi temple'
+            ],
+            'inle lake': [
+                'Leg-rowing fishermen demonstration',
+                'Floating village tour',
+                'Traditional weaving workshop',
+                'Phaung Daw Oo Pagoda visit',
+                'Local market experience',
+                'Stilt house village walk'
+            ],
+            'pyin oo lwin': [
+                'Botanical gardens tour',
+                'Colonial architecture walk',
+                'Candy factory visit',
+                'Local strawberry farm',
+                'Waterfall visits',
+                'Horse carriage ride'
             ]
-            
-            # Customize activities based on destination
-            if 'Bagan' in trip.destination.name:
-                day_activities[0]['title'] = 'Temple Sunrise Tour'
-                day_activities[0]['location'] = 'Ancient Temples'
+        }
+        
+        # Find matching highlights
+        for key, highlights in highlights_map.items():
+            if key in destination_name or destination_name in key:
+                return highlights
+        
+        # Default highlights for other destinations
+        return [
+            'Local cultural sites visit',
+            'Traditional craft workshop',
+            'Historical landmark tour',
+            'Local market exploration',
+            'Cultural performance show',
+            'Traditional cuisine tasting'
+        ]
+    
+    def get_adventure_highlights(self, destination):
+        """Get destination-specific adventure highlights"""
+        destination_name = destination.name.lower()
+        
+        highlights_map = {
+            'yangon': [
+                'Circular train ride',
+                'Kayaking on Kandawgyi Lake',
+                'Street food walking tour',
+                'Bicycle tour around city',
+                'Yangon River cruise',
+                'Night market exploration'
+            ],
+            'mandalay': [
+                'Mandalay Hill hiking',
+                'Mingun day trip by boat',
+                'Motorbike tour around city',
+                'Traditional cooking class',
+                'Irrawaddy River activities',
+                'Local market food adventure'
+            ],
+            'bagan': [
+                'Hot air balloon ride',
+                'E-bike temple exploration',
+                'Sunrise cycling tour',
+                'Irrawaddy River boat trip',
+                'Temple climbing adventure',
+                'Photography safari'
+            ],
+            'inle lake': [
+                'Boat tour on Inle Lake',
+                'Trekking to hill tribe villages',
+                'Bamboo rafting experience',
+                'Fishing with local methods',
+                'Mountain biking around lake',
+                'Sunrise boat photography'
+            ],
+            'ngapali': [
+                'Beach relaxation',
+                'Snorkeling adventure',
+                'Sunset fishing trip',
+                'Beach volleyball',
+                'Local seafood tasting',
+                'Coastal walk exploration'
+            ]
+        }
+        
+        for key, highlights in highlights_map.items():
+            if key in destination_name or destination_name in key:
+                return highlights
+        
+        # Default highlights
+        return [
+            'Local hiking trails',
+            'Outdoor exploration',
+            'Traditional activities',
+            'Nature walks',
+            'Adventure sports',
+            'Cultural adventures'
+        ]
+    
+    def get_relaxed_highlights(self, destination):
+        """Get destination-specific relaxed highlights"""
+        destination_name = destination.name.lower()
+        
+        highlights_map = {
+            'yangon': [
+                'Spa and wellness sessions',
+                'Leisurely park walks',
+                'Café hopping downtown',
+                'Sunset at Shwedagon',
+                'Riverfront relaxation',
+                'Art gallery visits'
+            ],
+            'mandalay': [
+                'Spa treatments',
+                'Royal garden walks',
+                'Tea house relaxation',
+                'Sunset viewing spots',
+                'Cultural show evenings',
+                'Leisurely shopping'
+            ],
+            'bagan': [
+                'Temple view relaxation',
+                'Sunset champagne viewing',
+                'Poolside lounging',
+                'Leisurely e-bike rides',
+                'Traditional massage',
+                'Stargazing nights'
+            ],
+            'inle lake': [
+                'Lakeside relaxation',
+                'Boat ride with tea',
+                'Spa with lake view',
+                'Leisurely village walks',
+                'Sunset photography',
+                'Traditional massage'
+            ],
+            'ngapali': [
+                'Beachfront massage',
+                'Sunset beach walks',
+                'Hammock relaxation',
+                'Seafood dining',
+                'Beach yoga sessions',
+                'Poolside lounging'
+            ]
+        }
+        
+        for key, highlights in highlights_map.items():
+            if key in destination_name or destination_name in key:
+                return highlights
+        
+        # Default highlights
+        return [
+            'Spa and wellness sessions',
+            'Leisurely nature walks',
+            'Local café exploration',
+            'Sunset photography spots',
+            'Relaxation activities',
+            'Cultural appreciation'
+        ]
+    
+    def generate_cultural_itinerary(self, trip, days):
+        """Generate cultural itinerary for specific destination"""
+        itinerary = []
+        destination_name = trip.destination.name.lower()
+        
+        # Define destination-specific activities
+        activities_map = {
+            'yangon': [
+                {'time': '09:00 AM', 'title': 'Shwedagon Pagoda Visit', 'location': 'Shwedagon Pagoda', 'duration': '2 hours', 'description': 'Explore Myanmar\'s most sacred Buddhist pagoda', 'type': 'cultural'},
+                {'time': '12:00 PM', 'title': 'Lunch at Feel Myanmar', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Authentic Myanmar cuisine experience', 'type': 'food'},
+                {'time': '02:00 PM', 'title': 'Bogyoke Market', 'location': 'Pabedan Township', 'duration': '2 hours', 'description': 'Shop for local crafts, jewelry and souvenirs', 'type': 'shopping'},
+                {'time': '05:00 PM', 'title': 'Colonial Architecture Tour', 'location': 'Downtown Yangon', 'duration': '1.5 hours', 'description': 'Walk through historic colonial buildings', 'type': 'cultural'}
+            ],
+            'mandalay': [
+                {'time': '08:00 AM', 'title': 'Mandalay Palace', 'location': 'Mandalay Palace', 'duration': '2 hours', 'description': 'Explore the last royal palace of Myanmar', 'type': 'cultural'},
+                {'time': '11:00 AM', 'title': 'Gold Leaf Workshop', 'location': 'Traditional Workshop', 'duration': '1.5 hours', 'description': 'See how traditional gold leaf is made', 'type': 'workshop'},
+                {'time': '02:00 PM', 'title': 'Kuthodaw Pagoda', 'location': 'Mandalay Hill', 'duration': '2 hours', 'description': 'Visit the world\'s largest book', 'type': 'cultural'},
+                {'time': '05:00 PM', 'title': 'Sunset at U Bein Bridge', 'location': 'Amarapura', 'duration': '1.5 hours', 'description': 'Watch sunset on the world\'s longest teak bridge', 'type': 'scenic'}
+            ],
+            'bagan': [
+                {'time': '05:30 AM', 'title': 'Hot Air Balloon Sunrise', 'location': 'Bagan Plains', 'duration': '1 hour', 'description': 'Spectacular sunrise view over ancient temples', 'type': 'adventure'},
+                {'time': '09:00 AM', 'title': 'Ananda Temple', 'location': 'Old Bagan', 'duration': '2 hours', 'description': 'Visit one of Bagan\'s most beautiful temples', 'type': 'cultural'},
+                {'time': '01:00 PM', 'title': 'Lacquerware Workshop', 'location': 'Myinkaba Village', 'duration': '2 hours', 'description': 'Learn about traditional lacquerware making', 'type': 'workshop'},
+                {'time': '05:00 PM', 'title': 'Sunset at Buledi', 'location': 'Bagan Archaeological Zone', 'duration': '1.5 hours', 'description': 'Climb a temple for panoramic sunset views', 'type': 'scenic'}
+            ],
+            'inle lake': [
+                {'time': '07:00 AM', 'title': 'Leg-Rowing Fishermen', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'See unique leg-rowing fishing technique', 'type': 'cultural'},
+                {'time': '10:00 AM', 'title': 'Floating Village Tour', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'Visit stilt-house villages on the lake', 'type': 'cultural'},
+                {'time': '01:00 PM', 'title': 'Traditional Weaving', 'location': 'Inn Paw Khon Village', 'duration': '2 hours', 'description': 'Watch lotus and silk weaving process', 'type': 'workshop'},
+                {'time': '04:00 PM', 'title': 'Phaung Daw Oo Pagoda', 'location': 'Inle Lake', 'duration': '1.5 hours', 'description': 'Visit the lake\'s most important pagoda', 'type': 'cultural'}
+            ]
+        }
+        
+        # Get activities for this destination
+        base_activities = activities_map.get(destination_name, [
+            {'time': '09:00 AM', 'title': 'Cultural Site Visit', 'location': 'Main Attraction', 'duration': '2 hours', 'description': f'Explore cultural sites in {trip.destination.name}', 'type': 'cultural'},
+            {'time': '12:00 PM', 'title': 'Local Cuisine Lunch', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Taste authentic local dishes', 'type': 'food'},
+            {'time': '02:00 PM', 'title': 'Market Exploration', 'location': 'Local Market', 'duration': '2 hours', 'description': 'Experience local market culture', 'type': 'shopping'},
+            {'time': '05:00 PM', 'title': 'Sunset Viewing', 'location': 'Scenic Spot', 'duration': '1.5 hours', 'description': 'Enjoy beautiful sunset views', 'type': 'scenic'}
+        ])
+        
+        # Add icons to activities
+        icon_map = {
+            'cultural': 'fas fa-landmark',
+            'food': 'fas fa-utensils',
+            'shopping': 'fas fa-shopping-bag',
+            'workshop': 'fas fa-hammer',
+            'scenic': 'fas fa-camera',
+            'adventure': 'fas fa-hiking'
+        }
+        
+        for activity in base_activities:
+            activity['icon'] = icon_map.get(activity['type'], 'fas fa-star')
+        
+        # Generate itinerary for each day
+        for day in range(1, days + 1):
+            # Vary activities slightly each day
+            day_activities = []
+            for i, activity in enumerate(base_activities):
+                # Create a copy to modify
+                activity_copy = activity.copy()
+                
+                # Vary times slightly for different days
+                if day > 1:
+                    time_parts = activity_copy['time'].split(' ')
+                    hour_part = time_parts[0]
+                    am_pm = time_parts[1] if len(time_parts) > 1 else 'AM'
+                    hour = int(hour_part.split(':')[0])
+                    
+                    # Add 30 minutes for each subsequent day
+                    hour_offset = (day - 1) * 0.5
+                    new_hour = hour + hour_offset
+                    
+                    if new_hour >= 12 and am_pm == 'AM':
+                        am_pm = 'PM'
+                        if new_hour > 12:
+                            new_hour -= 12
+                    
+                    activity_copy['time'] = f"{int(new_hour):02d}:{hour_part.split(':')[1]} {am_pm}"
+                
+                day_activities.append(activity_copy)
             
             itinerary.append({
                 'day_number': day,
@@ -1615,52 +1847,75 @@ class PlanSelectionView(LoginRequiredMixin, View):
         return itinerary
     
     def generate_adventure_itinerary(self, trip, days):
-        """Generate adventure itinerary"""
+        """Generate adventure itinerary for specific destination"""
         itinerary = []
+        destination_name = trip.destination.name.lower()
         
-        for day in range(1, days + 1):
-            day_activities = [
-                {
-                    'time': '07:00 AM',
-                    'title': 'Circular Train Ride',
-                    'location': 'Yangon Circular Railway',
-                    'duration': '3 hours',
-                    'description': 'Experience local life on the train',
-                    'type': 'adventure',
-                    'icon': 'fas fa-train'
-                },
-                {
-                    'time': '11:00 AM',
-                    'title': 'Street Food Walk',
-                    'location': 'Local Markets',
-                    'duration': '2 hours',
-                    'description': 'Taste authentic street food',
-                    'type': 'food',
-                    'icon': 'fas fa-utensils'
-                },
-                {
-                    'time': '02:00 PM',
-                    'title': 'Kayaking on Lake',
-                    'location': 'Kandawgyi Lake',
-                    'duration': '2.5 hours',
-                    'description': 'Paddle through scenic waters',
-                    'type': 'water_sports',
-                    'icon': 'fas fa-water'
-                },
-                {
-                    'time': '06:00 PM',
-                    'title': 'Sunset Hike',
-                    'location': 'Nearby Hills',
-                    'duration': '2 hours',
-                    'description': 'Hike to a sunset viewpoint',
-                    'type': 'hiking',
-                    'icon': 'fas fa-mountain'
-                }
+        # Define destination-specific adventure activities
+        activities_map = {
+            'yangon': [
+                {'time': '07:00 AM', 'title': 'Circular Train Ride', 'location': 'Yangon Central Station', 'duration': '3 hours', 'description': 'Experience local life on the circular railway', 'type': 'adventure'},
+                {'time': '11:00 AM', 'title': 'Street Food Tour', 'location': 'Downtown Markets', 'duration': '2 hours', 'description': 'Taste authentic Yangon street food', 'type': 'food'},
+                {'time': '02:00 PM', 'title': 'Kayaking on Lake', 'location': 'Kandawgyi Lake', 'duration': '2.5 hours', 'description': 'Paddle through scenic waters', 'type': 'water_sports'},
+                {'time': '06:00 PM', 'title': 'Sunset Walking Tour', 'location': 'Downtown Area', 'duration': '2 hours', 'description': 'Explore the city at sunset', 'type': 'walking'}
+            ],
+            'mandalay': [
+                {'time': '06:00 AM', 'title': 'Mandalay Hill Hike', 'location': 'Mandalay Hill', 'duration': '2 hours', 'description': 'Hike to the top for panoramic views', 'type': 'hiking'},
+                {'time': '10:00 AM', 'title': 'Motorbike City Tour', 'location': 'Mandalay City', 'duration': '3 hours', 'description': 'Explore Mandalay on motorbike', 'type': 'adventure'},
+                {'time': '02:00 PM', 'title': 'Mingun Boat Trip', 'location': 'Irrawaddy River', 'duration': '3 hours', 'description': 'Boat trip to Mingun ancient sites', 'type': 'boat'},
+                {'time': '06:00 PM', 'title': 'Traditional Cooking Class', 'location': 'Local Kitchen', 'duration': '2 hours', 'description': 'Learn to cook Mandalay dishes', 'type': 'food'}
+            ],
+            'bagan': [
+                {'time': '05:00 AM', 'title': 'Sunrise E-Bike Tour', 'location': 'Bagan Plains', 'duration': '3 hours', 'description': 'Explore temples by e-bike at sunrise', 'type': 'cycling'},
+                {'time': '09:00 AM', 'title': 'Horse Cart Adventure', 'location': 'Ancient Temples', 'duration': '2 hours', 'description': 'Traditional horse cart temple tour', 'type': 'cultural'},
+                {'time': '02:00 PM', 'title': 'Irrawaddy River Cruise', 'location': 'Irrawaddy River', 'duration': '2.5 hours', 'description': 'Boat trip on the mighty river', 'type': 'boat'},
+                {'time': '06:00 PM', 'title': 'Sunset Temple Climb', 'location': 'Selected Temple', 'duration': '1.5 hours', 'description': 'Climb a temple for sunset views', 'type': 'hiking'}
+            ],
+            'inle lake': [
+                {'time': '06:00 AM', 'title': 'Sunrise Boat Tour', 'location': 'Inle Lake', 'duration': '3 hours', 'description': 'Early morning boat tour of the lake', 'type': 'boat'},
+                {'time': '10:00 AM', 'title': 'Trekking to Villages', 'location': 'Shan Hills', 'duration': '3 hours', 'description': 'Trek to remote hill tribe villages', 'type': 'hiking'},
+                {'time': '02:00 PM', 'title': 'Bamboo Rafting', 'location': 'Streams near Lake', 'duration': '2 hours', 'description': 'Traditional bamboo raft experience', 'type': 'water_sports'},
+                {'time': '05:00 PM', 'title': 'Bicycle Lake Tour', 'location': 'Lakeside Roads', 'duration': '2 hours', 'description': 'Cycle around the lake perimeter', 'type': 'cycling'}
             ]
-            
-            if 'Inle Lake' in trip.destination.name:
-                day_activities[2]['title'] = 'Inle Lake Boat Tour'
-                day_activities[2]['location'] = 'Inle Lake'
+        }
+        
+        base_activities = activities_map.get(destination_name, [
+            {'time': '08:00 AM', 'title': 'Morning Exploration', 'location': 'Main Area', 'duration': '3 hours', 'description': f'Active exploration of {trip.destination.name}', 'type': 'adventure'},
+            {'time': '12:00 PM', 'title': 'Local Food Experience', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Try local adventure foods', 'type': 'food'},
+            {'time': '02:00 PM', 'title': 'Outdoor Activity', 'location': 'Natural Site', 'duration': '2.5 hours', 'description': 'Participate in local outdoor activities', 'type': 'adventure'},
+            {'time': '05:00 PM', 'title': 'Evening Adventure', 'location': 'Scenic Location', 'duration': '2 hours', 'description': 'Evening adventure activities', 'type': 'adventure'}
+        ])
+        
+        # Add icons
+        icon_map = {
+            'adventure': 'fas fa-hiking',
+            'food': 'fas fa-utensils',
+            'hiking': 'fas fa-mountain',
+            'cycling': 'fas fa-bicycle',
+            'boat': 'fas fa-ship',
+            'water_sports': 'fas fa-water',
+            'walking': 'fas fa-walking'
+        }
+        
+        for activity in base_activities:
+            activity['icon'] = icon_map.get(activity['type'], 'fas fa-compass')
+        
+        # Generate itinerary for each day
+        for day in range(1, days + 1):
+            day_activities = []
+            for i, activity in enumerate(base_activities):
+                activity_copy = activity.copy()
+                
+                # Vary activities for different days
+                if day > 1:
+                    # Change some activities for variety
+                    if i == 2:  # Third activity
+                        if 'hiking' in activity_copy['type']:
+                            activity_copy['title'] = 'Nature Walk Exploration'
+                        elif 'boat' in activity_copy['type']:
+                            activity_copy['title'] = 'River/Lake Exploration'
+                
+                day_activities.append(activity_copy)
             
             itinerary.append({
                 'day_number': day,
@@ -1671,53 +1926,65 @@ class PlanSelectionView(LoginRequiredMixin, View):
         return itinerary
     
     def generate_relaxed_itinerary(self, trip, days):
-        """Generate relaxed itinerary"""
+        """Generate relaxed itinerary for specific destination"""
         itinerary = []
+        destination_name = trip.destination.name.lower()
         
-        for day in range(1, days + 1):
-            day_activities = [
-                {
-                    'time': '10:00 AM',
-                    'title': 'Late Breakfast',
-                    'location': 'Hotel Restaurant',
-                    'duration': '1.5 hours',
-                    'description': 'Leisurely morning meal',
-                    'type': 'food',
-                    'icon': 'fas fa-coffee'
-                },
-                {
-                    'time': '12:00 PM',
-                    'title': 'Spa & Wellness',
-                    'location': 'Wellness Center',
-                    'duration': '2 hours',
-                    'description': 'Relaxing massage and spa treatment',
-                    'type': 'wellness',
-                    'icon': 'fas fa-spa'
-                },
-                {
-                    'time': '03:00 PM',
-                    'title': 'Leisurely Lake Walk',
-                    'location': 'Local Park/Lake',
-                    'duration': '1.5 hours',
-                    'description': 'Gentle walk around the lake',
-                    'type': 'walking',
-                    'icon': 'fas fa-walking'
-                },
-                {
-                    'time': '05:00 PM',
-                    'title': 'Sunset Photography',
-                    'location': 'Scenic Viewpoint',
-                    'duration': '1 hour',
-                    'description': 'Capture beautiful sunset moments',
-                    'type': 'photography',
-                    'icon': 'fas fa-camera'
-                }
+        # Define destination-specific relaxed activities
+        activities_map = {
+            'yangon': [
+                {'time': '10:00 AM', 'title': 'Late Breakfast', 'location': 'Hotel Restaurant', 'duration': '1.5 hours', 'description': 'Leisurely morning meal', 'type': 'food'},
+                {'time': '12:00 PM', 'title': 'Spa & Wellness', 'location': 'City Spa', 'duration': '2 hours', 'description': 'Relaxing massage and treatments', 'type': 'wellness'},
+                {'time': '03:00 PM', 'title': 'Park Walk', 'location': 'Kandawgyi Park', 'duration': '1.5 hours', 'description': 'Gentle walk in beautiful park', 'type': 'walking'},
+                {'time': '05:00 PM', 'title': 'Sunset Photography', 'location': 'Shwedagon Pagoda', 'duration': '1 hour', 'description': 'Capture beautiful sunset moments', 'type': 'photography'}
+            ],
+            'mandalay': [
+                {'time': '10:00 AM', 'title': 'Royal Garden Visit', 'location': 'Mandalay Palace Gardens', 'duration': '2 hours', 'description': 'Leisurely walk in royal gardens', 'type': 'walking'},
+                {'time': '01:00 PM', 'title': 'Traditional Spa', 'location': 'Local Wellness Center', 'duration': '2 hours', 'description': 'Traditional Myanmar spa treatments', 'type': 'wellness'},
+                {'time': '04:00 PM', 'title': 'Tea House Relaxation', 'location': 'Local Tea House', 'duration': '1.5 hours', 'description': 'Relax with local tea culture', 'type': 'food'},
+                {'time': '06:00 PM', 'title': 'Sunset River View', 'location': 'Irrawaddy Riverfront', 'duration': '1 hour', 'description': 'Peaceful sunset by the river', 'type': 'scenic'}
+            ],
+            'bagan': [
+                {'time': '09:00 AM', 'title': 'Poolside Breakfast', 'location': 'Hotel Pool', 'duration': '1.5 hours', 'description': 'Relaxed breakfast with temple views', 'type': 'food'},
+                {'time': '11:00 AM', 'title': 'Temple View Massage', 'location': 'Spa with View', 'duration': '2 hours', 'description': 'Massage with ancient temple views', 'type': 'wellness'},
+                {'time': '03:00 PM', 'title': 'Leisurely E-Bike Ride', 'location': 'Quiet Temple Area', 'duration': '1.5 hours', 'description': 'Gentle e-bike ride to quiet temples', 'type': 'cycling'},
+                {'time': '05:00 PM', 'title': 'Sunset Champagne', 'location': 'Sunset Viewpoint', 'duration': '1.5 hours', 'description': 'Champagne while watching sunset', 'type': 'scenic'}
+            ],
+            'inle lake': [
+                {'time': '09:30 AM', 'title': 'Lakeside Breakfast', 'location': 'Lake View Restaurant', 'duration': '1.5 hours', 'description': 'Breakfast overlooking the lake', 'type': 'food'},
+                {'time': '11:30 AM', 'title': 'Floating Spa Treatment', 'location': 'Lake Spa', 'duration': '2 hours', 'description': 'Spa treatments on the water', 'type': 'wellness'},
+                {'time': '03:00 PM', 'title': 'Gentle Boat Ride', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'Leisurely boat tour of the lake', 'type': 'boat'},
+                {'time': '05:30 PM', 'title': 'Lakeside Sunset', 'location': 'Lake Shore', 'duration': '1 hour', 'description': 'Peaceful sunset by the lake', 'type': 'scenic'}
             ]
-            
+        }
+        
+        base_activities = activities_map.get(destination_name, [
+            {'time': '10:00 AM', 'title': 'Leisurely Breakfast', 'location': 'Hotel Restaurant', 'duration': '1.5 hours', 'description': 'Relaxed morning meal', 'type': 'food'},
+            {'time': '12:00 PM', 'title': 'Wellness Session', 'location': 'Local Spa', 'duration': '2 hours', 'description': 'Relaxation and wellness treatments', 'type': 'wellness'},
+            {'time': '03:00 PM', 'title': 'Gentle Exploration', 'location': 'Scenic Area', 'duration': '1.5 hours', 'description': f'Leisurely exploration of {trip.destination.name}', 'type': 'walking'},
+            {'time': '05:00 PM', 'title': 'Sunset Viewing', 'location': 'Best View Spot', 'duration': '1 hour', 'description': 'Enjoy beautiful sunset views', 'type': 'scenic'}
+        ])
+        
+        # Add icons
+        icon_map = {
+            'food': 'fas fa-utensils',
+            'wellness': 'fas fa-spa',
+            'walking': 'fas fa-walking',
+            'photography': 'fas fa-camera',
+            'scenic': 'fas fa-eye',
+            'cycling': 'fas fa-bicycle',
+            'boat': 'fas fa-ship'
+        }
+        
+        for activity in base_activities:
+            activity['icon'] = icon_map.get(activity['type'], 'fas fa-star')
+        
+        # Generate itinerary for each day
+        for day in range(1, days + 1):
             itinerary.append({
                 'day_number': day,
                 'date': self.calculate_date(trip.start_date, day - 1),
-                'activities': day_activities
+                'activities': base_activities.copy()  # Same relaxed schedule each day
             })
         
         return itinerary
@@ -1726,7 +1993,6 @@ class PlanSelectionView(LoginRequiredMixin, View):
         """Calculate date for a specific day"""
         from datetime import timedelta
         return (start_date + timedelta(days=day_offset)).strftime('%Y-%m-%d')
-
 
 class SelectPlanView(LoginRequiredMixin, View):
     """Handle plan selection and redirect to detailed itinerary"""
@@ -1798,52 +2064,43 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         }
         
         return render(request, self.template_name, context)
-    
+  
     def get_weather_forecast_for_trip(self, trip):
         """Get weather forecast for the trip destination and dates"""
         try:
-            # Try to import weather_service
             from .weather_service import weather_service
             
-            # Determine which city to use for weather
+            # Use the destination name
             destination_name = trip.destination.name
             
-            # List of Myanmar cities that OpenWeatherMap recognizes
-            myanmar_cities = ['Yangon', 'Mandalay', 'Naypyidaw', 'Bagan', 'Inle Lake']
+            print(f"Fetching weather for {destination_name} from {trip.start_date} to {trip.end_date}")
             
-            if destination_name in myanmar_cities:
-                city_for_weather = destination_name
-            else:
-                # For other destinations, use Yangon as default
-                city_for_weather = 'Yangon'
-            
-            # Format dates
-            start_date_str = trip.start_date.strftime('%Y-%m-%d')
-            end_date_str = trip.end_date.strftime('%Y-%m-%d')
-            
-            print(f"Fetching weather for {city_for_weather} from {start_date_str} to {end_date_str}")
-            
-            # Get forecast
+            # Get forecast using the weather service
             forecast = weather_service.get_weather_forecast(
-                city_for_weather,
-                start_date_str,
-                end_date_str
+                destination_name,
+                trip.start_date.strftime('%Y-%m-%d'),
+                trip.end_date.strftime('%Y-%m-%d')
             )
             
-            if forecast and isinstance(forecast, dict):
+            if forecast:
                 print(f"Successfully got weather forecast with {len(forecast)} days")
+                # Check if we got real data or mock data
+                first_date = list(forecast.keys())[0] if forecast else None
+                if first_date and forecast[first_date].get('is_mock', True):
+                    print("Using mock weather data (API may be unavailable)")
+                else:
+                    print("Using real weather data from API")
+                
                 return forecast
             else:
-                print("No valid forecast data received, using mock data")
+                print("No forecast data received, using mock data")
                 return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
                 
-        except ImportError as e:
-            print(f"Weather service import error: {e}. Using mock data.")
-            return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
         except Exception as e:
-            print(f"Error getting weather forecast: {e}. Using mock data.")
+            print(f"Error getting weather forecast: {e}")
+            import traceback
+            traceback.print_exc()
             return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
-    
     def generate_mock_weather_forecast(self, start_date, end_date):
         """Generate realistic mock weather data for Myanmar"""
         from datetime import timedelta
@@ -2132,3 +2389,4 @@ class TestWeatherAPIView(LoginRequiredMixin, View):
             }
         
         return JsonResponse(results)
+ 
