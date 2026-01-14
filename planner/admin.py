@@ -8,7 +8,7 @@ from django.core.files.base import ContentFile
 from io import BytesIO
 from PIL import Image, ImageDraw
 import random
-from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan
+from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat
 
 # ==================== FORMS ====================
 class DestinationForm(forms.ModelForm):
@@ -42,6 +42,27 @@ class CarRentalForm(forms.ModelForm):
     class Meta:
         model = CarRental
         fields = '__all__'
+
+class TripPlanForm(forms.ModelForm):
+    class Meta:
+        model = TripPlan
+        fields = '__all__'
+
+# ==================== AIRLINE ADMIN ====================
+@admin.register(Airline)
+class AirlineAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'is_default_for_domestic']
+    list_filter = ['is_active', 'is_default_for_domestic']
+    search_fields = ['name', 'code']
+    list_per_page = 20
+
+# ==================== BOOKED SEAT ADMIN ====================
+@admin.register(BookedSeat)
+class BookedSeatAdmin(admin.ModelAdmin):
+    list_display = ['transport_type', 'transport_id', 'seat_number', 'trip', 'booked_by', 'booking_time', 'is_cancelled']
+    list_filter = ['transport_type', 'is_cancelled', 'booking_time']
+    search_fields = ['seat_number', 'transport_id', 'booked_by__username']
+    list_per_page = 20
 
 # ==================== DESTINATION ADMIN ====================
 @admin.register(Destination)
@@ -277,7 +298,7 @@ class HotelAdmin(admin.ModelAdmin):
             hotel.price_per_night = hotel.price_per_night * 1.1
             hotel.save()
         self.message_user(request, f'Increased prices for {queryset.count()} hotels by 10%', level=messages.SUCCESS)
-    increase_prices_10.short_description = "Increase prices by 10 percent"  # CHANGED: Removed % sign
+    increase_prices_10.short_description = "Increase prices by 10 percent"
     
     def add_sample_images(self, request, queryset):
         for hotel in queryset:
@@ -382,7 +403,7 @@ class FlightAdmin(admin.ModelAdmin):
             flight.price = flight.price * 1.1
             flight.save()
         self.message_user(request, f'{queryset.count()} flight prices increased by 10%.', level=messages.SUCCESS)
-    increase_price_10.short_description = "Increase prices by 10 percent"  # CHANGED: Removed % sign
+    increase_price_10.short_description = "Increase prices by 10 percent"
     
     def duplicate_flights(self, request, queryset):
         for flight in queryset:
@@ -502,19 +523,20 @@ class CarRentalAdmin(admin.ModelAdmin):
         self.message_user(request, f'{updated} cars made unavailable.', level=messages.SUCCESS)
     make_unavailable.short_description = "Make unavailable"
 
-# ==================== TRIP PLAN ADMIN ====================
+# ==================== TRIP PLAN ADMIN (CORRECTED) ====================
 @admin.register(TripPlan)
 class TripPlanAdmin(admin.ModelAdmin):
-    list_display = ['user', 'destination', 'start_date', 'end_date', 'status', 'total_cost', 'trip_actions']
+    form = TripPlanForm
+    list_display = ['id', 'get_user', 'get_destination', 'start_date', 'end_date', 'get_status', 'total_cost_display', 'trip_actions']
     list_filter = ['status', 'budget_range', 'created_at', 'start_date']
     search_fields = ['user__username', 'destination__name', 'notes']
-    readonly_fields = ['created_at', 'updated_at', 'total_cost_display']
+    readonly_fields = ['created_at', 'updated_at', 'total_cost_calculation']
     list_per_page = 20
     actions = ['mark_as_completed', 'mark_as_cancelled', 'mark_as_booked']
     
     fieldsets = (
         ('Trip Information', {
-            'fields': ('user', 'destination', 'start_date', 'end_date', 'travelers', 'budget_range')
+            'fields': ('user', 'origin', 'destination', 'start_date', 'end_date', 'travelers', 'budget_range')
         }),
         ('Accommodation', {
             'fields': ('accommodation_type', 'selected_hotel')
@@ -523,7 +545,7 @@ class TripPlanAdmin(admin.ModelAdmin):
             'fields': ('transportation_preference', 'selected_transport')
         }),
         ('Status & Dates', {
-            'fields': ('status', 'created_at', 'updated_at', 'total_cost_display')
+            'fields': ('status', 'created_at', 'updated_at', 'total_cost_calculation')
         }),
         ('Notes', {
             'fields': ('notes',),
@@ -531,47 +553,93 @@ class TripPlanAdmin(admin.ModelAdmin):
         }),
     )
     
-    def total_cost(self, obj):
-        cost = 0
-        # Hotel cost
-        if obj.selected_hotel:
-            nights = (obj.end_date - obj.start_date).days
-            if nights <= 0:
-                nights = 1
-            cost += float(obj.selected_hotel.price_per_night * nights * 2100)
-        
-        # Transport cost
-        if obj.selected_transport and isinstance(obj.selected_transport, dict):
-            if 'price' in obj.selected_transport:
-                cost += float(obj.selected_transport['price'])
-        
+    def get_user(self, obj):
+        return obj.user.username
+    get_user.short_description = 'User'
+    get_user.admin_order_field = 'user__username'
+    
+    def get_destination(self, obj):
+        return f"{obj.destination.name} ({obj.destination.region})"
+    get_destination.short_description = 'Destination'
+    get_destination.admin_order_field = 'destination__name'
+    
+    def get_status(self, obj):
+        status_colors = {
+            'draft': 'secondary',
+            'planning': 'info',
+            'booked': 'success',
+            'completed': 'primary',
+            'cancelled': 'danger'
+        }
+        color = status_colors.get(obj.status, 'secondary')
         return format_html(
-            '<span style="font-weight: bold; color: #28a745;">MMK {:,}</span>',
-            int(cost)
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            obj.get_status_display()
         )
-    total_cost.short_description = 'Total Cost'
+    get_status.short_description = 'Status'
+    get_status.admin_order_field = 'status'
     
     def total_cost_display(self, obj):
-        cost = 0
-        # Hotel cost
-        if obj.selected_hotel:
-            nights = (obj.end_date - obj.start_date).days
-            if nights <= 0:
-                nights = 1
-            cost += float(obj.selected_hotel.price_per_night * nights * 2100)
-        
-        # Transport cost
-        if obj.selected_transport and isinstance(obj.selected_transport, dict):
-            if 'price' in obj.selected_transport:
-                cost += float(obj.selected_transport['price'])
-        
+        total_cost = obj.get_total_cost_in_mmk()
         return format_html(
-            '<div style="padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 1.2em;">'
-            '<strong>Total Estimated Cost: MMK {:,}</strong>'
-            '</div>',
-            int(cost)
+            '<span style="font-weight: bold; color: #28a745;">{:,} MMK</span>',
+            total_cost
         )
     total_cost_display.short_description = 'Total Cost'
+    
+    def total_cost_calculation(self, obj):
+        total_cost = obj.get_total_cost_in_mmk()
+        breakdown = obj.get_cost_breakdown()
+        
+        html = """
+        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <h5 style="margin-bottom: 15px;">Cost Breakdown</h5>
+            <table style="width: 100%;">
+        """
+        
+        if breakdown['hotel'] > 0:
+            html += f"""
+            <tr>
+                <td style="padding: 5px;">Hotel Cost:</td>
+                <td style="padding: 5px; text-align: right;">{breakdown['hotel']:,} MMK</td>
+            </tr>
+            """
+        
+        if breakdown['transport'] > 0:
+            html += f"""
+            <tr>
+                <td style="padding: 5px;">Transport Cost:</td>
+                <td style="padding: 5px; text-align: right;">{breakdown['transport']:,} MMK</td>
+            </tr>
+            """
+        
+        html += f"""
+            <tr>
+                <td style="padding: 5px;">Activities & Food:</td>
+                <td style="padding: 5px; text-align: right;">{breakdown['destination']:,} MMK</td>
+            </tr>
+        """
+        
+        if breakdown['additional_travelers'] > 0:
+            html += f"""
+            <tr>
+                <td style="padding: 5px;">Additional Travelers:</td>
+                <td style="padding: 5px; text-align: right;">{breakdown['additional_travelers']:,} MMK</td>
+            </tr>
+            """
+        
+        html += f"""
+            <tr style="border-top: 2px solid #dee2e6;">
+                <td style="padding: 5px; font-weight: bold;">Total Cost:</td>
+                <td style="padding: 5px; text-align: right; font-weight: bold; color: #28a745;">{total_cost:,} MMK</td>
+            </tr>
+            </table>
+        </div>
+        """
+        
+        return format_html(html)
+    total_cost_calculation.short_description = 'Cost Breakdown'
     
     def trip_actions(self, obj):
         return format_html(

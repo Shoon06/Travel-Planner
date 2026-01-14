@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load custom_filters %}
-{% load weather_filters %}  <!-- Add this line! -->
+{% load weather_filters %}
+{% load humanize %}  <!-- Add this line --><!-- Add this line! -->
 {% block title %}Your Itinerary - GoMyanmar{% endblock %}
 
 {% block content %}
@@ -277,44 +278,49 @@
                     </div>
                 </div>
                 
-                <!-- Cost Breakdown -->
-                <div class="card-glass p-4 mb-4">
-                    <h5 class="fw-bold mb-4">
-                        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown
-                    </h5>
-                    <div class="cost-breakdown">
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Plan Base Cost</span>
-                                <span class="fw-bold">${{ cost_estimate.breakdown.plan_base }}</span>
-                            </div>
-                            {% if hotel %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Hotel ({{ nights }} nights)</span>
-                                <span class="fw-bold">${{ cost_estimate.breakdown.hotel }}</span>
-                            </div>
-                            {% endif %}
-                            {% if transport %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Transport</span>
-                                <span class="fw-bold">${{ cost_estimate.breakdown.transport }}</span>
-                            </div>
-                            {% endif %}
-                            {% if travelers > 1 %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Additional Travelers</span>
-                                <span class="fw-bold">${{ cost_estimate.breakdown.additional_travelers }}</span>
-                            </div>
-                            {% endif %}
-                            <hr>
-                            <div class="d-flex justify-content-between">
-                                <span class="fw-bold">Total Estimated Cost</span>
-                                <span class="fw-bold fs-5 text-primary">${{ cost_estimate.total }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
+              <!-- REPLACE THE COST BREAKDOWN SECTION WITH THIS: -->
+
+<!-- Cost Breakdown -->
+<div class="card-glass p-4 mb-4">
+    <h5 class="fw-bold mb-4">
+        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown (MMK)
+    </h5>
+    <div class="cost-breakdown">
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Destination Activities & Food</span>
+                <span class="fw-bold">{{ cost_estimate.breakdown.destination|intcomma }} MMK</span>
+            </div>
+            {% if cost_estimate.breakdown.hotel > 0 %}
+            <div class="d-flex justify-content-between mb-2">
+                <span>Hotel ({{ nights }} nights)</span>
+                <span class="fw-bold">{{ cost_estimate.breakdown.hotel|intcomma }} MMK</span>
+            </div>
+            {% endif %}
+            {% if cost_estimate.breakdown.transport > 0 %}
+            <div class="d-flex justify-content-between mb-2">
+                <span>Transport</span>
+                <span class="fw-bold">{{ cost_estimate.breakdown.transport|intcomma }} MMK</span>
+            </div>
+            {% endif %}
+            {% if cost_estimate.breakdown.additional_travelers > 0 %}
+            <div class="d-flex justify-content-between mb-2">
+                <span>Additional Travelers</span>
+                <span class="fw-bold">{{ cost_estimate.breakdown.additional_travelers|intcomma }} MMK</span>
+            </div>
+            {% endif %}
+            <hr>
+            <div class="d-flex justify-content-between">
+                <span class="fw-bold">Total Estimated Cost</span>
+                <span class="fw-bold fs-5 text-primary">{{ cost_estimate.total|intcomma }} MMK</span>
+            </div>
+            <div class="mt-2 xsmall text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                All prices in Myanmar Kyats (MMK)
+            </div>
+        </div>
+    </div>
+</div>
                 <!-- Hotel & Transport Info -->
                 <div class="card-glass p-4">
                     <h5 class="fw-bold mb-4">

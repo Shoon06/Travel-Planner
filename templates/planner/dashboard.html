@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}My Dashboard - GoMyanmar{% endblock %}
-
+{% load custom_filters %}
+{% load humanize %}
 {% block content %}
 <div class="container py-5 mt-5">
     <!-- Welcome Section -->
@@ -21,45 +22,57 @@
     <!-- Quick Stats -->
     <div class="row mb-5">
         <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-bg mx-auto mb-3">
-                    <i class="fas fa-suitcase text-white"></i>
+            <a href="{% url 'planner:trip_list' %}" class="text-decoration-none">
+                <div class="card-glass p-4 text-center clickable-card">
+                    <div class="feature-icon gradient-bg mx-auto mb-3">
+                        <i class="fas fa-suitcase text-white"></i>
+                    </div>
+                    <h3 class="mb-2">{{ total_trips }}</h3>
+                    <p class="text-gray mb-0">Total Trips</p>
+                    <small class="text-muted">Click to view all trips</small>
                 </div>
-                <h3 class="mb-2">3</h3>
-                <p class="text-gray mb-0">Total Trips</p>
-            </div>
+            </a>
         </div>
         
         <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-teal mx-auto mb-3">
-                    <i class="fas fa-calendar-alt text-white"></i>
+            <a href="{% url 'planner:upcoming_trips' %}" class="text-decoration-none">
+                <div class="card-glass p-4 text-center clickable-card">
+                    <div class="feature-icon gradient-teal mx-auto mb-3">
+                        <i class="fas fa-calendar-alt text-white"></i>
+                    </div>
+                    <h3 class="mb-2">{{ upcoming_trips }}</h3>
+                    <p class="text-gray mb-0">Upcoming</p>
+                    <small class="text-muted">Click to view upcoming trips</small>
                 </div>
-                <h3 class="mb-2">1</h3>
-                <p class="text-gray mb-0">Upcoming</p>
-            </div>
+            </a>
         </div>
         
         <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-gold mx-auto mb-3">
-                    <i class="fas fa-coins text-dark"></i>
+            <a href="{% url 'planner:trip_cost_analysis' %}" class="text-decoration-none">
+                <div class="card-glass p-4 text-center clickable-card">
+                    <div class="feature-icon gradient-gold mx-auto mb-3">
+                        <i class="fas fa-coins text-dark"></i>
+                    </div>
+                    <h3 class="mb-2">
+                        <span class="price-tag">{{ total_spent|intcomma }}</span>
+                    </h3>
+                    <p class="text-gray mb-0">Total Spent (MMK)</p>
+                    <small class="text-muted">Click to view cost analysis</small>
                 </div>
-                <h3 class="mb-2">
-                    <span class="price-tag">2,450,000</span>
-                </h3>
-                <p class="text-gray mb-0">Total Spent</p>
-            </div>
+            </a>
         </div>
         
         <div class="col-md-3 col-sm-6 mb-4">
-            <div class="card-glass p-4 text-center">
-                <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
-                    <i class="fas fa-map-marked-alt text-white"></i>
+            <a href="{% url 'planner:visited_destinations' %}" class="text-decoration-none">
+                <div class="card-glass p-4 text-center clickable-card">
+                    <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
+                        <i class="fas fa-map-marked-alt text-white"></i>
+                    </div>
+                    <h3 class="mb-2">{{ destinations_visited }}</h3>
+                    <p class="text-gray mb-0">Destinations Visited</p>
+                    <small class="text-muted">Click to view visited destinations</small>
                 </div>
-                <h3 class="mb-2">5</h3>
-                <p class="text-gray mb-0">Destinations</p>
-            </div>
+            </a>
         </div>
     </div>
     
@@ -113,67 +126,215 @@
     <div class="card-glass p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h3 class="section-title mb-0">Your Upcoming Trips</h3>
-            <a href="#" class="btn btn-outline-light">View All</a>
+            {% if upcoming_trips > 0 %}
+            <a href="{% url 'planner:upcoming_trips' %}" class="btn btn-outline-light">View All ({{ upcoming_trips }})</a>
+            {% endif %}
         </div>
         
+        {% if upcoming_trips_list %}
         <div class="row">
+            {% for trip_data in upcoming_trips_list %}
             <div class="col-md-4 mb-4">
                 <div class="card-glass p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="mb-0">Yangon Cultural Tour</h5>
-                        <span class="badge gradient-gold text-dark">Upcoming</span>
+                        <h5 class="mb-0">{{ trip_data.destination_name }} Trip</h5>
+                        <span class="badge {% if trip_data.status == 'booked' %}gradient-gold text-dark{% elif trip_data.status == 'planning' %}gradient-teal{% else %}bg-secondary{% endif %}">
+                            {{ trip_data.status|title }}
+                        </span>
                     </div>
                     <p class="text-gray small mb-2">
-                        <i class="fas fa-calendar me-1"></i>Dec 20-25, 2025
+                        <i class="fas fa-calendar me-1"></i>{{ trip_data.date_range }}
                     </p>
                     <p class="text-gray small mb-3">
-                        <i class="fas fa-users me-1"></i>2 Travelers
+                        <i class="fas fa-users me-1"></i>{{ trip_data.travelers }} Traveler{{ trip_data.travelers|pluralize }}
                     </p>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="price-tag">850,000</span>
+                        <span class="price-tag">{{ trip_data.cost|intcomma }} MMK</span>
                         <a href="#" class="btn btn-sm btn-outline-light">View Details</a>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-md-4 mb-4">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="mb-0">Bagan Temple Exploration</h5>
-                        <span class="badge gradient-teal">Planning</span>
-                    </div>
-                    <p class="text-gray small mb-2">
-                        <i class="fas fa-calendar me-1"></i>Jan 10-15, 2026
-                    </p>
-                    <p class="text-gray small mb-3">
-                        <i class="fas fa-users me-1"></i>4 Travelers
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="price-tag">1,200,000</span>
-                        <a href="#" class="btn btn-sm btn-outline-light">Continue Planning</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4 mb-4">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="mb-0">Inle Lake Relaxation</h5>
-                        <span class="badge bg-secondary">Draft</span>
-                    </div>
-                    <p class="text-gray small mb-2">
-                        <i class="fas fa-calendar me-1"></i>Feb 5-10, 2026
-                    </p>
-                    <p class="text-gray small mb-3">
-                        <i class="fas fa-users me-1"></i>2 Travelers
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="price-tag">950,000</span>
-                        <a href="#" class="btn btn-sm btn-outline-light">Start Planning</a>
-                    </div>
-                </div>
-            </div>
+            {% endfor %}
         </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-plane fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted mb-3">No Upcoming Trips</h5>
+            <p class="text-gray mb-3">Start planning your next Myanmar adventure!</p>
+            <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Create New Trip
+            </a>
+        </div>
+        {% endif %}
     </div>
 </div>
+
+<style>
+    .clickable-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+    }
+    
+    .clickable-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        border-color: var(--primary-color);
+    }
+    
+    .clickable-card a {
+        color: inherit;
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+    
+    .clickable-card:hover a {
+        text-decoration: none;
+    }
+    
+    .price-tag {
+        background: linear-gradient(135deg, #f9c74f, #f8961e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: bold;
+        font-size: 1.25rem;
+    }
+    
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .clickable-card:hover .feature-icon {
+        transform: scale(1.1);
+    }
+    
+    .gradient-bg {
+        background: linear-gradient(135deg, #8B5CF6, #6B47A4);
+    }
+    
+    .gradient-teal {
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+    }
+    
+    .gradient-gold {
+        background: linear-gradient(135deg, #f9c74f, #f8961e);
+    }
+    
+    .gradient-bg-reverse {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+    }
+    
+    .section-title {
+        color: #2c3e50;
+        font-weight: 700;
+        position: relative;
+        padding-bottom: 10px;
+    }
+    
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(to right, #8B5CF6, #3498db);
+        border-radius: 3px;
+    }
+    
+    .text-gray {
+        color: #7f8c8d !important;
+    }
+    
+    .btn-gold {
+        background: linear-gradient(135deg, #f9c74f, #f8961e);
+        border: none;
+        color: #2c3e50;
+        font-weight: 600;
+        padding: 10px 20px;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-gold:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(248, 150, 30, 0.3);
+        color: #2c3e50;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #8B5CF6, #6B47A4);
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+    }
+    
+    .btn-outline-light {
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: #7f8c8d;
+        border-radius: 10px;
+        padding: 8px 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-light:hover {
+        border-color: #8B5CF6;
+        color: #8B5CF6;
+        background: transparent;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add hover effects to clickable cards
+        const cards = document.querySelectorAll('.clickable-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+        
+        // Make entire card clickable (not just the link)
+        cards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Don't trigger if clicking on a button inside the card
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') {
+                    return;
+                }
+                
+                const link = this.querySelector('a');
+                if (link) {
+                    window.location.href = link.href;
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

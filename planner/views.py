@@ -332,6 +332,8 @@ def calculate_nights(start_date, end_date):
 
 
 # ========== DASHBOARD VIEW ==========
+# IN THE DashboardView CLASS, UPDATE THE get_context_data METHOD:
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'planner/dashboard.html'
     
@@ -339,19 +341,46 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         
+        # Get all trips for this user
         trips = TripPlan.objects.filter(user=user).order_by('-created_at')
         
+        # Calculate statistics
         total_trips = trips.count()
+        
+        # Upcoming trips (status: draft, planning, booked AND start_date in future)
         upcoming_trips = trips.filter(
             status__in=['draft', 'planning', 'booked'],
             start_date__gte=timezone.now().date()
         ).count()
         
+        # Total spent (only for booked and completed trips)
         total_spent = 0
         for trip in trips.filter(status__in=['booked', 'completed']):
-            total_spent += trip.get_total_cost()
+            total_spent += trip.get_total_cost_in_mmk()
         
-        destinations_visited = trips.values('destination__name').distinct().count()
+        # Unique destinations visited
+        destinations_visited = trips.filter(
+            status__in=['booked', 'completed']
+        ).values('destination__name').distinct().count()
+        
+        # Get upcoming trips for display
+        upcoming_trips_list = trips.filter(
+            status__in=['draft', 'planning', 'booked'],
+            start_date__gte=timezone.now().date()
+        ).order_by('start_date')[:3]
+        
+        # Prepare upcoming trips data for template
+        upcoming_trips_data = []
+        for trip in upcoming_trips_list:
+            upcoming_trips_data.append({
+                'id': trip.id,
+                'title': f"{trip.destination.name} Trip",
+                'date_range': f"{trip.start_date.strftime('%b %d')} - {trip.end_date.strftime('%b %d, %Y')}",
+                'travelers': trip.travelers,
+                'status': trip.status,
+                'cost': trip.get_total_cost_in_mmk(),
+                'destination_name': trip.destination.name
+            })
         
         context.update({
             'trips': trips,
@@ -359,6 +388,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'upcoming_trips': upcoming_trips,
             'total_spent': total_spent,
             'destinations_visited': destinations_visited,
+            'upcoming_trips_list': upcoming_trips_data,
         })
         
         return context
@@ -2029,6 +2059,7 @@ class SelectPlanView(LoginRequiredMixin, View):
         return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
 
 
+
 class ItineraryDetailView(LoginRequiredMixin, View):
     """Display detailed itinerary with weather and activity management"""
     template_name = 'planner/itinerary_detail.html'
@@ -2085,7 +2116,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         }
         
         return render(request, self.template_name, context)
-  
+    
     def get_weather_forecast_for_trip(self, trip):
         """Get weather forecast for the trip destination and dates"""
         try:
@@ -2122,6 +2153,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             import traceback
             traceback.print_exc()
             return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+    
     def generate_mock_weather_forecast(self, start_date, end_date):
         """Generate realistic mock weather data for Myanmar"""
         from datetime import timedelta
@@ -2209,54 +2241,38 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         return forecasts
     
     def calculate_cost_estimate(self, trip, plan_id):
-        """Calculate cost estimate based on plan"""
+        """Calculate cost estimate based on plan IN MMK"""
         nights = trip.calculate_nights()
+        days = nights + 1 if nights > 0 else 3
         
-        # Base costs by plan
-        plan_costs = {
-            'cultural': 1250,
-            'adventure': 1450,
-            'relaxed': 1100
+        # Get cost breakdown from trip
+        breakdown = trip.get_cost_breakdown()
+        
+        # Adjust based on plan type
+        plan_multipliers = {
+            'cultural': 1.0,
+            'adventure': 1.15,  # 15% more for adventure
+            'relaxed': 0.9,     # 10% less for relaxed
         }
         
-        base_cost = plan_costs.get(plan_id, 1000)
+        multiplier = plan_multipliers.get(plan_id, 1.0)
         
-        # Adjust for number of travelers
-        traveler_multiplier = 1 + ((trip.travelers - 1) * 0.7)  # 70% for additional travelers
+        # Apply plan multiplier to destination activities cost
+        if 'destination' in breakdown:
+            breakdown['destination'] = int(breakdown['destination'] * multiplier)
         
-        # Adjust for duration
-        duration_multiplier = (nights + 1) / 3  # Based on 3-day base plan
-        
-        # Add hotel cost
-        hotel_cost = 0
-        if trip.selected_hotel:
-            hotel_cost = float(trip.selected_hotel.price_per_night) * nights / 1300  # Convert MMK to USD approx
-        
-        # Add transport cost
-        transport_cost = 0
-        if trip.selected_transport and 'price' in trip.selected_transport:
-            # Try to extract price, handle different formats
-            price_str = str(trip.selected_transport['price'])
-            # Remove any non-numeric characters except dots
-            import re
-            price_clean = re.sub(r'[^\d.]', '', price_str)
-            try:
-                price_value = float(price_clean) if price_clean else 0
-                transport_cost = price_value / 1300  # Convert MMK to USD approx
-            except:
-                transport_cost = 0
-        
-        total_cost = (base_cost * duration_multiplier * traveler_multiplier) + hotel_cost + transport_cost
+        # Recalculate total
+        breakdown['total'] = sum([
+            breakdown.get('hotel', 0),
+            breakdown.get('transport', 0),
+            breakdown.get('destination', 0),
+            breakdown.get('additional_travelers', 0)
+        ])
         
         return {
-            'total': round(total_cost),
-            'breakdown': {
-                'plan_base': round(base_cost * duration_multiplier),
-                'hotel': round(hotel_cost),
-                'transport': round(transport_cost),
-                'additional_travelers': round(base_cost * duration_multiplier * (traveler_multiplier - 1))
-            }
-        }
+            'total': breakdown['total'],
+            'breakdown': breakdown
+        }  
 
 class AddActivityView(LoginRequiredMixin, View):
     """Add a new activity to itinerary"""
@@ -2560,4 +2576,237 @@ class DestinationAutocompleteView(View):
             })
         
         return JsonResponse({'results': results})
+# ========== NEW VIEWS FOR CARD CLICKS ==========
+
+class TripListView(LoginRequiredMixin, TemplateView):
+    """View for showing all trips when clicking 'Total Trips' card"""
+    template_name = 'planner/trip_list.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get all trips for this user
+        trips = TripPlan.objects.filter(user=user).order_by('-created_at')
+        
+        # Categorize trips
+        upcoming_trips = trips.filter(
+            status__in=['draft', 'planning', 'booked'],
+            start_date__gte=timezone.now().date()
+        )
+        
+        completed_trips = trips.filter(status='completed')
+        
+        # Prepare trip data for template
+        trip_data = []
+        for trip in trips:
+            trip_data.append({
+                'id': trip.id,
+                'origin': trip.origin.name if trip.origin else 'Not specified',
+                'destination': trip.destination.name if trip.destination else 'Not specified',
+                'start_date': trip.start_date,
+                'end_date': trip.end_date,
+                'total_days': trip.calculate_nights() + 1,
+                'status': trip.status,
+                'status_display': trip.get_status_display(),
+                'total_cost_mmk': trip.get_total_cost_in_mmk(),
+                'travelers': trip.travelers,
+                'created_at': trip.created_at,
+                'is_upcoming': trip.start_date >= timezone.now().date() if trip.start_date else False,
+                'is_completed': trip.status == 'completed',
+                'has_hotel': bool(trip.selected_hotel),
+                'has_transport': bool(trip.selected_transport),
+            })
+        
+        context.update({
+            'trips': trip_data,
+            'total_trips': trips.count(),
+            'upcoming_count': upcoming_trips.count(),
+            'completed_count': completed_trips.count(),
+            'total_spent_mmk': sum(trip.get_total_cost_in_mmk() for trip in trips.filter(status__in=['booked', 'completed'])),
+        })
+        
+        return context
+
+
+class UpcomingTripsView(LoginRequiredMixin, TemplateView):
+    """View for showing only upcoming trips"""
+    template_name = 'planner/upcoming_trips.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get upcoming trips (draft, planning, booked AND start_date in future)
+        upcoming_trips = TripPlan.objects.filter(
+            user=user,
+            status__in=['draft', 'planning', 'booked'],
+            start_date__gte=timezone.now().date()
+        ).order_by('start_date')
+        
+        # Prepare trip data
+        trip_data = []
+        for trip in upcoming_trips:
+            trip_data.append({
+                'id': trip.id,
+                'origin': trip.origin.name if trip.origin else 'Not specified',
+                'destination': trip.destination.name if trip.destination else 'Not specified',
+                'start_date': trip.start_date,
+                'end_date': trip.end_date,
+                'total_days': trip.calculate_nights() + 1,
+                'status': trip.status,
+                'status_display': trip.get_status_display(),
+                'total_cost_mmk': trip.get_total_cost_in_mmk(),
+                'travelers': trip.travelers,
+                'days_until': (trip.start_date - timezone.now().date()).days if trip.start_date else None,
+                'hotel': trip.selected_hotel.name if trip.selected_hotel else 'Not selected',
+                'transport': trip.selected_transport.get('name', 'Not selected') if trip.selected_transport else 'Not selected',
+            })
+        
+        context.update({
+            'upcoming_trips': trip_data,
+            'total_upcoming': upcoming_trips.count(),
+            'total_cost_mmk': sum(trip.get_total_cost_in_mmk() for trip in upcoming_trips),
+        })
+        
+        return context
+
+
+class TripCostAnalysisView(LoginRequiredMixin, TemplateView):
+    """View for showing detailed cost analysis when clicking 'Total Spent' card"""
+    template_name = 'planner/trip_cost_analysis.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get all trips
+        trips = TripPlan.objects.filter(user=user).order_by('-created_at')
+        
+        # Calculate cost breakdown by category and trip
+        cost_breakdowns = []
+        total_spent = 0
+        total_estimated = 0
+        
+        for trip in trips:
+            breakdown = trip.get_cost_breakdown()
+            cost_data = {
+                'trip': trip,
+                'destination': trip.destination.name if trip.destination else 'Unknown',
+                'dates': f"{trip.start_date.strftime('%b %d')} - {trip.end_date.strftime('%b %d, %Y')}",
+                'total_days': trip.calculate_nights() + 1,
+                'status': trip.status,
+                'cost_breakdown': breakdown,
+                'total_cost': breakdown['total'],
+                'hotel_cost': breakdown.get('hotel', 0),
+                'transport_cost': breakdown.get('transport', 0),
+                'destination_cost': breakdown.get('destination', 0),
+                'additional_travelers_cost': breakdown.get('additional_travelers', 0),
+            }
+            cost_breakdowns.append(cost_data)
+            
+            if trip.status in ['booked', 'completed']:
+                total_spent += breakdown['total']
+            total_estimated += breakdown['total']
+        
+        # Calculate category totals
+        hotel_total = sum(item['hotel_cost'] for item in cost_breakdowns)
+        transport_total = sum(item['transport_cost'] for item in cost_breakdowns)
+        destination_total = sum(item['destination_cost'] for item in cost_breakdowns)
+        additional_total = sum(item['additional_travelers_cost'] for item in cost_breakdowns)
+        
+        context.update({
+            'cost_breakdowns': cost_breakdowns,
+            'total_spent_mmk': total_spent,
+            'total_estimated_mmk': total_estimated,
+            'hotel_total_mmk': hotel_total,
+            'transport_total_mmk': transport_total,
+            'destination_total_mmk': destination_total,
+            'additional_total_mmk': additional_total,
+            'total_trips': trips.count(),
+            'booked_completed_trips': trips.filter(status__in=['booked', 'completed']).count(),
+        })
+        
+        return context
+
+
+class VisitedDestinationsView(LoginRequiredMixin, TemplateView):
+    """View for showing visited destinations when clicking 'Destinations Visited' card"""
+    template_name = 'planner/visited_destinations.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get completed trips
+        completed_trips = TripPlan.objects.filter(
+            user=user,
+            status='completed'
+        ).order_by('-end_date')
+        
+        # Group destinations by visit date
+        visited_destinations = {}
+        destination_stats = {}
+        
+        for trip in completed_trips:
+            if trip.destination:
+                dest_name = trip.destination.name
+                visit_date = trip.end_date  # Using end_date as visit completion date
+                
+                # Add to visited destinations by date
+                date_key = visit_date.strftime('%Y-%m')
+                if date_key not in visited_destinations:
+                    visited_destinations[date_key] = []
+                
+                visited_destinations[date_key].append({
+                    'destination': trip.destination,
+                    'visit_date': visit_date,
+                    'trip': trip,
+                    'duration_days': trip.calculate_nights() + 1,
+                    'travelers': trip.travelers,
+                    'total_cost_mmk': trip.get_total_cost_in_mmk(),
+                })
+                
+                # Update destination stats
+                if dest_name not in destination_stats:
+                    destination_stats[dest_name] = {
+                        'destination': trip.destination,
+                        'visit_count': 0,
+                        'last_visit': visit_date,
+                        'total_days': 0,
+                        'total_spent': 0,
+                    }
+                
+                destination_stats[dest_name]['visit_count'] += 1
+                destination_stats[dest_name]['last_visit'] = max(
+                    destination_stats[dest_name]['last_visit'], 
+                    visit_date
+                )
+                destination_stats[dest_name]['total_days'] += (trip.calculate_nights() + 1)
+                destination_stats[dest_name]['total_spent'] += trip.get_total_cost_in_mmk()
+        
+        # Sort destinations by last visit date
+        sorted_destinations = sorted(
+            destination_stats.values(),
+            key=lambda x: x['last_visit'],
+            reverse=True
+        )
+        
+        # Sort visited destinations by date
+        sorted_visited_dates = sorted(
+            visited_destinations.items(),
+            key=lambda x: x[0],
+            reverse=True
+        )
+        
+        context.update({
+            'visited_destinations': dict(sorted_visited_dates),
+            'destination_stats': sorted_destinations,
+            'total_destinations_visited': len(destination_stats),
+            'total_completed_trips': completed_trips.count(),
+            'total_days_traveled': sum(trip.calculate_nights() + 1 for trip in completed_trips),
+            'total_spent_mmk': sum(trip.get_total_cost_in_mmk() for trip in completed_trips),
+        })
+        
+        return context
  

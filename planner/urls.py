@@ -24,6 +24,10 @@ from .views import (
     DownloadItineraryPDFView,
     TestWeatherAPIView,
     test_view,
+    TripListView,
+    UpcomingTripsView,
+    TripCostAnalysisView,
+    VisitedDestinationsView,
     DestinationListView, DestinationDetailView, DestinationAutocompleteView,
 )
 
@@ -62,4 +66,8 @@ urlpatterns = [
     path('destinations/', DestinationListView.as_view(), name='destinations'),
     path('destinations/<int:destination_id>/', DestinationDetailView.as_view(), name='destination_detail'),
     path('destinations-autocomplete/', DestinationAutocompleteView.as_view(), name='destinations_autocomplete'),
+    path('dashboard/trips/', TripListView.as_view(), name='trip_list'),
+    path('dashboard/trips/upcoming/', UpcomingTripsView.as_view(), name='upcoming_trips'),
+    path('dashboard/cost-analysis/', TripCostAnalysisView.as_view(), name='trip_cost_analysis'),
+    path('dashboard/visited-destinations/', VisitedDestinationsView.as_view(), name='visited_destinations'),
 ]

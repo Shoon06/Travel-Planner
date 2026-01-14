@@ -283,25 +283,26 @@
                             </div>
                             
                             <!-- Price and Booking -->
-                            <div class="col-md-3 text-end">
-                                <div class="mb-2">
-                                    <div class="price-badge">
-                                        MMK {{ hotel.price_in_mmk }}
-                                    </div>
-                                    <small class="text-gray">per night</small>
-                                </div>
-                                
-                                {% with total=hotel.price_per_night|multiply:nights %}
-                                <p class="fw-bold mb-3">
-                                    Total: <span class="text-teal">MMK {{ total|floatformat:0 }}</span>
-                                </p>
-                                {% endwith %}
-                                
-                                <button class="btn btn-sm btn-primary select-hotel-btn" 
-                                        data-hotel-id="{{ hotel.id }}">
-                                    <i class="fas fa-check me-1"></i>Select Hotel
-                                </button>
-                            </div>
+                            <!-- Price and Booking -->
+                          <div class="col-md-3 text-end">
+                              <div class="mb-2">
+                                  <div class="price-badge">
+                                      {{ hotel.price_per_night|format_mmk }}
+                                  </div>
+                                  <small class="text-gray">per night</small>
+                             </div>
+    
+                             {% with total=hotel.price_per_night|multiply_and_format:nights %}
+                             <p class="fw-bold mb-3">
+                                 Total: <span class="text-teal">{{ total }}</span>
+                             </p>
+                            {% endwith %}
+    
+                           <button class="btn btn-sm btn-primary select-hotel-btn" 
+                                   data-hotel-id="{{ hotel.id }}">
+                               <i class="fas fa-check me-1"></i>Select Hotel
+                           </button>
+                        </div>
                         </div>
                     </div>
                     {% empty %}

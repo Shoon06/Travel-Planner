@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Visited Destinations - GoMyanmar{% endblock %}
+{% load custom_filters %}
+{% load humanize %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-2">Visited Destinations</h2>
+                <p class="text-gray mb-0">
+                    {{ total_destinations_visited }} destination{{ total_destinations_visited|pluralize }} • 
+                    {{ total_completed_trips }} trip{{ total_completed_trips|pluralize }} • 
+                    {{ total_days_traveled }} days traveled
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_destinations_visited }}</h4>
+                    <p class="text-gray mb-0">Destinations Visited</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_completed_trips }}</h4>
+                    <p class="text-gray mb-0">Completed Trips</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_days_traveled }}</h4>
+                    <p class="text-gray mb-0">Days Traveled</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_spent_mmk|intcomma }}</h4>
+                    <p class="text-gray mb-0">Total Spent (MMK)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Destination Stats -->
+    <div class="card-glass p-4 mb-4">
+        <h4 class="mb-4">Destination Statistics</h4>
+        
+        {% if destination_stats %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Destination</th>
+                        <th>Visits</th>
+                        <th>Total Days</th>
+                        <th>Last Visit</th>
+                        <th>Total Spent (MMK)</th>
+                        <th>Avg. Cost/Day</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in destination_stats %}
+                    <tr>
+                        <td>
+                            <strong>{{ stat.destination.name }}</strong><br>
+                            <small class="text-muted">{{ stat.destination.region }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary rounded-pill">{{ stat.visit_count }}</span>
+                        </td>
+                        <td>{{ stat.total_days }} days</td>
+                        <td>{{ stat.last_visit|date:"M d, Y" }}</td>
+                        <td>{{ stat.total_spent|intcomma }}</td>
+                        <td>
+                            {% if stat.total_days > 0 %}
+                            {{ stat.total_spent|divide:stat.total_days|intcomma }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-map-marked-alt fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted mb-3">No destinations visited yet</h4>
+            <p class="text-gray mb-4">Complete your first trip to see visited destinations here</p>
+            <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Plan Your First Trip
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Timeline of Visits -->
+    {% if visited_destinations %}
+    <div class="card-glass p-4">
+        <h4 class="mb-4">Visit Timeline</h4>
+        
+        {% for year_month, visits in visited_destinations.items %}
+        <div class="mb-4">
+            <h5 class="text-primary mb-3">
+                <i class="fas fa-calendar me-2"></i>
+                {{ year_month|slice:"0:4" }} - Month {{ year_month|slice:"5:7" }}
+            </h5>
+            
+            <div class="row">
+                {% for visit in visits %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card-glass p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">{{ visit.destination.name }}</h6>
+                            <span class="badge bg-info">{{ visit.duration_days }} days</span>
+                        </div>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-calendar me-1"></i>
+                            Visited: {{ visit.visit_date|date:"M d, Y" }}
+                        </p>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-users me-1"></i>
+                            {{ visit.travelers }} traveler{{ visit.travelers|pluralize }}
+                        </p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="price-tag">{{ visit.total_cost_mmk|intcomma }} MMK</span>
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

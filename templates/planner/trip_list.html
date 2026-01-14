@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}My Trips - GoMyanmar{% endblock %}
+{% load custom_filters %}
+{% load humanize %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-2">My Trips</h2>
+                <p class="text-gray mb-0">Total: {{ total_trips }} trips • {{ upcoming_count }} upcoming • {{ completed_count }} completed</p>
+            </div>
+            <div>
+                <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light me-2">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+                <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>New Trip
+                </a>
+            </div>
+        </div>
+        
+        <!-- Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_trips }}</h4>
+                    <p class="text-gray mb-0">Total Trips</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ upcoming_count }}</h4>
+                    <p class="text-gray mb-0">Upcoming</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_spent_mmk|intcomma }} MMK</h4>
+                    <p class="text-gray mb-0">Total Spent</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trips Table -->
+    <div class="card-glass p-4">
+        <h4 class="mb-4">All Trips</h4>
+        
+        {% if trips %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Trip</th>
+                        <th>Dates</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Cost (MMK)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trip in trips %}
+                    <tr>
+                        <td>
+                            <strong>{{ trip.destination }}</strong><br>
+                            <small class="text-muted">From {{ trip.origin }}</small>
+                        </td>
+                        <td>
+                            {{ trip.start_date|date:"M d, Y" }}<br>
+                            <small class="text-muted">to {{ trip.end_date|date:"M d, Y" }}</small>
+                        </td>
+                        <td>{{ trip.total_days }} days</td>
+                        <td>
+                            <span class="badge 
+                                {% if trip.status == 'completed' %}bg-success
+                                {% elif trip.status == 'booked' %}bg-primary
+                                {% elif trip.status == 'planning' %}bg-info
+                                {% elif trip.status == 'draft' %}bg-secondary
+                                {% else %}bg-warning{% endif %}">
+                                {{ trip.status_display }}
+                            </span>
+                            {% if trip.is_upcoming %}
+                            <br><small class="text-muted">In {{ trip.days_until }} days</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ trip.total_cost_mmk|intcomma }}</strong> MMK<br>
+                            <small class="text-muted">{{ trip.travelers }} traveler{{ trip.travelers|pluralize }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="#" class="btn btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if trip.status == 'draft' or trip.status == 'planning' %}
+                                <a href="{% url 'planner:plan' %}?trip_id={{ trip.id }}" class="btn btn-outline-info">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-suitcase fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted mb-3">No trips yet</h4>
+            <p class="text-gray mb-4">Start planning your first Myanmar adventure!</p>
+            <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Create First Trip
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

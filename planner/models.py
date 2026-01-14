@@ -1,5 +1,5 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
-# CORRECTED VERSION - Fix indentation error
+# CORRECTED VERSION - Removed duplicate TripPlan class
 
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -7,7 +7,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from .airport_data import get_airport_info, destination_has_airport
 User = get_user_model()
 
-# ========== ADD THIS NEW MODEL ==========
+# ========== AIRLINE MODEL ==========
 class Airline(models.Model):
     """Model for airlines operating in Myanmar"""
     name = models.CharField(max_length=100)
@@ -26,6 +26,7 @@ class Airline(models.Model):
         ordering = ['name']
 
 
+# ========== DESTINATION MODEL ==========
 class Destination(models.Model):
     name = models.CharField(max_length=100)
     region = models.CharField(max_length=100)
@@ -45,7 +46,6 @@ class Destination(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # ADD THIS FIELD FOR DEFAULT AIRLINES
     default_airlines = models.ManyToManyField(Airline, blank=True, 
         help_text="Default airlines for this destination")
     
@@ -69,8 +69,8 @@ class Destination(models.Model):
         ordering = ['name']
 
 
+# ========== FLIGHT MODEL ==========
 class Flight(models.Model):
-    # ... update the airline field to use the Airline model
     airline = models.ForeignKey(Airline, on_delete=models.CASCADE, related_name='flights')
     flight_number = models.CharField(max_length=20)
     departure = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='departing_flights')
@@ -87,7 +87,6 @@ class Flight(models.Model):
     total_seats = models.IntegerField(default=180)
     available_seats = models.IntegerField(default=180)
     
-    # ADD SEAT MAP FIELD
     seat_map = models.JSONField(default=dict, help_text="JSON representation of seat layout and availability")
     
     description = models.TextField(blank=True)
@@ -108,19 +107,18 @@ class Flight(models.Model):
         minutes = (total_seconds % 3600) // 60
         return f"{hours}h {minutes}m"
     
-    # ADD THIS METHOD TO GENERATE DEFAULT SEAT MAP
     def generate_seat_map(self):
         """Generate a default seat map for the flight"""
         seat_map = {
             'total_rows': 30,
             'seats_per_row': 6,
-            'configuration': '3-3',  # 3 seats on left, aisle, 3 seats on right
+            'configuration': '3-3',
             'first_class_rows': 4,
             'business_class_rows': 0,
             'economy_class_rows': 26,
             'premium_seats': ['1A', '1B', '1C', '1D', '1E', '1F',
                              '2A', '2B', '2C', '2D', '2E', '2F'],
-            'occupied_seats': self.get_real_occupied_seats(),  # CHANGED THIS LINE
+            'occupied_seats': self.get_real_occupied_seats(),
             'seat_prices': {
                 'premium': float(self.price) * 1.5,
                 'economy': float(self.price),
@@ -131,31 +129,16 @@ class Flight(models.Model):
     
     def get_real_occupied_seats(self):
         """Get actually booked seats from database"""
-        from .models import BookedSeat  # Import here to avoid circular import
+        from .models import BookedSeat
         booked_seats = BookedSeat.objects.filter(
             transport_type='flight',
             transport_id=self.id,
             is_cancelled=False
         ).values_list('seat_number', flat=True)
         return list(booked_seats)
-    
-    # REMOVE OR COMMENT OUT THE get_random_occupied_seats METHOD
-    # def get_random_occupied_seats(self):
-    #     """Generate random occupied seats for demo"""
-    #     import random
-    #     total_seats = 180
-    #     occupied_count = random.randint(20, 80)  # 20-80 seats occupied
-    #     occupied_seats = set()
-    #     
-    #     seats = []
-    #     for row in range(1, 31):
-    #         for letter in ['A', 'B', 'C', 'D', 'E', 'F']:
-    #             seats.append(f"{row}{letter}")
-    #     
-    #     occupied_seats = random.sample(seats, occupied_count)
-    #     return occupied_seats
 
 
+# ========== HOTEL MODEL ==========
 class Hotel(models.Model):
     name = models.CharField(max_length=200)
     destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='hotels')
@@ -190,7 +173,6 @@ class Hotel(models.Model):
     is_real_hotel = models.BooleanField(default=False, help_text="Is this a real hotel from Google Maps?")
     google_place_id = models.CharField(max_length=255, blank=True, null=True)
     
-    # ADD THESE NEW FIELDS:
     phone_number = models.CharField(max_length=50, blank=True, null=True)
     website = models.URLField(blank=True, null=True)
     check_in_time = models.TimeField(default='14:00')
@@ -223,7 +205,7 @@ class Hotel(models.Model):
             'review_count': self.review_count,
             'category': self.category,
             'category_display': self.get_category_display(),
-            'amenities': self.amenities[:5],  # First 5 amenities
+            'amenities': self.amenities[:5],
             'is_real': self.is_real_hotel,
             'is_our_hotel': self.created_by_admin,
             'image_url': self.image.url if self.image else '',
@@ -245,8 +227,8 @@ class Hotel(models.Model):
         }
 
 
+# ========== BUS SERVICE MODEL ==========
 class BusService(models.Model):
-    # ... keep your existing BusService model code ...
     company = models.CharField(max_length=100)
     departure = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='departing_buses')
     arrival = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='arriving_buses')
@@ -280,8 +262,8 @@ class BusService(models.Model):
         return f"{hours}h {minutes}m"
 
 
+# ========== CAR RENTAL MODEL ==========
 class CarRental(models.Model):
-    # ... keep your existing CarRental model code ...
     company = models.CharField(max_length=100)
     car_model = models.CharField(max_length=100)
     car_type = models.CharField(max_length=50, choices=[
@@ -316,6 +298,7 @@ class CarRental(models.Model):
         return ', '.join([feature.title() for feature in self.features])
 
 
+# ========== TRIP PLAN MODEL (SINGLE DEFINITION) ==========
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
     origin = models.ForeignKey(
@@ -353,20 +336,119 @@ class TripPlan(models.Model):
         return f"{self.user.username}'s trip from {self.origin.name} to {self.destination.name}"
     
     def calculate_nights(self):
-        days = (self.end_date - self.start_date).days
-        return max(1, days)
+        """Calculate number of nights"""
+        if self.start_date and self.end_date:
+            days = (self.end_date - self.start_date).days
+            return max(1, days)
+        return 1
     
-    def get_total_cost(self):
+    def get_total_cost_in_mmk(self):
+        """Calculate total cost in MMK including hotel, transport, and base destination cost"""
         total = 0
         nights = self.calculate_nights()
         
+        # 1. Hotel cost
         if self.selected_hotel:
-            total += float(self.selected_hotel.price_per_night) * nights
+            hotel_cost = float(self.selected_hotel.price_per_night) * nights
+            total += hotel_cost
         
+        # 2. Transport cost
         if self.selected_transport and 'price' in self.selected_transport:
-            total += float(self.selected_transport['price'])
+            transport_price = self.selected_transport.get('price', 0)
+            # Handle both string and number formats
+            try:
+                if isinstance(transport_price, str):
+                    # Remove any currency symbols and commas
+                    import re
+                    clean_price = re.sub(r'[^\d.]', '', transport_price)
+                    transport_cost = float(clean_price) if clean_price else 0
+                else:
+                    transport_cost = float(transport_price)
+                total += transport_cost
+            except (ValueError, TypeError):
+                transport_cost = 0
+        
+        # 3. Destination base cost (activities, food, etc.)
+        # Calculate based on destination type, days, and travelers
+        destination_cost = self.calculate_destination_base_cost()
+        total += destination_cost
         
         return int(total)
+    
+    def calculate_destination_base_cost(self):
+        """Calculate base cost for destination activities, food, etc."""
+        nights = self.calculate_nights()
+        days = nights + 1 if nights > 0 else 3
+        
+        # Base cost per traveler per day in MMK
+        base_cost_per_day_per_person = {
+            'low': 20000,      # Budget
+            'medium': 40000,   # Medium
+            'high': 70000,     # Luxury
+        }
+        
+        base_rate = base_cost_per_day_per_person.get(self.budget_range, 40000)
+        
+        # Calculate: base rate × days × travelers
+        return int(base_rate * days * self.travelers)
+    
+    def get_cost_breakdown(self):
+        """Get detailed cost breakdown"""
+        nights = self.calculate_nights()
+        breakdown = {
+            'hotel': 0,
+            'transport': 0,
+            'destination': 0,
+            'additional_travelers': 0,
+            'total': 0
+        }
+        
+        # Hotel cost
+        if self.selected_hotel:
+            breakdown['hotel'] = int(float(self.selected_hotel.price_per_night) * nights)
+        
+        # Transport cost
+        if self.selected_transport and 'price' in self.selected_transport:
+            transport_price = self.selected_transport.get('price', 0)
+            try:
+                if isinstance(transport_price, str):
+                    import re
+                    clean_price = re.sub(r'[^\d.]', '', transport_price)
+                    breakdown['transport'] = float(clean_price) if clean_price else 0
+                else:
+                    breakdown['transport'] = float(transport_price)
+            except:
+                breakdown['transport'] = 0
+        
+        # Destination base cost
+        breakdown['destination'] = self.calculate_destination_base_cost()
+        
+        # Additional travelers cost (70% of base for each additional traveler)
+        if self.travelers > 1:
+            base_cost_per_day = {
+                'low': 20000,
+                'medium': 40000,
+                'high': 70000,
+            }
+            base_rate = base_cost_per_day.get(self.budget_range, 40000)
+            days = nights + 1 if nights > 0 else 3
+            additional_travelers = self.travelers - 1
+            breakdown['additional_travelers'] = int(base_rate * days * additional_travelers * 0.7)
+        
+        # Total
+        breakdown['total'] = sum([
+            breakdown['hotel'],
+            breakdown['transport'],
+            breakdown['destination']
+        ])
+        
+        return breakdown
+    
+    def get_total_spent(self):
+        """Get total spent for completed/booked trips"""
+        if self.status in ['booked', 'completed']:
+            return self.get_total_cost_in_mmk()
+        return 0
     
     def origin_has_airport(self):
         """Check if origin has airport"""
@@ -380,6 +462,7 @@ class TripPlan(models.Model):
         ordering = ['-created_at']
 
 
+# ========== BOOKED SEAT MODEL ==========
 class BookedSeat(models.Model):
     """Model to track booked seats for flights and buses"""
     transport_type = models.CharField(max_length=10, choices=[
