@@ -12,7 +12,7 @@
                 <h2 class="fw-bold mb-2">Visited Destinations</h2>
                 <p class="text-gray mb-0">
                     {{ total_destinations_visited }} destination{{ total_destinations_visited|pluralize }} • 
-                    {{ total_completed_trips }} trip{{ total_completed_trips|pluralize }} • 
+                    {{ total_visited_trips }} trip{{ total_visited_trips|pluralize }} • 
                     {{ total_days_traveled }} days traveled
                 </p>
             </div>
@@ -33,7 +33,7 @@
             </div>
             <div class="col-md-3 col-sm-6">
                 <div class="card-glass p-3 text-center">
-                    <h4 class="mb-2">{{ total_completed_trips }}</h4>
+                    <h4 class="mb-2">{{ total_visited_trips }}</h4>
                     <p class="text-gray mb-0">Completed Trips</p>
                 </div>
             </div>
@@ -52,6 +52,24 @@
         </div>
     </div>
     
+    <!-- Info Box -->
+    <div class="card-glass p-4 mb-4 bg-info bg-opacity-10">
+        <div class="d-flex">
+            <div class="me-3">
+                <i class="fas fa-info-circle fa-2x text-info"></i>
+            </div>
+            <div>
+                <h6 class="text-info mb-2">What counts as a visited destination?</h6>
+                <p class="mb-0 text-gray small">
+                    A destination is considered "visited" when a trip to that destination has ended. 
+                    This includes trips marked as <span class="badge bg-success">completed</span> 
+                    or any trip where the end date has passed.
+                    <br><small>Current date: {{ today|date:"F d, Y" }}</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    
     <!-- Destination Stats -->
     <div class="card-glass p-4 mb-4">
         <h4 class="mb-4">Destination Statistics</h4>
@@ -62,6 +80,7 @@
                 <thead>
                     <tr>
                         <th>Destination</th>
+                        <th>Region</th>
                         <th>Visits</th>
                         <th>Total Days</th>
                         <th>Last Visit</th>
@@ -73,8 +92,10 @@
                     {% for stat in destination_stats %}
                     <tr>
                         <td>
-                            <strong>{{ stat.destination.name }}</strong><br>
-                            <small class="text-muted">{{ stat.destination.region }}</small>
+                            <strong>{{ stat.destination.name }}</strong>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ stat.destination_region }}</span>
                         </td>
                         <td>
                             <span class="badge bg-primary rounded-pill">{{ stat.visit_count }}</span>
@@ -84,7 +105,7 @@
                         <td>{{ stat.total_spent|intcomma }}</td>
                         <td>
                             {% if stat.total_days > 0 %}
-                            {{ stat.total_spent|divide:stat.total_days|intcomma }}
+                            {{ stat.avg_cost_per_day|intcomma }}
                             {% else %}
                             -
                             {% endif %}
@@ -98,7 +119,7 @@
         <div class="text-center py-5">
             <i class="fas fa-map-marked-alt fa-4x text-muted mb-3"></i>
             <h4 class="text-muted mb-3">No destinations visited yet</h4>
-            <p class="text-gray mb-4">Complete your first trip to see visited destinations here</p>
+            <p class="text-gray mb-4">You haven't completed any trips yet. Plan and complete your first trip to see visited destinations here.</p>
             <a href="{% url 'planner:plan' %}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>Plan Your First Trip
             </a>
@@ -115,7 +136,21 @@
         <div class="mb-4">
             <h5 class="text-primary mb-3">
                 <i class="fas fa-calendar me-2"></i>
-                {{ year_month|slice:"0:4" }} - Month {{ year_month|slice:"5:7" }}
+                {% with year_month|slice:"5:7" as month_num %}
+                {% if month_num == "01" %}January
+                {% elif month_num == "02" %}February
+                {% elif month_num == "03" %}March
+                {% elif month_num == "04" %}April
+                {% elif month_num == "05" %}May
+                {% elif month_num == "06" %}June
+                {% elif month_num == "07" %}July
+                {% elif month_num == "08" %}August
+                {% elif month_num == "09" %}September
+                {% elif month_num == "10" %}October
+                {% elif month_num == "11" %}November
+                {% else %}December{% endif %}
+                {% endwith %}
+                {{ year_month|slice:"0:4" }}
             </h5>
             
             <div class="row">
@@ -124,12 +159,19 @@
                     <div class="card-glass p-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="mb-0">{{ visit.destination.name }}</h6>
-                            <span class="badge bg-info">{{ visit.duration_days }} days</span>
+                            <span class="badge {% if visit.status == 'completed' %}bg-success{% else %}bg-info{% endif %}">
+                                {{ visit.status|title }}
+                            </span>
                         </div>
                         
                         <p class="text-gray small mb-2">
                             <i class="fas fa-calendar me-1"></i>
                             Visited: {{ visit.visit_date|date:"M d, Y" }}
+                        </p>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-clock me-1"></i>
+                            Duration: {{ visit.duration_days }} day{{ visit.duration_days|pluralize }}
                         </p>
                         
                         <p class="text-gray small mb-2">
@@ -152,4 +194,25 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+    .price-tag {
+        background: linear-gradient(135deg, #f9c74f, #f8961e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: bold;
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+    }
+    
+    .text-gray {
+        color: #7f8c8d !important;
+    }
+</style>
 {% endblock %}

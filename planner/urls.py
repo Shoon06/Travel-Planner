@@ -8,6 +8,7 @@ from .views import (
     SelectHotelWithMapView,
     FilterHotelsView,
     SaveHotelView,
+    ConfirmSeatBookingView, 
     SelectTransportCategoryView,
     SelectTransportView,
     SaveTransportView,
@@ -34,6 +35,7 @@ from .views import (
 app_name = 'planner'
 
 urlpatterns = [
+    path('trip/<int:trip_id>/confirm-booking/', views.ConfirmSeatBookingView.as_view(), name='confirm_booking'),
     path('', views.PlanTripView.as_view(), name='plan'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('search-destinations/', views.DestinationSearchView.as_view(), name='search_destinations'),

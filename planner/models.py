@@ -1,5 +1,4 @@
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
-# CORRECTED VERSION - Removed duplicate TripPlan class
+# CORRECTED VERSION - WITH PROPER MODEL ORDERING
 
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -54,8 +53,25 @@ class Destination(models.Model):
     
     def has_airport(self):
         """Check if this destination has an airport"""
-        airport_info = get_airport_info(self.name)
-        return airport_info is not None and airport_info.get('has_airport', False)
+        try:
+            from .airport_data import destination_has_airport
+            return destination_has_airport(self.name)
+        except ImportError:
+            # Fallback logic if airport_data.py doesn't exist
+            airport_cities = [
+                'Yangon', 'Mandalay', 'Naypyidaw', 'Bagan', 'Heho', 'Thandwe',
+                'Sittwe', 'Myitkyina', 'Tachileik', 'Kawthaung', 'Dawei', 
+                'Myeik', 'Mawlamyine', 'Pathein', 'Loikaw', 'Hakha'
+            ]
+            return any(airport_city in self.name for airport_city in airport_cities)
+    
+    def get_airport_info(self):
+        """Get airport information for this destination"""
+        try:
+            from .airport_data import get_airport_info
+            return get_airport_info(self.name)
+        except ImportError:
+            return {'has_airport': False, 'airport_name': 'Unknown'}
     
     def get_airport_info(self):
         """Get airport information for this destination"""
@@ -123,10 +139,47 @@ class Flight(models.Model):
                 'premium': float(self.price) * 1.5,
                 'economy': float(self.price),
                 'extra_legroom': float(self.price) * 1.2
-            }
+            },
+            'seat_layout': self.generate_seat_layout() 
         }
         return seat_map
-    
+    def generate_seat_layout(self):
+        """Generate detailed seat layout with all seat numbers"""
+        seat_layout = []
+        rows = 30
+        seats_per_row = 6
+        seat_letters = ['A', 'B', 'C', 'D', 'E', 'F']
+        
+        for row in range(1, rows + 1):
+            row_seats = []
+            for col in range(seats_per_row):
+                seat_number = f"{row}{seat_letters[col]}"
+                seat_type = 'economy'
+                
+                # Determine seat type
+                if seat_number in ['1A', '1B', '1C', '1D', '1E', '1F',
+                                  '2A', '2B', '2C', '2D', '2E', '2F']:
+                    seat_type = 'first'
+                elif row <= 4:
+                    seat_type = 'first'
+                elif row <= 8:
+                    seat_type = 'premium'
+                
+                row_seats.append({
+                    'number': seat_number,
+                    'type': seat_type,
+                    'row': row,
+                    'letter': seat_letters[col],
+                    'is_window': col == 0 or col == seats_per_row - 1,
+                    'is_aisle': col == 2 or col == 3,
+                })
+            
+            seat_layout.append({
+                'row_number': row,
+                'seats': row_seats
+            })
+        
+        return seat_layout
     def get_real_occupied_seats(self):
         """Get actually booked seats from database"""
         from .models import BookedSeat
@@ -298,7 +351,7 @@ class CarRental(models.Model):
         return ', '.join([feature.title() for feature in self.features])
 
 
-# ========== TRIP PLAN MODEL (SINGLE DEFINITION) ==========
+# ========== TRIP PLAN MODEL ==========
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
     origin = models.ForeignKey(
@@ -462,6 +515,64 @@ class TripPlan(models.Model):
         ordering = ['-created_at']
 
 
+# ========== TRANSPORT SCHEDULE MODEL ==========
+class TransportSchedule(models.Model):
+    """Schedule for transportation on specific dates"""
+    transport_type = models.CharField(max_length=10, choices=[
+        ('flight', 'Flight'),
+        ('bus', 'Bus'),
+        ('car', 'Car'),
+    ])
+    transport_id = models.IntegerField()  # ID of Flight, BusService, or CarRental
+    travel_date = models.DateField()
+    departure_time = models.TimeField(null=True, blank=True)  # For flights/buses
+    arrival_time = models.TimeField(null=True, blank=True)    # For flights
+    total_seats = models.IntegerField()
+    available_seats = models.IntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=0, help_text="Price in MMK")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['transport_type', 'transport_id', 'travel_date']
+        ordering = ['travel_date', 'departure_time']
+        indexes = [
+            models.Index(fields=['transport_type', 'travel_date']),
+            models.Index(fields=['travel_date', 'is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_transport_type_display()} on {self.travel_date}"
+    
+    def get_transport_object(self):
+        """Get the actual transport object"""
+        if self.transport_type == 'flight':
+            return Flight.objects.get(id=self.transport_id)
+        elif self.transport_type == 'bus':
+            return BusService.objects.get(id=self.transport_id)
+        elif self.transport_type == 'car':
+            return CarRental.objects.get(id=self.transport_id)
+        return None
+    
+    def is_full(self):
+        """Check if all seats are booked"""
+        return self.available_seats <= 0
+    
+    def book_seats(self, number_of_seats):
+        """Book seats and update availability"""
+        if self.available_seats >= number_of_seats:
+            self.available_seats -= number_of_seats
+            self.save()
+            return True
+        return False
+    
+    def cancel_seats(self, number_of_seats):
+        """Cancel seats and update availability"""
+        self.available_seats += number_of_seats
+        self.save()
+        return True
+
+
 # ========== BOOKED SEAT MODEL ==========
 class BookedSeat(models.Model):
     """Model to track booked seats for flights and buses"""
@@ -469,16 +580,28 @@ class BookedSeat(models.Model):
         ('flight', 'Flight'),
         ('bus', 'Bus'),
     ])
-    transport_id = models.IntegerField()  # ID of Flight or BusService
-    seat_number = models.CharField(max_length=10)  # e.g., "1A", "2B"
+    transport_id = models.IntegerField()
+    schedule_date = models.DateField()  # Date of travel
+    seat_number = models.CharField(max_length=10)
     trip = models.ForeignKey(TripPlan, on_delete=models.CASCADE, related_name='booked_seats')
     booked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='booked_seats')
     booking_time = models.DateTimeField(auto_now_add=True)
     is_cancelled = models.BooleanField(default=False)
     
     class Meta:
-        unique_together = ['transport_type', 'transport_id', 'seat_number']
-        ordering = ['transport_type', 'transport_id', 'seat_number']
+        unique_together = ['transport_type', 'transport_id', 'schedule_date', 'seat_number']
+        ordering = ['transport_type', 'transport_id', 'schedule_date', 'seat_number']
     
     def __str__(self):
-        return f"{self.seat_number} on {self.transport_type} {self.transport_id}"
+        return f"{self.seat_number} on {self.transport_type} {self.transport_id} ({self.schedule_date})"
+    
+    def get_schedule(self):
+        """Get the schedule for this booking"""
+        try:
+            return TransportSchedule.objects.get(
+                transport_type=self.transport_type,
+                transport_id=self.transport_id,
+                travel_date=self.schedule_date
+            )
+        except TransportSchedule.DoesNotExist:
+            return None

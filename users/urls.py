@@ -63,4 +63,5 @@ urlpatterns = [
     
     # Trip Content (Redirect)
     path('admin/trip-content/', views_admin.admin_trip_content_view, name='admin_trip_content'),
+    path('admin/schedules/', views_admin.admin_schedules, name='admin_schedules'),
 ]

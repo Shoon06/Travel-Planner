@@ -144,4 +144,69 @@
         </div>
     </div>
 </div>
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_bus.html -->
+<!-- Add these new fields after existing ones -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <label class="form-label fw-bold" style="color: #2c3e50;">Schedule Type</label>
+        <select name="schedule_type" class="form-select" required id="schedule_type">
+            <option value="single">Single Date</option>
+            <option value="recurring" selected>Recurring (Daily)</option>
+            <option value="weekdays">Weekdays Only (Mon-Fri)</option>
+            <option value="weekends">Weekends Only (Sat-Sun)</option>
+        </select>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <label class="form-label fw-bold" style="color: #2c3e50;">Start Date</label>
+        <input type="date" name="start_date" class="form-control" 
+               id="start_date" required value="{{ today|date:'Y-m-d' }}">
+    </div>
+</div>
+
+<div class="row" id="end_date_row">
+    <div class="col-md-6 mb-4">
+        <label class="form-label fw-bold" style="color: #2c3e50;">End Date</label>
+        <input type="date" name="end_date" class="form-control" 
+               id="end_date" value="{{ next_month|date:'Y-m-d' }}">
+        <small class="text-gray">For recurring schedules, create up to this date</small>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <label class="form-label fw-bold" style="color: #2c3e50;">Number of Days</label>
+        <input type="number" name="num_days" class="form-control" 
+               id="num_days" value="30" min="1" max="365">
+        <small class="text-gray">Or specify number of days to create schedules for</small>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scheduleType = document.getElementById('schedule_type');
+    const endDateRow = document.getElementById('end_date_row');
+    
+    // Show/hide recurring options
+    function toggleRecurringOptions() {
+        if (scheduleType.value === 'single') {
+            endDateRow.style.display = 'none';
+        } else {
+            endDateRow.style.display = 'block';
+        }
+    }
+    
+    // Set date defaults
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start_date').value = today;
+    
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    document.getElementById('end_date').value = nextMonth.toISOString().split('T')[0];
+    
+    // Initial toggle
+    toggleRecurringOptions();
+    
+    // Change event
+    scheduleType.addEventListener('change', toggleRecurringOptions);
+});
+</script>
 {% endblock %}

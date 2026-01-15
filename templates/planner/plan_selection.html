@@ -1,4 +1,3 @@
-<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\plan_selection.html -->
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Select Your Travel Plan - GoMyanmar{% endblock %}
@@ -20,7 +19,16 @@
     <div class="row g-4 mb-5">
         {% for plan in plans %}
         <div class="col-lg-4 col-md-6">
-            <div class="card plan-card h-100 border-0 shadow-lg" style="border-top: 5px solid {{ plan.color }} !important;">
+            <div class="card plan-card h-100 border-0 shadow-lg" 
+                 style="border-top: 5px solid {{ plan.color }} !important;
+                        {% if plan.is_selected %}border: 2px solid {{ plan.color }} !important; box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;{% endif %}">
+                
+                {% if plan.is_selected %}
+                <div class="selected-plan-badge">
+                    <span class="badge bg-success p-2"><i class="fas fa-check me-1"></i>Selected</span>
+                </div>
+                {% endif %}
+                
                 <div class="card-header bg-white border-0 py-4">
                     <div class="d-flex align-items-center mb-3">
                         <div class="plan-icon me-3" style="background-color: {{ plan.color }};">
@@ -98,10 +106,9 @@
                             </div>
                             {% endfor %}
                             <div class="text-center">
-                                <button class="btn btn-sm btn-link see-more-btn" 
-                                        onclick="window.location.href='{% url 'planner:itinerary_detail' trip_id=trip.id plan_id=plan.id %}'">
+                                <a href="{% url 'planner:itinerary_detail' trip_id=trip.id plan_id=plan.id %}" class="btn btn-sm btn-link see-more-btn">
                                     + more activities...
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -112,7 +119,11 @@
                         {% csrf_token %}
                         <input type="hidden" name="plan_id" value="{{ plan.id }}">
                         <button type="submit" class="btn btn-primary w-100 py-3">
+                            {% if plan.is_selected %}
+                            <i class="fas fa-check-double me-2"></i>Plan Selected
+                            {% else %}
                             <i class="fas fa-check-circle me-2"></i>Select This Plan
+                            {% endif %}
                         </button>
                     </form>
                 </div>
@@ -121,38 +132,161 @@
         {% endfor %}
     </div>
     
-    <!-- Trip Summary -->
-    <div class="card-glass p-4 mb-5">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h5 class="fw-bold mb-3">Your Trip Summary</h5>
-                <div class="row">
-                    <div class="col-6 mb-3">
-                        <div class="text-gray small">Destination</div>
-                        <div class="fw-bold">{{ destination.name }}</div>
+    <!-- Trip Summary - Conditional Display -->
+    {% if plan_selected %}
+    <div class="card-glass p-4 mb-4">
+        <h4 class="mb-4"><i class="fas fa-check-circle me-2 text-success"></i>Trip Confirmation</h4>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="trip-summary p-3 rounded" style="background: rgba(139, 92, 246, 0.05);">
+                    <h5 class="mb-3">Trip Summary</h5>
+                    
+                    <!-- Selected Plan Info -->
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-map me-2"></i>
+                        <strong>Selected Plan:</strong> {{ selected_plan_details.title }}
                     </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-gray small">Travel Dates</div>
-                        <div class="fw-bold">{{ start_date }} to {{ end_date }}</div>
-                    </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-gray small">Duration</div>
-                        <div class="fw-bold">{{ days }} days, {{ nights }} nights</div>
-                    </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-gray small">Travelers</div>
-                        <div class="fw-bold">{{ travelers }} person{{ travelers|pluralize }}</div>
+                    
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">From</div>
+                            <div class="fw-bold">{{ trip.origin.name }}</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">To</div>
+                            <div class="fw-bold">{{ trip.destination.name }}</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Travel Dates</div>
+                            <div class="fw-bold">{{ start_date }} to {{ end_date }}</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Duration</div>
+                            <div class="fw-bold">{{ days }} days, {{ nights }} nights</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Travelers</div>
+                            <div class="fw-bold">{{ travelers }} person{{ travelers|pluralize }}</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Hotel</div>
+                            <div class="fw-bold">
+                                {% if selected_hotel %}
+                                    {{ selected_hotel.name }}
+                                {% else %}
+                                    <span class="text-danger">Not selected</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Transport</div>
+                            <div class="fw-bold">
+                                {% if selected_transport %}
+                                    {{ selected_transport.name|default:"Not specified" }}
+                                    {% if selected_transport.is_temporary %}
+                                        <span class="badge bg-warning text-dark ms-2">Pending Confirmation</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-danger">Not selected</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-gray small">Total Estimated Cost</div>
+                            <div class="fw-bold h5 text-primary">{{ trip.get_total_cost_in_mmk|floatformat:0 }} MMK</div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="bg-light p-4 rounded">
-                    <h6 class="fw-bold mb-3">Need help choosing?</h6>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><i class="fas fa-user-friends me-2 text-primary"></i><strong>Cultural Explorer:</strong> Perfect for history buffs and culture enthusiasts</li>
-                        <li class="mb-2"><i class="fas fa-hiking me-2 text-success"></i><strong>Adventure Seeker:</strong> Ideal for active travelers who love outdoor activities</li>
-                        <li class="mb-2"><i class="fas fa-spa me-2 text-purple"></i><strong>Relaxed Wanderer:</strong> Best for those who prefer a leisurely pace</li>
-                    </ul>
+            <div class="col-md-4">
+                <div class="confirmation-section text-center h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="feature-icon gradient-primary mx-auto mb-4">
+                            <i class="fas fa-suitcase-rolling fa-2x text-white"></i>
+                        </div>
+                        <h4 class="price-tag mb-3">{{ trip.get_total_cost_in_mmk|floatformat:0 }} MMK</h4>
+                        <p class="text-gray small mb-4">Total estimated cost</p>
+                        
+                        {% if has_pending_seats %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Your transport seats are pending confirmation
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <form method="post" action="{% url 'planner:confirm_booking' trip.id %}" id="confirmTripForm">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg w-100 mb-2" 
+                                id="confirmTripBtn"
+                                {% if not selected_hotel or not selected_transport %}disabled{% endif %}>
+                            <i class="fas fa-check-circle me-2"></i>
+                            Confirm & Book Entire Trip
+                        </button>
+                        <p class="text-gray small mb-0">
+                            This will confirm your hotel and transport bookings permanently
+                        </p>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'planner:plan' %}" class="btn btn-outline-light w-100">
+                            <i class="fas fa-edit me-2"></i>Edit Trip Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Show this message when no plan is selected -->
+    <div class="card-glass p-4 mb-4 text-center">
+        <div class="feature-icon gradient-primary mx-auto mb-4">
+            <i class="fas fa-route fa-2x text-white"></i>
+        </div>
+        <h4 class="mb-3">Select a Travel Plan First</h4>
+        <p class="text-gray mb-4">
+            Please select one of the travel plans above to proceed with trip confirmation.
+        </p>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            The trip confirmation section will appear here after you select a plan.
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Need Help Section -->
+    <div class="card-glass p-4">
+        <h5 class="fw-bold mb-3">Need help choosing?</h5>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3 text-primary">
+                            <i class="fas fa-user-friends me-2"></i>Cultural Explorer
+                        </h6>
+                        <p class="small">Perfect for history buffs and culture enthusiasts who want to immerse in local traditions and heritage sites.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3 text-success">
+                            <i class="fas fa-hiking me-2"></i>Adventure Seeker
+                        </h6>
+                        <p class="small">Ideal for active travelers who love outdoor activities, exploration, and trying new experiences.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3 text-purple">
+                            <i class="fas fa-spa me-2"></i>Relaxed Wanderer
+                        </h6>
+                        <p class="small">Best for those who prefer a leisurely pace with ample free time and relaxation activities.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -164,11 +298,26 @@
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     border-radius: 15px !important;
     overflow: hidden;
+    position: relative;
 }
 
 .plan-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+}
+
+.selected-plan-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 10;
+}
+
+.selected-plan-badge .badge {
+    font-size: 0.75rem;
+    padding: 5px 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 20px;
 }
 
 .plan-icon {
@@ -205,5 +354,109 @@
 .text-purple {
     color: #9b59b6 !important;
 }
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gradient-primary {
+    background: linear-gradient(135deg, var(--primary-purple), var(--secondary-purple));
+}
+
+.trip-summary {
+    border: 2px solid rgba(139, 92, 246, 0.1);
+}
+
+.card-glass {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+}
+
+.price-tag {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
 </style>
+
+<script>
+// Store the values from Django template in JavaScript variables
+const planSelected = {% if plan_selected %}true{% else %}false{% endif %};
+const hasHotel = {% if selected_hotel %}true{% else %}false{% endif %};
+const hasTransport = {% if selected_transport %}true{% else %}false{% endif %};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize confirmation logic if a plan is selected
+    if (planSelected) {
+        const confirmBtn = document.getElementById('confirmTripBtn');
+        
+        if (confirmBtn) {
+            // Check if confirm button should be enabled
+            if (hasHotel && hasTransport) {
+                confirmBtn.disabled = false;
+                confirmBtn.title = "Click to confirm and book your entire trip";
+            } else {
+                confirmBtn.disabled = true;
+                if (!hasHotel && !hasTransport) {
+                    confirmBtn.title = "Please select hotel and transport first";
+                } else if (!hasHotel) {
+                    confirmBtn.title = "Please select a hotel first";
+                } else if (!hasTransport) {
+                    confirmBtn.title = "Please select transport first";
+                }
+            }
+            
+            // Handle final confirmation
+            const confirmForm = document.getElementById('confirmTripForm');
+            if (confirmForm) {
+                confirmForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    // Check if hotel and transport are selected
+                    if (!hasHotel || !hasTransport) {
+                        alert('Please select both hotel and transport before confirming your trip.');
+                        return false;
+                    }
+                    
+                    const originalText = confirmBtn.innerHTML;
+                    
+                    if (confirm('Are you sure you want to confirm and book this trip?\n\nThis will:\n• Confirm your hotel booking\n• Permanently book your transport seats\n• Generate your complete itinerary\n\nYou will not be able to change your transport seats after confirmation.')) {
+                        
+                        // Show loading state
+                        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+                        confirmBtn.disabled = true;
+                        
+                        // Submit the form
+                        this.submit();
+                    }
+                });
+            }
+        }
+    }
+    
+    // Add animation to selected plan card
+    const selectedCards = document.querySelectorAll('.plan-card[style*="border: 2px solid"]');
+    selectedCards.forEach(card => {
+        card.style.animation = 'pulse 2s infinite';
+    });
+    
+    // Add CSS animation for pulse effect
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0% { box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+            50% { box-shadow: 0 0 30px rgba(var(--primary-rgb, 139, 92, 246), 0.3); }
+            100% { box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
 {% endblock %}

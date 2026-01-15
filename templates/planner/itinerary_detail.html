@@ -70,9 +70,9 @@
                         <div class="card stat-card h-100">
                             <div class="card-body text-center py-4">
                                 <div class="stat-icon mb-3">
-                                    <i class="fas fa-dollar-sign fa-2x"></i>
-                                </div>
-                                <h3 class="stat-number">${{ cost_estimate.total }}</h3>
+    <i class="fas fa-coins fa-2x"></i> <!-- Changed from dollar-sign to coins -->
+</div>
+                                <h3 class="stat-number">{{ cost_estimate.total|intcomma }} MMK</h3>
                                 <p class="stat-label">Estimated Cost</p>
                             </div>
                         </div>

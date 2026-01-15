@@ -1,276 +1,235 @@
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\airport_data.py
 """
-Airport data for Myanmar destinations
+AIRPORT DATA FOR MYANMAR DESTINATIONS
 """
 
-AIRPORT_DATA = {
-    # City: {airport_name, iata_code, coordinates, type}
-    "Yangon": {
-        "airport_name": "Yangon International Airport",
-        "iata_code": "RGN",
-        "airport_type": "International",
-        "has_airport": True,
-        "latitude": 16.9073,
-        "longitude": 96.1332
+MYANMAR_AIRPORTS = {
+    # Major International/Regional Airports
+    'Yangon': {
+        'airport_name': 'Yangon International Airport',
+        'iata_code': 'RGN',
+        'has_airport': True,
+        'type': 'international',
+        'coordinates': {'lat': 16.9073, 'lng': 96.1332}
     },
-    "Mandalay": {
-        "airport_name": "Mandalay International Airport",
-        "iata_code": "MDL",
-        "airport_type": "International",
-        "has_airport": True,
-        "latitude": 21.7022,
-        "longitude": 95.9792
+    'Mandalay': {
+        'airport_name': 'Mandalay International Airport',
+        'iata_code': 'MDL',
+        'has_airport': True,
+        'type': 'international',
+        'coordinates': {'lat': 21.7022, 'lng': 95.9779}
     },
-    "Naypyidaw": {
-        "airport_name": "Naypyidaw International Airport",
-        "iata_code": "NYT",
-        "airport_type": "International",
-        "has_airport": True,
-        "latitude": 19.6235,
-        "longitude": 96.2010
+    'Naypyidaw': {
+        'airport_name': 'Naypyidaw International Airport',
+        'iata_code': 'NYT',
+        'has_airport': True,
+        'type': 'international',
+        'coordinates': {'lat': 19.6235, 'lng': 96.2010}
     },
-    "Bagan": {
-        "airport_name": "Nyaung U Airport",
-        "iata_code": "NYU",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 21.1788,
-        "longitude": 94.9302
+    
+    # Domestic Airports
+    'Bagan': {
+        'airport_name': 'Nyaung U Airport',
+        'iata_code': 'NYU',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 21.1788, 'lng': 94.9302}
     },
-    "Heho": {
-        "airport_name": "Heho Airport",
-        "iata_code": "HEH",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.7470,
-        "longitude": 96.7920
+    'Heho': {
+        'airport_name': 'Heho Airport',
+        'iata_code': 'HEH',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 20.7470, 'lng': 96.7920}
     },
-    "Thandwe": {
-        "airport_name": "Thandwe Airport",
-        "iata_code": "SNW",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 18.4608,
-        "longitude": 94.3001
+    'Thandwe': {
+        'airport_name': 'Thandwe Airport',
+        'iata_code': 'SNW',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 18.4607, 'lng': 94.2996}
     },
-    "Sittwe": {
-        "airport_name": "Sittwe Airport",
-        "iata_code": "AKY",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.1500,
-        "longitude": 92.9000
+    'Sittwe': {
+        'airport_name': 'Sittwe Airport',
+        'iata_code': 'AKY',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 20.1327, 'lng': 92.8726}
     },
-    "Myitkyina": {
-        "airport_name": "Myitkyina Airport",
-        "iata_code": "MYT",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 25.3833,
-        "longitude": 97.4000
+    'Myitkyina': {
+        'airport_name': 'Myitkyina Airport',
+        'iata_code': 'MYT',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 25.3544, 'lng': 97.2952}
     },
-    "Dawei": {
-        "airport_name": "Dawei Airport",
-        "iata_code": "TVY",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 14.0833,
-        "longitude": 98.2000
+    'Tachileik': {
+        'airport_name': 'Tachileik Airport',
+        'iata_code': 'THL',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 20.4838, 'lng': 99.9354}
     },
-    "Kawthaung": {
-        "airport_name": "Kawthaung Airport",
-        "iata_code": "KAW",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 10.0500,
-        "longitude": 98.5333
+    'Kawthaung': {
+        'airport_name': 'Kawthaung Airport',
+        'iata_code': 'KAW',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 10.0495, 'lng': 98.5380}
     },
-    "Mawlamyine": {
-        "airport_name": "Mawlamyine Airport",
-        "iata_code": "MNU",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 16.4800,
-        "longitude": 97.6300
+    'Dawei': {
+        'airport_name': 'Dawei Airport',
+        'iata_code': 'TVY',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 14.1039, 'lng': 98.2036}
     },
-    "Tachileik": {
-        "airport_name": "Tachilek Airport",
-        "iata_code": "THL",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.4833,
-        "longitude": 99.9333
+    'Myeik': {
+        'airport_name': 'Myeik Airport',
+        'iata_code': 'MGZ',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 12.4398, 'lng': 98.6215}
     },
-    "Lashio": {
-        "airport_name": "Lashio Airport",
-        "iata_code": "LSH",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 22.9775,
-        "longitude": 97.7522
+    'Mawlamyine': {
+        'airport_name': 'Mawlamyine Airport',
+        'iata_code': 'MNU',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 16.4447, 'lng': 97.6607}
     },
-    "Kengtung": {
-        "airport_name": "Kengtung Airport",
-        "iata_code": "KET",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 21.3011,
-        "longitude": 99.6361
+    'Pathein': {
+        'airport_name': 'Pathein Airport',
+        'iata_code': 'BSX',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 16.8152, 'lng': 94.7799}
     },
-    "Loikaw": {
-        "airport_name": "Loikaw Airport",
-        "iata_code": "LIW",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 19.6667,
-        "longitude": 97.2167
+    'Loikaw': {
+        'airport_name': 'Loikaw Airport',
+        'iata_code': 'LIW',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 19.6915, 'lng': 97.2148}
     },
-    "Hpa-an": {
-        "airport_name": "Hpa-an Airport",
-        "iata_code": "PAA",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 16.8833,
-        "longitude": 97.6333
+    'Hakha': {
+        'airport_name': 'Hakha Airport',
+        'iata_code': 'HKH',
+        'has_airport': True,
+        'type': 'domestic',
+        'coordinates': {'lat': 22.6470, 'lng': 93.6110}
     },
-    "Kyaukpyu": {
-        "airport_name": "Kyaukpyu Airport",
-        "iata_code": "KYP",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 19.4264,
-        "longitude": 93.5347
-    },
-    "Myeik": {
-        "airport_name": "Myeik Airport",
-        "iata_code": "MGZ",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 12.4333,
-        "longitude": 98.6000
-    },
-    "Putao": {
-        "airport_name": "Putao Airport",
-        "iata_code": "PBU",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 27.3333,
-        "longitude": 97.4167
-    },
-    "Ann": {
-        "airport_name": "Ann Airport",
-        "iata_code": "VBA",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 19.7692,
-        "longitude": 94.0261
-    },
-    "Bhamo": {
-        "airport_name": "Bhamo Airport",
-        "iata_code": "BMO",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 24.2694,
-        "longitude": 97.2461
-    },
-    "Gangaw": {
-        "airport_name": "Gangaw Airport",
-        "iata_code": "GAW",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 22.1747,
-        "longitude": 94.1347
-    },
-    "Gwa": {
-        "airport_name": "Gwa Airport",
-        "iata_code": "GWA",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 17.6000,
-        "longitude": 94.5833
-    },
-    "Homalin": {
-        "airport_name": "Homalin Airport",
-        "iata_code": "HOX",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 24.8994,
-        "longitude": 94.9142
-    },
-    "Kalemyo": {
-        "airport_name": "Kalemyo Airport",
-        "iata_code": "KMV",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 23.1867,
-        "longitude": 94.0514
-    },
-    "Khamti": {
-        "airport_name": "Khamti Airport",
-        "iata_code": "KHM",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 25.9883,
-        "longitude": 95.6744
-    },
-    "Magway": {
-        "airport_name": "Magway Airport",
-        "iata_code": "MWQ",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.1656,
-        "longitude": 94.9411
-    },
-    "Monghsat": {
-        "airport_name": "Monghsat Airport",
-        "iata_code": "MOE",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.4336,
-        "longitude": 99.2569
-    },
-    "Mongton": {
-        "airport_name": "Mongton Airport",
-        "iata_code": "MGK",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.2967,
-        "longitude": 98.8989
-    },
-    "Namsang": {
-        "airport_name": "Namsang Airport",
-        "iata_code": "NMS",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 20.8917,
-        "longitude": 97.7358
-    },
-    "Pakokku": {
-        "airport_name": "Pakokku Airport",
-        "iata_code": "PKK",
-        "airport_type": "Local",
-        "has_airport": True,
-        "latitude": 21.3333,
-        "longitude": 95.0833
-    }
+    
+    # DESTINATIONS WITHOUT AIRPORTS (Bus/Car only)
+    'Pyin Oo Lwin': {'has_airport': False},
+    'Hsipaw': {'has_airport': False},
+    'Kalaw': {'has_airport': False},
+    'Hpa-An': {'has_airport': False},
+    'Monywa': {'has_airport': False},
+    'Taunggyi': {'has_airport': False},
+    'Inle Lake': {'has_airport': False},
+    'Ngapali Beach': {'has_airport': False},
+    'Ngwe Saung Beach': {'has_airport': False},
+    'Kyaiktiyo': {'has_airport': False},
+    'Mrauk U': {'has_airport': False},
+    'Bago': {'has_airport': False},
+    'Sagaing': {'has_airport': False},
+    'Magway': {'has_airport': False},
+    'Kachin State': {'has_airport': False},
+    'Kayah State': {'has_airport': False},
+    'Kayin State': {'has_airport': False},
+    'Chin State': {'has_airport': False},
+    'Mon State': {'has_airport': False},
+    'Rakhine State': {'has_airport': False},
+    'Shan State': {'has_airport': False},
 }
 
 def get_airport_info(destination_name):
     """
     Get airport information for a destination
-    Returns dict with airport info or None if no airport
+    
+    Args:
+        destination_name (str): Name of the destination
+    
+    Returns:
+        dict: Airport information or {'has_airport': False} if no airport
     """
-    # Check exact match
-    if destination_name in AIRPORT_DATA:
-        return AIRPORT_DATA[destination_name]
+    if not destination_name:
+        return {'has_airport': False}
+    
+    # Clean the destination name
+    destination_name = str(destination_name).strip()
+    
+    # Check exact match first
+    if destination_name in MYANMAR_AIRPORTS:
+        return MYANMAR_AIRPORTS[destination_name]
+    
+    # Check for "Inle Lake" (uses Heho airport)
+    if 'Inle Lake' in destination_name or 'Inle' in destination_name:
+        return MYANMAR_AIRPORTS['Heho']
+    
+    # Check for "Ngapali Beach" (uses Thandwe airport)
+    if 'Ngapali' in destination_name:
+        return MYANMAR_AIRPORTS['Thandwe']
     
     # Check partial matches
-    for city, data in AIRPORT_DATA.items():
-        if city.lower() in destination_name.lower() or destination_name.lower() in city.lower():
-            return data
+    for key, info in MYANMAR_AIRPORTS.items():
+        if key.lower() in destination_name.lower() or destination_name.lower() in key.lower():
+            return info
     
-    return None
+    # Default to no airport
+    return {'has_airport': False}
 
 def destination_has_airport(destination_name):
-    """Check if a destination has an airport"""
-    return get_airport_info(destination_name) is not None
+    """
+    Check if a destination has an airport
+    
+    Args:
+        destination_name (str): Name of the destination
+    
+    Returns:
+        bool: True if destination has airport, False otherwise
+    """
+    info = get_airport_info(destination_name)
+    return info.get('has_airport', False)
+
+def get_nearest_airport(destination_name):
+    """
+    Get nearest airport for a destination without airport
+    
+    Args:
+        destination_name (str): Name of the destination
+    
+    Returns:
+        dict: Nearest airport information
+    """
+    info = get_airport_info(destination_name)
+    
+    # If destination has airport, return it
+    if info.get('has_airport', False):
+        return info
+    
+    # Map destinations without airports to nearest airports
+    nearest_airport_map = {
+        'Pyin Oo Lwin': 'Mandalay',
+        'Hsipaw': 'Lashio',  # Note: Lashio not in our list, using Mandalay
+        'Kalaw': 'Heho',
+        'Hpa-An': 'Hpa-An has no airport, nearest is Yangon',
+        'Monywa': 'Mandalay',
+        'Taunggyi': 'Heho',
+        'Inle Lake': 'Heho',
+        'Ngapali Beach': 'Thandwe',
+        'Ngwe Saung Beach': 'Pathein',
+        'Kyaiktiyo': 'Yangon',
+        'Mrauk U': 'Sittwe',
+        'Bago': 'Yangon',
+        'Sagaing': 'Mandalay',
+        'Magway': 'Magway has no airport, nearest is Bagan',
+    }
+    
+    if destination_name in nearest_airport_map:
+        nearest = nearest_airport_map[destination_name]
+        if nearest in MYANMAR_AIRPORTS:
+            return MYANMAR_AIRPORTS[nearest]
+    
+    # Default to Yangon
+    return MYANMAR_AIRPORTS['Yangon']

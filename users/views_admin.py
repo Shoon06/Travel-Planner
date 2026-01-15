@@ -1,4 +1,3 @@
-# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView, DetailView
@@ -14,7 +13,7 @@ import json
 from datetime import datetime
 
 from .models import CustomUser
-from planner.models import TripPlan, Destination, Hotel, Flight, BusService, CarRental, Airline
+from planner.models import TripPlan, Destination, Hotel, Flight, BusService, CarRental, Airline, TransportSchedule
 from posts.models import Post
 from .forms_admin import (
     CustomUserAdminForm,
@@ -43,11 +42,13 @@ def admin_dashboard(request):
     total_destinations = Destination.objects.count()
     total_flights = Flight.objects.count()
     total_buses = BusService.objects.count()
+    total_schedules = TransportSchedule.objects.count()
     
     # Recent activities
     recent_hotels = Hotel.objects.order_by('-created_at')[:5]
     recent_users = CustomUser.objects.order_by('-date_joined')[:5]
     recent_trips = TripPlan.objects.select_related('user', 'destination').order_by('-created_at')[:5]
+    recent_schedules = TransportSchedule.objects.select_related().order_by('-created_at')[:5]
     
     context = {
         'total_users': total_users,
@@ -56,9 +57,11 @@ def admin_dashboard(request):
         'total_destinations': total_destinations,
         'total_flights': total_flights,
         'total_buses': total_buses,
+        'total_schedules': total_schedules,
         'recent_hotels': recent_hotels,
         'recent_users': recent_users,
         'recent_trips': recent_trips,
+        'recent_schedules': recent_schedules,
     }
     
     return render(request, 'users/admin_dashboard.html', context)
@@ -599,7 +602,7 @@ def admin_trip_details(request, trip_id):
     context = {
         'trip': trip,
         'nights': trip.calculate_nights(),
-        'total_cost': trip.get_total_cost(),
+        'total_cost': trip.get_total_cost_in_mmk(),
     }
     
     return render(request, 'users/admin_trip_details.html', context)
@@ -743,25 +746,104 @@ def admin_buses(request):
     
     return render(request, 'users/admin_buses.html', context)
 
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+# Update the admin_add_bus function:
+
 @user_passes_test(is_admin)
 def admin_add_bus(request):
-    """Add new bus service"""
+    """Add new bus service with recurring schedules"""
     if request.method == 'POST':
         form = AdminAddBusForm(request.POST, request.FILES)
         if form.is_valid():
             bus = form.save()
-            messages.success(request, f'Bus service {bus.company} added successfully!')
+            
+            # Get schedule parameters
+            schedule_type = request.POST.get('schedule_type', 'recurring')
+            start_date_str = request.POST.get('start_date')
+            end_date_str = request.POST.get('end_date')
+            num_days = int(request.POST.get('num_days', 30))
+            
+            # Create schedules
+            schedules_created = create_bus_schedules(bus, schedule_type, start_date_str, end_date_str, num_days)
+            
+            messages.success(request, 
+                f'Bus service "{bus.company}" added successfully with {schedules_created} schedule(s)!'
+            )
             return redirect('users:admin_buses')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
         form = AdminAddBusForm()
     
+    # Calculate default dates for template
+    from datetime import date, timedelta
+    today = date.today()
+    next_month = today + timedelta(days=30)
+    
     context = {
         'form': form,
-        'title': 'Add Bus Service'
+        'title': 'Add Bus Service',
+        'today': today,
+        'next_month': next_month,
     }
     return render(request, 'users/admin_add_bus.html', context)
+
+def create_bus_schedules(bus, schedule_type, start_date_str, end_date_str=None, num_days=30):
+    """Create transport schedules for a bus"""
+    from datetime import datetime, timedelta
+    import calendar
+    
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        
+        # Determine end date
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            end_date = start_date + timedelta(days=num_days - 1)
+        
+        schedules_created = 0
+        
+        # Generate dates based on schedule type
+        current_date = start_date
+        while current_date <= end_date:
+            # Check if we should create schedule for this date
+            create_schedule = False
+            
+            if schedule_type == 'single':
+                create_schedule = (current_date == start_date)
+            elif schedule_type == 'recurring':
+                create_schedule = True
+            elif schedule_type == 'weekdays':
+                # Monday=0, Sunday=6
+                create_schedule = current_date.weekday() < 5
+            elif schedule_type == 'weekends':
+                create_schedule = current_date.weekday() >= 5
+            
+            if create_schedule:
+                # Create TransportSchedule
+                schedule, created = TransportSchedule.objects.get_or_create(
+                    transport_type='bus',
+                    transport_id=bus.id,
+                    travel_date=current_date,
+                    defaults={
+                        'departure_time': bus.departure_time,
+                        'total_seats': bus.total_seats,
+                        'available_seats': bus.available_seats,
+                        'price': bus.price,
+                        'is_active': bus.is_active,
+                    }
+                )
+                if created:
+                    schedules_created += 1
+            
+            current_date += timedelta(days=1)
+        
+        return schedules_created
+        
+    except Exception as e:
+        print(f"Error creating bus schedules: {e}")
+        return 0
 
 @user_passes_test(is_admin)
 def admin_edit_bus(request, bus_id):
@@ -962,6 +1044,62 @@ def admin_edit_airline(request, airline_id):
     }
     return render(request, 'users/admin_add_airline.html', context)
 
+# ==================== SCHEDULE MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_schedules(request):
+    """Admin transport schedules view"""
+    schedules = TransportSchedule.objects.select_related().order_by('-travel_date', 'transport_type')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        schedules = schedules.filter(
+            Q(transport_type__icontains=search_query) |
+            Q(travel_date__icontains=search_query)
+        )
+    
+    # Filter by transport type
+    transport_type = request.GET.get('transport_type', '')
+    if transport_type:
+        schedules = schedules.filter(transport_type=transport_type)
+    
+    # Filter by date range
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if date_from:
+        schedules = schedules.filter(travel_date__gte=date_from)
+    if date_to:
+        schedules = schedules.filter(travel_date__lte=date_to)
+    
+    # Filter by status
+    status = request.GET.get('status', '')
+    if status == 'active':
+        schedules = schedules.filter(is_active=True)
+    elif status == 'inactive':
+        schedules = schedules.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(schedules, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistics
+    total_schedules = TransportSchedule.objects.count()
+    active_schedules = TransportSchedule.objects.filter(is_active=True).count()
+    upcoming_schedules = TransportSchedule.objects.filter(travel_date__gte=timezone.now().date()).count()
+    
+    context = {
+        'schedules': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': paginator.num_pages > 1,
+        'total_schedules': total_schedules,
+        'active_schedules': active_schedules,
+        'upcoming_schedules': upcoming_schedules,
+        'transport_types': [('flight', 'Flight'), ('bus', 'Bus'), ('car', 'Car')],
+    }
+    
+    return render(request, 'users/admin_schedules.html', context)
+
 # ==================== CONTENT MANAGEMENT ====================
 @user_passes_test(is_admin)
 def admin_content(request):
@@ -974,6 +1112,7 @@ def admin_content(request):
         'buses_count': BusService.objects.count(),
         'cars_count': CarRental.objects.count(),
         'airlines_count': Airline.objects.count(),
+        'schedules_count': TransportSchedule.objects.count(),
         'posts_count': Post.objects.count(),
         
         # Recent content
@@ -981,6 +1120,7 @@ def admin_content(request):
         'recent_hotels': Hotel.objects.order_by('-created_at')[:5],
         'recent_flights': Flight.objects.order_by('-created_at')[:5],
         'recent_buses': BusService.objects.order_by('-created_at')[:5],
+        'recent_schedules': TransportSchedule.objects.order_by('-created_at')[:5],
         'recent_posts': Post.objects.order_by('-created_at')[:5],
     }
     
@@ -1000,6 +1140,7 @@ def admin_system_settings(request):
         'total_buses': BusService.objects.count(),
         'total_cars': CarRental.objects.count(),
         'total_airlines': Airline.objects.count(),
+        'total_schedules': TransportSchedule.objects.count(),
         'total_posts': Post.objects.count(),
     }
     
