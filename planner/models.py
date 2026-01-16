@@ -192,7 +192,17 @@ class Flight(models.Model):
 
 
 # ========== HOTEL MODEL ==========
+from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
+
 class Hotel(models.Model):
+    CATEGORY_CHOICES = [
+        ('budget', 'Budget (Under 50,000 MMK)'),
+        ('medium', 'Medium (50,000 - 150,000 MMK)'),
+        ('luxury', 'Luxury (150,000+ MMK)'),
+        ('high', 'High-End (Premium Luxury)'),
+    ]
+    
     name = models.CharField(max_length=200)
     destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='hotels')
     address = models.TextField()
@@ -204,12 +214,11 @@ class Hotel(models.Model):
         validators=[MinValueValidator(0)],
         help_text="Price in MMK (Myanmar Kyat)"
     )
-    category = models.CharField(max_length=20, choices=[
-        ('budget', 'Budget (Under 50,000 MMK)'),
-        ('medium', 'Medium (50,000 - 150,000 MMK)'),
-        ('luxury', 'Luxury (150,000+ MMK)'),
-    ])
-    amenities = models.JSONField(default=list)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='medium')
+    amenities = models.JSONField(
+        default=list,
+        help_text="List of amenities (e.g., ['wifi', 'pool', 'spa'])"
+    )
     rating = models.DecimalField(
         max_digits=2, 
         decimal_places=1, 
@@ -222,6 +231,7 @@ class Hotel(models.Model):
     gallery_images = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     created_by_admin = models.BooleanField(default=False, help_text="Whether this hotel was created by admin")
     is_real_hotel = models.BooleanField(default=False, help_text="Is this a real hotel from Google Maps?")
     google_place_id = models.CharField(max_length=255, blank=True, null=True)
@@ -231,15 +241,76 @@ class Hotel(models.Model):
     check_in_time = models.TimeField(default='14:00')
     check_out_time = models.TimeField(default='12:00')
     
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['destination', 'category']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['price_per_night']),
+        ]
+    
     def __str__(self):
         return f"{self.name} - {self.destination.name}"
     
     def price_in_mmk(self):
         """Return price formatted in MMK"""
-        return f"{int(self.price_per_night):,}"
+        if self.price_per_night:
+            return f"{int(self.price_per_night):,} MMK"
+        return "0 MMK"
+    
+    def get_category_display(self):
+        """Get display name for category"""
+        for code, name in self.CATEGORY_CHOICES:
+            if code == self.category:
+                return name.split(' (')[0]  # Remove price range from display
+        return self.category.title()
+    
+    def get_category_color(self):
+        """Get color for category badge"""
+        colors = {
+            'budget': 'success',
+            'medium': 'warning',
+            'luxury': 'danger',
+            'high': 'danger',
+        }
+        return colors.get(self.category, 'secondary')
     
     def get_amenities_display(self):
-        return ', '.join([amenity.title() for amenity in self.amenities])
+        """Return formatted amenities string"""
+        if not self.amenities:
+            return ""
+        
+        if isinstance(self.amenities, list):
+            return ', '.join([amenity.replace('_', ' ').title() for amenity in self.amenities])
+        elif isinstance(self.amenities, str):
+            return self.amenities
+        return str(self.amenities)
+    
+    def get_amenities_list(self):
+        """Return amenities as list"""
+        if not self.amenities:
+            return []
+        
+        if isinstance(self.amenities, list):
+            return self.amenities
+        elif isinstance(self.amenities, str):
+            try:
+                import json
+                parsed = json.loads(self.amenities)
+                if isinstance(parsed, list):
+                    return parsed
+            except:
+                pass
+            # If it's a comma-separated string
+            if ',' in self.amenities:
+                return [a.strip() for a in self.amenities.split(',')]
+            return [self.amenities.strip()]
+        return []
+    
+    def has_amenity(self, amenity_name):
+        """Check if hotel has a specific amenity"""
+        amenities_list = self.get_amenities_list()
+        return amenity_name in amenities_list
     
     def has_coordinates(self):
         return self.latitude is not None and self.longitude is not None
@@ -258,13 +329,14 @@ class Hotel(models.Model):
             'review_count': self.review_count,
             'category': self.category,
             'category_display': self.get_category_display(),
-            'amenities': self.amenities[:5],
+            'category_color': self.get_category_color(),
+            'amenities': self.get_amenities_list()[:5],
             'is_real': self.is_real_hotel,
             'is_our_hotel': self.created_by_admin,
             'image_url': self.image.url if self.image else '',
             'has_image': bool(self.image),
-            'gallery_images': self.gallery_images,
-            'description': self.description[:100] + '...' if len(self.description) > 100 else self.description
+            'gallery_images': self.gallery_images if isinstance(self.gallery_images, list) else [],
+            'description': self.description[:100] + '...' if self.description and len(self.description) > 100 else (self.description or '')
         }
     
     def get_booking_data(self):
@@ -273,11 +345,54 @@ class Hotel(models.Model):
             'id': self.id,
             'name': self.name,
             'price': float(self.price_per_night),
+            'price_display': self.price_in_mmk(),
             'category': self.category,
+            'category_display': self.get_category_display(),
             'address': self.address,
             'rating': float(self.rating),
-            'is_real_hotel': self.is_real_hotel
+            'review_count': self.review_count,
+            'is_real_hotel': self.is_real_hotel,
+            'amenities': self.get_amenities_list()[:3]
         }
+    
+    def get_maps_iframe_url(self):
+        """Generate Google Maps iframe URL"""
+        if not self.address:
+            return ""
+        
+        maps_query = f"{self.name} {self.address} {self.destination.name} Myanmar"
+        maps_query_encoded = urllib.parse.quote(maps_query)
+        return f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={maps_query_encoded}&t=&z=14&ie=UTF8&iwloc=B&output=embed"
+    
+    def get_maps_search_url(self):
+        """Generate Google Maps search URL"""
+        if not self.address:
+            return ""
+        
+        maps_query = f"{self.name} {self.address} {self.destination.name} Myanmar"
+        maps_query_encoded = urllib.parse.quote(maps_query)
+        return f"https://www.google.com/maps/search/?api=1&query={maps_query_encoded}"
+    
+    def is_available(self, start_date, end_date, travelers=1):
+        """Check if hotel is available for given dates"""
+        # This is a simplified version - you might want to add real availability checking
+        return self.is_active
+    
+    def calculate_total_price(self, nights, travelers=1):
+        """Calculate total price for stay"""
+        if not nights or nights <= 0:
+            nights = 1
+        
+        base_price = float(self.price_per_night)
+        total = base_price * nights
+        
+        # You could add logic for additional travelers here
+        return total
+    
+    def get_total_price_display(self, nights, travelers=1):
+        """Get formatted total price"""
+        total = self.calculate_total_price(nights, travelers)
+        return f"{int(total):,} MMK"
 
 
 # ========== BUS SERVICE MODEL ==========

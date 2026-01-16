@@ -52,7 +52,8 @@ urlpatterns = [
     path('book-real-hotel/<int:trip_id>/', views.BookRealHotelView.as_view(), name='book_real_hotel'),
     path('clear-trip/', views.ClearTripDataView.as_view(), name='clear_trip'),
     path('test/', views.test_view, name='test'),
-    
+    path('trip/<int:trip_id>/hotels/map/', views.SelectHotelWithMapView.as_view(), name='select_hotel_map'),
+    path('filter-hotels/<int:destination_id>/', views.FilterHotelsView.as_view(), name='filter_hotels'),
     # Plan selection and itinerary URLs
     path('trip/<int:trip_id>/plans/', views.PlanSelectionView.as_view(), name='plan_selection'),
     path('trip/<int:trip_id>/select-plan/', views.SelectPlanView.as_view(), name='select_plan'),

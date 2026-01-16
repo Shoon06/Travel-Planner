@@ -1,5 +1,7 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\templatetags\custom_filters.py
 from django import template
+import urllib.parse
+from decimal import Decimal
 
 register = template.Library()
 
@@ -54,3 +56,62 @@ def days_since(date):
         return 0
     delta = timezone.now().date() - date
     return delta.days
+
+# NEW FILTERS ADDED BELOW
+
+@register.filter
+def replace(value, arg):
+    """Replace characters in string. Usage: {{ value|replace:"old,new" }}"""
+    if not value or not arg:
+        return value
+    try:
+        old, new = arg.split(',', 1)
+        return str(value).replace(old.strip(), new.strip())
+    except:
+        return value
+
+@register.filter
+def urlencode(value):
+    """URL encode a string"""
+    try:
+        return urllib.parse.quote(str(value))
+    except:
+        return value
+
+@register.filter
+def contains(list_obj, item):
+    """Check if item is in list"""
+    if not list_obj:
+        return False
+    try:
+        return item in list_obj
+    except:
+        return False
+
+@register.filter
+def format_amenity(amenity):
+    """Format amenity name for display"""
+    if not amenity:
+        return ""
+    # Replace underscores with spaces and capitalize
+    return str(amenity).replace('_', ' ').title()
+
+@register.filter
+def first_n_items(list_obj, n):
+    """Get first n items from list"""
+    if not list_obj:
+        return []
+    try:
+        return list_obj[:int(n)]
+    except:
+        return list_obj
+
+@register.filter
+def list_length(list_obj):
+    """Get length of list"""
+    if not list_obj:
+        return 0
+    try:
+        return len(list_obj)
+    except:
+        return 0

@@ -1,6 +1,6 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 # COMPLETE CORRECTED VERSION
-
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import TemplateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -989,21 +989,116 @@ class DestinationSearchView(View):
 # Replace the entire SelectHotelWithMapView class with this:
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 # Replace the SelectHotelWithMapView class with this SIMPLER version:
+# ========== HOTEL SELECTION WITH MAP ==========
+
+# ========== HOTEL SELECTION WITH MAP ==========
+# ========== HOTEL SELECTION WITH MAP ==========
+
 
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     """View for selecting hotels with SIMPLE Google Maps iframe embeds (NO API KEY)"""
-    template_name = 'planner/select_hotel_map_simple.html'  # Changed template name
+    template_name = 'planner/select_hotel_map_simple.html'
     
     def get(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         
         nights = trip.calculate_nights()
         
+        # Get filter parameters from request
+        category_filter = request.GET.get('category', 'all')
+        amenities_filter = request.GET.getlist('amenities')
+        
+        print(f"🔍 DEBUG: Starting hotel filtering")
+        print(f"🔍 DEBUG: Destination: {trip.destination.name}")
+        print(f"🔍 DEBUG: Category filter: {category_filter}")
+        print(f"🔍 DEBUG: Amenities filter: {amenities_filter}")
+        
         # Get hotels for this destination from YOUR DATABASE
         hotels = Hotel.objects.filter(
             destination=trip.destination,
             is_active=True
-        ).order_by('price_per_night')
+        )
+        
+        print(f"🔍 DEBUG: Initial hotels found: {hotels.count()}")
+        
+        # Apply category filter
+        if category_filter != 'all':
+            print(f"🔍 DEBUG: Applying category filter: {category_filter}")
+            if category_filter == 'budget':
+                hotels = hotels.filter(category='budget')
+            elif category_filter == 'medium':
+                hotels = hotels.filter(category='medium')
+            elif category_filter == 'luxury' or category_filter == 'high':
+                hotels = hotels.filter(category__in=['luxury', 'high'])
+            print(f"🔍 DEBUG: After category filter: {hotels.count()}")
+        
+        # Apply amenities filter - FIXED VERSION
+        if amenities_filter:
+            print(f"🔍 DEBUG: Applying amenities filter: {amenities_filter}")
+            
+            # Debug: Show what's in database
+            if hotels.exists():
+                sample_hotel = hotels.first()
+                print(f"🔍 DEBUG: Sample hotel: {sample_hotel.name}")
+                print(f"🔍 DEBUG: Sample amenities: {sample_hotel.amenities}")
+                print(f"🔍 DEBUG: Amenities type: {type(sample_hotel.amenities)}")
+            
+            # Build query for amenities
+            amenity_query = Q()
+            amenities_added = 0
+            
+            for amenity in amenities_filter:
+                if amenity and amenity.strip():  # Skip empty
+                    amenity_clean = amenity.strip()
+                    
+                    # IMPORTANT: The database uses underscores (air_conditioning)
+                    # Check if amenity has spaces, convert to underscore for database matching
+                    amenity_db_format = amenity_clean.replace(' ', '_').lower()
+                    print(f"🔍 DEBUG: Looking for amenity '{amenity_clean}' -> DB format: '{amenity_db_format}'")
+                    
+                    # For JSONField containing array of strings
+                    amenity_query &= Q(amenities__contains=amenity_db_format)
+                    amenities_added += 1
+            
+            print(f"🔍 DEBUG: Built query with {amenities_added} amenities")
+            
+            if amenities_added > 0:
+                hotels = hotels.filter(amenity_query)
+                print(f"🔍 DEBUG: After amenities filter: {hotels.count()} hotels")
+            else:
+                print(f"🔍 DEBUG: No valid amenities to filter")
+        
+        # Order hotels
+        hotels = hotels.order_by('price_per_night')
+        print(f"🔍 DEBUG: Final hotel count: {hotels.count()}")
+        
+        # Get all unique categories for this destination
+        categories = Hotel.objects.filter(
+            destination=trip.destination,
+            is_active=True
+        ).values_list('category', flat=True).distinct()
+        
+        # Get all unique amenities for this destination
+        all_amenities = set()
+        for hotel in Hotel.objects.filter(destination=trip.destination, is_active=True):
+            if hotel.amenities:
+                # Handle both list and string amenities
+                if isinstance(hotel.amenities, list):
+                    all_amenities.update(hotel.amenities)
+                elif isinstance(hotel.amenities, str):
+                    try:
+                        parsed_amenities = json.loads(hotel.amenities)
+                        if isinstance(parsed_amenities, list):
+                            all_amenities.update(parsed_amenities)
+                    except:
+                        # If it's a comma-separated string
+                        if ',' in hotel.amenities:
+                            all_amenities.update([a.strip() for a in hotel.amenities.split(',')])
+                        else:
+                            all_amenities.add(hotel.amenities.strip())
+        
+        print(f"🔍 DEBUG: Total unique amenities found: {len(all_amenities)}")
+        print(f"🔍 DEBUG: First 10 amenities: {list(all_amenities)[:10]}")
         
         # Prepare hotel data with Google Maps embed URL
         hotel_data = []
@@ -1023,6 +1118,21 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             # Generate iframe URL (NO API KEY NEEDED)
             iframe_url = f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={maps_query_encoded}&t=&z=14&ie=UTF8&iwloc=B&output=embed"
             
+            # Get amenities as list
+            hotel_amenities = []
+            if hotel.amenities:
+                if isinstance(hotel.amenities, list):
+                    hotel_amenities = hotel.amenities
+                elif isinstance(hotel.amenities, str):
+                    try:
+                        parsed = json.loads(hotel.amenities)
+                        if isinstance(parsed, list):
+                            hotel_amenities = parsed
+                        else:
+                            hotel_amenities = [hotel.amenities]
+                    except:
+                        hotel_amenities = [hotel.amenities]
+            
             hotel_data.append({
                 'id': hotel.id,
                 'name': hotel.name,
@@ -1033,16 +1143,25 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 'review_count': hotel.review_count,
                 'category': hotel.category,
                 'category_display': hotel.get_category_display(),
-                'amenities': hotel.amenities[:5] if hotel.amenities else [],
+                'amenities': hotel_amenities[:8],  # Show more amenities
+                'amenities_count': len(hotel_amenities),
                 'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
                 'image_url': image_url,
                 'phone_number': hotel.phone_number or '',
                 'website': hotel.website or '',
                 'has_image': bool(image_url),
                 'maps_query': maps_query,
-                'iframe_url': iframe_url,  # This is the iframe URL for Google Maps
+                'iframe_url': iframe_url,
                 'has_coordinates': bool(hotel.latitude and hotel.longitude),
             })
+        
+        print(f"🔍 DEBUG: Prepared {len(hotel_data)} hotels for display")
+        
+        # Sort amenities alphabetically for display
+        sorted_amenities = sorted(list(all_amenities))
+        
+        # Convert amenities to JSON for JavaScript
+        selected_amenities_json = json.dumps(amenities_filter)
         
         context = {
             'trip': trip,
@@ -1051,78 +1170,201 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             'destination_name': trip.destination.name,
             'destination_id': trip.destination.id,
             'today': timezone.now().date(),
+            'categories': list(categories),
+            'all_amenities': sorted_amenities,
+            'selected_category': category_filter,
+            'selected_amenities': amenities_filter,
+            'selected_amenities_json': selected_amenities_json,
         }
         return render(request, self.template_name, context)
-# ========== FILTER HOTELS VIEW ==========
+
+
 class FilterHotelsView(View):
     def get(self, request, destination_id):
         destination = get_object_or_404(Destination, id=destination_id)
         
+        # Get all filter parameters
         category = request.GET.get('category', 'all')
-        min_price = request.GET.get('min_price', 0)
-        max_price = request.GET.get('max_price', 1000000)
-        amenities = request.GET.getlist('amenities[]')
-        sort_by = request.GET.get('sort_by', 'price_asc')
+        amenities = request.GET.getlist('amenities[]', [])
         
-        try:
-            min_price = float(min_price)
-            max_price = float(max_price)
-        except:
-            min_price = 0
-            max_price = 1000000
+        print(f"🔍 DEBUG [FilterHotelsView]: Destination: {destination.name}")
+        print(f"🔍 DEBUG [FilterHotelsView]: Category: {category}")
+        print(f"🔍 DEBUG [FilterHotelsView]: Amenities: {amenities}")
         
+        # Start with all hotels for this destination
         hotels = Hotel.objects.filter(
             destination=destination,
             is_active=True
-        ).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+        )
         
+        print(f"🔍 DEBUG [FilterHotelsView]: Initial hotels: {hotels.count()}")
+        
+        # Apply category filter
         if category != 'all':
-            hotels = hotels.filter(category=category)
+            if category == 'budget':
+                hotels = hotels.filter(category='budget')
+            elif category == 'medium':
+                hotels = hotels.filter(category='medium')
+            elif category == 'luxury':
+                hotels = hotels.filter(category__in=['luxury', 'high'])
+            print(f"🔍 DEBUG [FilterHotelsView]: After category filter: {hotels.count()}")
         
-        hotels = hotels.filter(price_per_night__gte=min_price, price_per_night__lte=max_price)
-        
+        # Apply amenities filter - FIXED VERSION
         if amenities:
+            print(f"🔍 DEBUG [FilterHotelsView]: Filtering amenities: {amenities}")
+            
+            amenity_query = Q()
             for amenity in amenities:
-                hotels = hotels.filter(amenities__contains=[amenity])
+                if amenity and amenity.strip():
+                    # Convert spaces to underscores to match database format
+                    amenity_db_format = amenity.strip().replace(' ', '_').lower()
+                    print(f"🔍 DEBUG [FilterHotelsView]: Looking for: '{amenity}' -> DB: '{amenity_db_format}'")
+                    
+                    # Filter hotels that have this amenity
+                    amenity_query &= Q(amenities__contains=amenity_db_format)
+            
+            if amenity_query:
+                hotels = hotels.filter(amenity_query)
+                print(f"🔍 DEBUG [FilterHotelsView]: After amenities filter: {hotels.count()}")
         
-        if sort_by == 'price_asc':
-            hotels = hotels.order_by('price_per_night')
-        elif sort_by == 'price_desc':
-            hotels = hotels.order_by('-price_per_night')
-        elif sort_by == 'rating_desc':
-            hotels = hotels.order_by('-rating')
-        elif sort_by == 'name_asc':
-            hotels = hotels.order_by('name')
+        # Order by price
+        hotels = hotels.order_by('price_per_night')
         
+        # Prepare hotel data
         hotel_data = []
         for hotel in hotels:
+            image_url = ''
+            if hotel.image and hasattr(hotel.image, 'url'):
+                try:
+                    image_url = hotel.image.url
+                except:
+                    image_url = ''
+            
+            maps_query = f"{hotel.name} {hotel.address} {destination.name} Myanmar"
+            
+            # Get amenities as list
+            hotel_amenities = []
+            if hotel.amenities:
+                if isinstance(hotel.amenities, list):
+                    hotel_amenities = hotel.amenities
+                elif isinstance(hotel.amenities, str):
+                    try:
+                        import json
+                        parsed = json.loads(hotel.amenities)
+                        if isinstance(parsed, list):
+                            hotel_amenities = parsed
+                    except:
+                        hotel_amenities = [hotel.amenities]
+            
             hotel_data.append({
                 'id': hotel.id,
                 'name': hotel.name,
                 'address': hotel.address,
-                'latitude': float(hotel.latitude) if hotel.latitude else None,
-                'longitude': float(hotel.longitude) if hotel.longitude else None,
                 'price': float(hotel.price_per_night),
                 'price_display': hotel.price_in_mmk(),
                 'rating': float(hotel.rating),
                 'review_count': hotel.review_count,
                 'category': hotel.category,
                 'category_display': hotel.get_category_display(),
-                'amenities': hotel.amenities,
-                'description': hotel.description,
+                'amenities': hotel_amenities,
+                'amenities_count': len(hotel_amenities),
+                'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
+                'image_url': image_url,
+                'maps_query': maps_query,
+                'iframe_url': f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={urllib.parse.quote(maps_query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed",
                 'phone': hotel.phone_number or '',
-                'website': hotel.website or '',
-                'is_real_hotel': hotel.is_real_hotel,
-                'has_image': bool(hotel.image)
+                'has_image': bool(image_url),
             })
+        
+        print(f"🔍 DEBUG [FilterHotelsView]: Found {len(hotel_data)} hotels")
         
         return JsonResponse({
             'success': True,
             'hotels': hotel_data,
-            'count': len(hotel_data)
+            'count': len(hotel_data),
+            'filters': {
+                'category': category,
+                'amenities': amenities,
+            }
         })
-
-
+# ========== FILTER HOTELS VIEW ==========
+class FilterHotelsView(View):
+    def get(self, request, destination_id):
+        destination = get_object_or_404(Destination, id=destination_id)
+        
+        # Get all filter parameters
+        category = request.GET.get('category', 'all')
+        amenities = request.GET.getlist('amenities[]', [])
+        
+        print(f"DEBUG: Filtering hotels for {destination.name}")
+        print(f"DEBUG: Category: {category}, Amenities: {amenities}")
+        
+        # Start with all hotels for this destination
+        hotels = Hotel.objects.filter(
+            destination=destination,
+            is_active=True
+        )
+        
+        # Apply category filter
+        if category != 'all':
+            if category == 'budget':
+                hotels = hotels.filter(category='budget')
+            elif category == 'medium':
+                hotels = hotels.filter(category='medium')
+            elif category == 'luxury':
+                hotels = hotels.filter(category__in=['luxury', 'high'])
+        
+        # Apply amenities filter - SIMPLE VERSION
+        if amenities:
+            # Filter hotels that have ALL selected amenities
+            for amenity in amenities:
+                hotels = hotels.filter(amenities__contains=amenity)
+        
+        # Order by price
+        hotels = hotels.order_by('price_per_night')
+        
+        # Prepare hotel data
+        hotel_data = []
+        for hotel in hotels:
+            image_url = ''
+            if hotel.image and hasattr(hotel.image, 'url'):
+                try:
+                    image_url = hotel.image.url
+                except:
+                    image_url = ''
+            
+            maps_query = f"{hotel.name} {hotel.address} {destination.name} Myanmar"
+            
+            hotel_data.append({
+                'id': hotel.id,
+                'name': hotel.name,
+                'address': hotel.address,
+                'price': float(hotel.price_per_night),
+                'price_display': hotel.price_in_mmk(),
+                'rating': float(hotel.rating),
+                'review_count': hotel.review_count,
+                'category': hotel.category,
+                'category_display': hotel.get_category_display(),
+                'amenities': hotel.amenities if hotel.amenities else [],
+                'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
+                'image_url': image_url,
+                'maps_query': maps_query,
+                'iframe_url': f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={urllib.parse.quote(maps_query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed",
+                'phone': hotel.phone_number or '',
+                'has_image': bool(image_url),
+            })
+        
+        print(f"DEBUG: Found {len(hotel_data)} hotels")
+        
+        return JsonResponse({
+            'success': True,
+            'hotels': hotel_data,
+            'count': len(hotel_data),
+            'filters': {
+                'category': category,
+                'amenities': amenities,
+            }
+        })
 # ========== SAVE HOTEL VIEW ==========
 class SaveHotelView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
