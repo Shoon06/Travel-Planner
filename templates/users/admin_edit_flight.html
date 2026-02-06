@@ -1,0 +1,294 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_edit_flight.html -->
+{% extends 'base.html' %}
+{% block title %}Edit Flight - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-plane fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Edit Flight</h2>
+                    <p class="text-gray">Update flight information</p>
+                </div>
+                
+                <!-- Flight Info Header -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex align-items-center">
+                        {% if flight.airline.logo %}
+                        <img src="{{ flight.airline.logo.url }}" alt="{{ flight.airline.name }}" 
+                             class="rounded me-3" style="width: 60px; height: 60px; object-fit: contain;">
+                        {% else %}
+                        <div class="rounded bg-light d-flex align-items-center justify-content-center me-3" 
+                             style="width: 60px; height: 60px;">
+                            <i class="fas fa-plane fa-2x text-gray"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h5 class="mb-1">{{ flight.airline.name }} {{ flight.flight_number }}</h5>
+                            <p class="mb-0">{{ flight.departure.name }} → {{ flight.arrival.name }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Flight Details Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Airline
+                                </label>
+                                {{ form.airline }}
+                                {% if form.airline.errors %}
+                                <div class="text-danger small mt-1">{{ form.airline.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Flight Number
+                                </label>
+                                {{ form.flight_number }}
+                                {% if form.flight_number.errors %}
+                                <div class="text-danger small mt-1">{{ form.flight_number.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Route Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Departure
+                                </label>
+                                {{ form.departure }}
+                                {% if form.departure.errors %}
+                                <div class="text-danger small mt-1">{{ form.departure.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Arrival
+                                </label>
+                                {{ form.arrival }}
+                                {% if form.arrival.errors %}
+                                <div class="text-danger small mt-1">{{ form.arrival.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Schedule Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Departure Time
+                                </label>
+                                {{ form.departure_time }}
+                                {% if form.departure_time.errors %}
+                                <div class="text-danger small mt-1">{{ form.departure_time.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Arrival Time
+                                </label>
+                                {{ form.arrival_time }}
+                                {% if form.arrival_time.errors %}
+                                <div class="text-danger small mt-1">{{ form.arrival_time.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Duration
+                                </label>
+                                {{ form.duration }}
+                                {% if form.duration.errors %}
+                                <div class="text-danger small mt-1">{{ form.duration.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pricing Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Price (MMK)
+                                </label>
+                                {{ form.price }}
+                                {% if form.price.errors %}
+                                <div class="text-danger small mt-1">{{ form.price.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Category
+                                </label>
+                                {{ form.category }}
+                                {% if form.category.errors %}
+                                <div class="text-danger small mt-1">{{ form.category.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Capacity Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Total Seats
+                                </label>
+                                {{ form.total_seats }}
+                                {% if form.total_seats.errors %}
+                                <div class="text-danger small mt-1">{{ form.total_seats.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" style="color: #2c3e50;">
+                                    Available Seats
+                                </label>
+                                {{ form.available_seats }}
+                                {% if form.available_seats.errors %}
+                                <div class="text-danger small mt-1">{{ form.available_seats.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Other Fields -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">
+                            Description
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">
+                            Amenities (JSON Array)
+                        </label>
+                        {{ form.amenities }}
+                        <small class="form-text text-muted">Enter as JSON array: ["wifi", "meals", "entertainment"]</small>
+                        {% if form.amenities.errors %}
+                        <div class="text-danger small mt-1">{{ form.amenities.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">
+                            Flight Image
+                        </label>
+                        {{ form.flight_image }}
+                        {% if form.flight_image.errors %}
+                        <div class="text-danger small mt-1">{{ form.flight_image.errors }}</div>
+                        {% endif %}
+                        {% if flight.flight_image %}
+                        <div class="mt-2">
+                            <img src="{{ flight.flight_image.url }}" alt="Flight Image" 
+                                 class="img-thumbnail" style="max-width: 200px;">
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-bold" style="color: #2c3e50;" for="{{ form.is_active.id_for_label }}">
+                                Active Flight
+                            </label>
+                        </div>
+                        {% if form.is_active.errors %}
+                        <div class="text-danger small mt-1">{{ form.is_active.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'users:admin_flights' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Update Flight
+                        </button>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-4">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        padding: 10px 15px;
+        border-radius: 8px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background: white;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+    }
+    
+    .form-label {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+    }
+    
+    .form-check-label {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .feature-icon.gradient-teal {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}

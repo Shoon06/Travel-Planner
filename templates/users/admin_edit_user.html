@@ -1,0 +1,285 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_edit_user.html -->
+
+{% extends 'base.html' %}
+{% block title %}Edit User - Admin - Myanmar Travel Planner{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <div class="card-glass p-5">
+
+                <h2 class="mb-4">Edit User</h2>
+
+
+                <!-- User Header -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex align-items-center">
+
+                        {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture.url }}"
+                             alt="{{ user.username }}"
+                             class="rounded-circle me-3"
+                             style="width:80px;height:80px;object-fit:cover;">
+                        {% else %}
+                        <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
+                             style="width:80px;height:80px;
+                             background:linear-gradient(135deg,#6B47A4,#3498db);">
+
+                            <span class="text-white fw-bold" style="font-size:24px;">
+                                {{ user.username|first|upper }}
+                            </span>
+
+                        </div>
+                        {% endif %}
+
+                        <div>
+                            <h5 class="mb-1">{{ user.username }}</h5>
+                            <p class="mb-0">
+                                {{ user.email }} • Joined {{ user.date_joined|date:"M d, Y" }}
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+
+                    <!-- User Info -->
+                    <div class="row mb-4">
+
+                        <!-- Left -->
+                        <div class="col-md-6">
+                            <div class="card-glass p-3 h-100">
+
+                                <h6 class="mb-3">User Details</h6>
+
+                                <div class="mb-2">
+                                    <strong>User ID:</strong> {{ user.id }}
+                                </div>
+
+                                <div class="mb-2">
+                                    <strong>Type:</strong>
+
+                                    <span class="badge
+                                    {% if user.user_type == 'admin' %}
+                                        bg-danger
+                                    {% else %}
+                                        bg-primary
+                                    {% endif %}
+                                    ">
+                                        {{ user.user_type|title }}
+                                    </span>
+                                </div>
+
+                                <div class="mb-2">
+                                    <strong>Status:</strong>
+
+                                    <span class="badge
+                                    {% if user.is_active %}
+                                        bg-success
+                                    {% else %}
+                                        bg-secondary
+                                    {% endif %}
+                                    ">
+                                        {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <strong>Last Login:</strong>
+
+                                    {% if user.last_login %}
+                                        {{ user.last_login|date:"M d, Y H:i" }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </div>
+
+                            </div>
+                        </div>
+
+
+                        <!-- Right -->
+                        <div class="col-md-6">
+                            <div class="card-glass p-3 h-100">
+
+                                <h6 class="mb-3">Statistics</h6>
+
+                                <div class="mb-2">
+                                    <strong>Trips Created:</strong>
+                                    {{ user.trips.count }} trips
+                                </div>
+
+                                <div class="mb-2">
+                                    <strong>Posts:</strong>
+                                    {{ user.post_set.count }} posts
+                                </div>
+
+                                <div class="mb-2">
+                                    <strong>Date Joined:</strong>
+                                    {{ user.date_joined|date:"M d, Y" }}
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Profile Picture -->
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">
+                            Current Profile Picture
+                        </label>
+
+                        <div>
+
+                            {% if user.profile_picture %}
+                            <img src="{{ user.profile_picture.url }}"
+                                 alt="{{ user.username }}"
+                                 class="img-fluid rounded-circle"
+                                 style="max-height:200px;width:200px;object-fit:cover;">
+                            {% else %}
+
+                            <div class="border rounded p-4 text-center bg-light">
+
+                                <i class="fas fa-user fa-3x text-gray mb-2"></i>
+
+                                <p class="mb-0">
+                                    No profile picture uploaded
+                                </p>
+
+                            </div>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Form Fields (Filtered) -->
+                    {% for field in form %}
+
+                        {% if field.name not in 'password,is_staff,is_superuser,is_active' %}
+
+                        <div class="mb-3">
+
+                            <label class="form-label fw-bold">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+
+                            {% if field.errors %}
+                            <div class="text-danger small">
+                                {{ field.errors }}
+                            </div>
+                            {% endif %}
+
+                            {% if field.help_text %}
+                            <div class="form-text">
+                                {{ field.help_text }}
+                            </div>
+                            {% endif %}
+
+                        </div>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+
+
+                    <!-- Warning -->
+                    <div class="alert alert-warning mt-4">
+
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+
+                        <strong>Important:</strong>
+                        Changing user type to <b>admin</b> gives full permissions.
+                        Changing to <b>user</b> removes them.
+
+                    </div>
+
+
+
+                    <!-- Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+
+                        <a href="{% url 'users:admin_dashboard_users' %}"
+                           class="btn btn-outline-secondary me-md-2">
+
+                            <i class="fas fa-times me-2"></i>Cancel
+
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+
+                            <i class="fas fa-save me-2"></i>Update User
+
+                        </button>
+
+                    </div>
+
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Styles -->
+<style>
+
+.form-control,
+.form-select {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52,152,219,0.25);
+}
+
+.form-label {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.card-glass {
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.alert-info {
+    background-color: rgba(52,152,219,0.1);
+    border-color: rgba(52,152,219,0.3);
+    color: #2c3e50;
+}
+
+.alert-warning {
+    background-color: rgba(255,193,7,0.1);
+    border-color: rgba(255,193,7,0.3);
+    color: #856404;
+}
+
+</style>
+
+{% endblock %}

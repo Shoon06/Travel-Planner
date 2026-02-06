@@ -169,14 +169,18 @@
                         </td>
                         <td>
                             <div class="btn-group" role="group">
-                                <a href="/admin/users/customuser/{{ user.id }}/change/" 
-                                   class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit in Admin">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a href="{% url 'users:admin_user_roles' %}"  <!-- CHANGED THIS LINE -->
-                                   class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Manage Role">
+                               <a href="{% url 'users:admin_edit_user' user.id %}" 
+                                    class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit User">
+                                     <i class="fas fa-edit"></i>
+                               </a>
+                                <a href="{% url 'users:admin_user_roles' %}"
+                                   class="btn btn-sm btn-outline-info"
+                                   data-bs-toggle="tooltip"
+                                   title="Manage Role">
                                     <i class="fas fa-user-tag"></i>
                                 </a>
+
+
                                 {% if user != request.user %}
                                 <button class="btn btn-sm {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %} toggle-active-btn" 
                                         data-user-id="{{ user.id }}" data-user-name="{{ user.username }}"

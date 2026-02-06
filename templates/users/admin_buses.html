@@ -56,10 +56,10 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th style="color: #2c3e50;">Bus Name</th>
+                        <th style="color: #2c3e50;">Bus Number</th>
                         <th style="color: #2c3e50;">Operator</th>
                         <th style="color: #2c3e50;">Route</th>
-                        <th style="color: #2c3e50;">Departure</th>
+                        <th style="color: #2c3e50;">Departure Time</th>
                         <th style="color: #2c3e50;">Price</th>
                         <th style="color: #2c3e50;">Seats</th>
                         <th style="color: #2c3e50;">Type</th>
@@ -70,23 +70,27 @@
                 <tbody>
                     {% for bus in buses %}
                     <tr>
-                        <td style="color: #34495e; font-weight: 500;">{{ bus.name }}</td>
-                        <td style="color: #34495e;">{{ bus.operator }}</td>
+                        <td style="color: #34495e; font-weight: 500;">
+                            {{ bus.bus_number|default:bus.company|slice:":15" }}
+                        </td>
+                        <td style="color: #34495e;">{{ bus.company|slice:":20" }}</td>
                         <td>
-                            <div style="color: #2c3e50;">{{ bus.departure_city }} → {{ bus.arrival_city }}</div>
+                            <div style="color: #2c3e50;">{{ bus.departure.name }} → {{ bus.arrival.name }}</div>
                             <div class="text-gray small">
-                                {{ bus.departure_time|date:"M d, H:i" }} - {{ bus.arrival_time|date:"M d, H:i" }}
+                                Duration: {{ bus.get_duration_display }}
                             </div>
                         </td>
-                        <td style="color: #7f8c8d;">{{ bus.departure_time|date:"M d, Y" }}</td>
+                        <td style="color: #7f8c8d;">
+                            {{ bus.departure_time|time:"H:i" }}
+                        </td>
                         <td style="color: #34495e;">MMK {{ bus.price|floatformat:0 }}</td>
                         <td>
                             <span class="badge {% if bus.available_seats > 10 %}bg-success{% elif bus.available_seats > 0 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                                {{ bus.available_seats }} seats
+                                {{ bus.available_seats }} / {{ bus.total_seats }}
                             </span>
                         </td>
                         <td>
-                            <span class="badge {% if bus.bus_type == 'luxury' %}bg-danger{% elif bus.bus_type == 'express' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                            <span class="badge {% if bus.bus_type == 'luxury' %}bg-danger{% elif bus.bus_type == 'vip' %}bg-warning text-dark{% else %}bg-info{% endif %}">
                                 {{ bus.get_bus_type_display }}
                             </span>
                         </td>
@@ -99,7 +103,7 @@
                         </td>
                         <td>
                             <div class="btn-group" role="group">
-                                <a href="/admin/planner/busservice/{{ bus.id }}/change/" 
+                                <a href="{% url 'users:admin_edit_bus' bus.id %}" 
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>

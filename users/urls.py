@@ -10,6 +10,7 @@ urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
     path('logout/', views.logout_view, name='logout'),
     
+    path('admin/users/<int:user_id>/edit/', views_admin.admin_edit_user, name='admin_edit_user'),
     # Admin URLs
     path('admin/dashboard/', views_admin.admin_dashboard, name='admin_dashboard'),
     path('admin/users/', views_admin.AdminUserListView.as_view(), name='admin_dashboard_users'),
@@ -17,6 +18,7 @@ urlpatterns = [
     path('admin/users/roles/', views_admin.AdminUserRolesView.as_view(), name='admin_user_roles'),
     path('admin/users/update-role/', views_admin.admin_update_user_role, name='admin_update_user_role'),
     path('admin/users/toggle-active/<int:user_id>/', views_admin.admin_toggle_user_active, name='admin_toggle_user_active'),
+    path('admin/flights/<int:flight_id>/delete/', views_admin.admin_delete_flight, name='admin_delete_flight'),
     
     # Trip Management
     path('admin/trips/', views_admin.AdminTripListView.as_view(), name='admin_trip_list'),

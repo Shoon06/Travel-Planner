@@ -8,6 +8,7 @@ from .views import (
     SelectHotelWithMapView,
     FilterHotelsView,
     SaveHotelView,
+    DestinationDetailView,
     ConfirmSeatBookingView, 
     SelectTransportCategoryView,
     SelectTransportView,
@@ -29,7 +30,7 @@ from .views import (
     UpcomingTripsView,
     TripCostAnalysisView,
     VisitedDestinationsView,
-    DestinationListView, DestinationDetailView, DestinationAutocompleteView,
+    DestinationListView, DestinationAutocompleteView,
 )
 
 app_name = 'planner'

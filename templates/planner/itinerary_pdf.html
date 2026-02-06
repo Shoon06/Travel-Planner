@@ -4,39 +4,95 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ plan_title }} Itinerary - {{ trip.destination.name }}</title>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-        .section { margin-bottom: 30px; }
-        .day-section { page-break-inside: avoid; margin-bottom: 40px; }
-        .activity { margin-bottom: 15px; padding-left: 20px; border-left: 3px solid #3498db; }
-        .time { font-weight: bold; color: #3498db; }
-        .title { font-weight: bold; font-size: 1.1em; }
-        .location { color: #666; font-style: italic; }
-        .footer { text-align: center; margin-top: 50px; color: #666; font-size: 0.9em; }
-    </style>
 </head>
 <body>
     <div class="header">
         <h1>{{ plan_title }} Itinerary</h1>
-        <h2>{{ trip.destination.name }}</h2>
-        <p>{{ trip.start_date }} to {{ trip.end_date }} • {{ travelers }} Traveler(s)</p>
-        <p>Generated on {{ current_date }}</p>
+        <h2>{{ trip.destination.name }}, Myanmar</h2>
+        <p><strong>Travel Dates:</strong> {{ trip.start_date|date:"F d, Y" }} to {{ trip.end_date|date:"F d, Y" }}</p>
+        <p><strong>Duration:</strong> {{ days_data|length }} days • <strong>Travelers:</strong> {{ travelers }}</p>
+        <p><strong>Generated:</strong> {{ current_date }}</p>
+    </div>
+    
+    <div class="info-box">
+        <h4>Trip Overview</h4>
+        <table>
+            <tr>
+                <td><strong>Destination:</strong></td>
+                <td>{{ trip.destination.name }}, {{ trip.destination.region }}</td>
+            </tr>
+            <tr>
+                <td><strong>Travel Period:</strong></td>
+                <td>{{ trip.start_date|date:"F d, Y" }} - {{ trip.end_date|date:"F d, Y" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Number of Days:</strong></td>
+                <td>{{ days_data|length }} days</td>
+            </tr>
+            <tr>
+                <td><strong>Travelers:</strong></td>
+                <td>{{ travelers }} person{{ travelers|pluralize }}</td>
+            </tr>
+            <tr>
+                <td><strong>Travel Plan:</strong></td>
+                <td>{{ plan_title }}</td>
+            </tr>
+        </table>
     </div>
     
     {% if hotel %}
     <div class="section">
-        <h3>Accommodation</h3>
-        <p><strong>{{ hotel.name }}</strong><br>
-        {{ hotel.address }}<br>
-        Category: {{ hotel.get_category_display }}</p>
+        <h3>Accommodation Details</h3>
+        <table>
+            <tr>
+                <td><strong>Hotel Name:</strong></td>
+                <td>{{ hotel.name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Address:</strong></td>
+                <td>{{ hotel.address }}</td>
+            </tr>
+            <tr>
+                <td><strong>Category:</strong></td>
+                <td>{{ hotel.get_category_display }}</td>
+            </tr>
+            <tr>
+                <td><strong>Price per Night:</strong></td>
+                <td>{{ hotel.price_in_mmk }}</td>
+            </tr>
+            {% if hotel.amenities %}
+            <tr>
+                <td><strong>Amenities:</strong></td>
+                <td>{{ hotel.get_amenities_display|truncatechars:100 }}</td>
+            </tr>
+            {% endif %}
+        </table>
     </div>
     {% endif %}
     
     {% if transport %}
     <div class="section">
-        <h3>Transportation</h3>
-        <p><strong>{{ transport.name }}</strong></p>
+        <h3>Transportation Details</h3>
+        <table>
+            <tr>
+                <td><strong>Transport Type:</strong></td>
+                <td>{{ transport.name }}</td>
+            </tr>
+            {% if transport.type == 'flight' %}
+            <tr>
+                <td><strong>Departure:</strong></td>
+                <td>{{ transport.booking_details.departure }}</td>
+            </tr>
+            <tr>
+                <td><strong>Arrival:</strong></td>
+                <td>{{ transport.booking_details.arrival }}</td>
+            </tr>
+            <tr>
+                <td><strong>Travel Date:</strong></td>
+                <td>{{ transport.booking_details.travel_date }}</td>
+            </tr>
+            {% endif %}
+        </table>
     </div>
     {% endif %}
     
@@ -44,13 +100,14 @@
         <h3>Daily Itinerary</h3>
         {% for day in days_data %}
         <div class="day-section">
-            <h4>Day {{ day.day_number }}: {{ day.date }}</h4>
+            <h4>Day {{ day.day_number }}: {{ day.date|date:"l, F d, Y" }}</h4>
+            
             {% for activity in day.activities %}
             <div class="activity">
                 <div class="time">{{ activity.time }}</div>
                 <div class="title">{{ activity.title }}</div>
                 <div class="location">{{ activity.location }}</div>
-                <div class="duration">{{ activity.duration }}</div>
+                <div class="duration">Duration: {{ activity.duration }}</div>
                 <p>{{ activity.description }}</p>
             </div>
             {% endfor %}
@@ -58,9 +115,21 @@
         {% endfor %}
     </div>
     
+    <div class="section">
+        <h3>Important Notes</h3>
+        <div class="info-box">
+            <p>• Please carry valid identification documents</p>
+            <p>• Check hotel check-in and check-out times</p>
+            <p>• Confirm transportation timings 24 hours in advance</p>
+            <p>• Keep emergency contact numbers handy</p>
+            <p>• Respect local customs and traditions</p>
+        </div>
+    </div>
+    
     <div class="footer">
-        <p>Generated by GoMyanmar Travel Planner</p>
+        <p><strong>Generated by GoMyanmar Travel Planner</strong></p>
         <p>Thank you for choosing Myanmar for your adventure!</p>
+        <p>For assistance, contact: support@gomyanmar.com</p>
     </div>
 </body>
 </html>

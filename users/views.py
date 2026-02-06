@@ -9,6 +9,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.backends import ModelBackend
 from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from .models import CustomUser
+from django.views.decorators.csrf import csrf_exempt
 
 from django.http import JsonResponse
 import traceback
@@ -413,8 +414,9 @@ def signup_view(request):
     
     return render(request, 'users/signup.html', {'form': form})
 
+@csrf_exempt
 def logout_view(request):
-    """Function-based logout view"""
+    """Handle logout"""
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('home')

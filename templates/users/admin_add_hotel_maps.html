@@ -1,6 +1,6 @@
 <!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_hotel_maps.html -->
 {% extends 'base.html' %}
-{% block title %}Add Hotel with Google Maps - Admin - GoMyanmar{% endblock %}
+{% block title %}Add Hotel with Map - Admin - GoMyanmar{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -8,30 +8,44 @@
         height: 400px;
         width: 100%;
         border-radius: 10px;
-        margin-bottom: 1rem;
+        margin: 20px 0;
+        border: 2px solid #dee2e6;
     }
     
-    .location-search {
+    .map-container {
         position: relative;
-        margin-bottom: 1rem;
     }
     
-    .pac-container {
-        z-index: 1050 !important;
+    .map-instructions {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #3b82f6;
     }
     
     .coordinates-display {
-        background: #f8f9fa;
+        background: #e8f5e9;
         padding: 10px;
         border-radius: 5px;
         margin-top: 10px;
+        font-family: monospace;
     }
     
-    .marker-instructions {
-        background: #e3f2fd;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 1rem;
+    .iframe-wrapper {
+        position: relative;
+        height: 400px;
+    }
+    
+    .location-pin {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #dc3545;
+        font-size: 32px;
+        z-index: 1000;
+        pointer-events: none;
     }
 </style>
 {% endblock %}
@@ -45,125 +59,213 @@
                     <div class="feature-icon gradient-teal mx-auto mb-4">
                         <i class="fas fa-map-marked-alt fa-2x text-white"></i>
                     </div>
-                    <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Google Maps</h2>
-                    <p class="text-gray">Select location on map to add hotel in empty areas</p>
+                    <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Map Location</h2>
+                    <p class="text-gray">Add a new hotel and select its exact location on the map</p>
                 </div>
                 
-                <!-- Real Hotels Notice -->
-                <div class="alert alert-info mb-4">
-                    <h5><i class="fas fa-info-circle me-2"></i>Important Notice</h5>
-                    <p class="mb-2">
-                        You can add hotels in locations where no real hotels exist. 
-                        Use the map below to check for existing hotels in the area.
-                    </p>
-                    <p class="mb-0">
-                        <strong>Booking:</strong> Hotels added through this system can be booked 
-                        through our platform (not through real hotel websites).
-                    </p>
+                <div class="map-instructions">
+                    <h6><i class="fas fa-info-circle me-2"></i>How to use:</h6>
+                    <ol class="mb-0">
+                        <li>Fill in the hotel details below</li>
+                        <li>Use the map to navigate to the hotel location</li>
+                        <li>Center the red pin exactly on the hotel location</li>
+                        <li>Copy the coordinates shown below the map</li>
+                        <li>Click "Add Hotel" to save</li>
+                    </ol>
                 </div>
                 
-                <!-- Google Map -->
-                <div class="card-glass p-4 mb-4">
-                    <h5 class="mb-3">
-                        <i class="fas fa-map me-2"></i>Location Selector
-                        <small class="text-gray">Drag the marker to set hotel location</small>
-                    </h5>
-                    
-                    <div class="location-search">
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="fas fa-search"></i>
-                            </span>
-                            <input type="text" class="form-control" id="locationSearch" 
-                                   placeholder="Search for location...">
-                            <button class="btn btn-outline-primary" type="button" id="checkExistingHotels">
-                                <i class="fas fa-hotel me-2"></i>Check Existing Hotels
-                            </button>
-                        </div>
-                        <div id="existingHotelsAlert" class="alert alert-warning mt-2" style="display: none;">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <span id="hotelsCountText">0 hotels found in this area.</span>
-                            <span id="hotelsList"></span>
-                        </div>
-                    </div>
-                    
-                    <div id="locationMap"></div>
-                    
-                    <div class="coordinates-display mt-3">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Latitude</label>
-                                <input type="text" class="form-control" id="displayLatitude" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Longitude</label>
-                                <input type="text" class="form-control" id="displayLongitude" readonly>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Hotel Form -->
-                <form method="post" enctype="multipart/form-data" id="hotelForm">
+                <form method="post" enctype="multipart/form-data" id="hotelForm" novalidate>
                     {% csrf_token %}
                     
-                    <!-- Hidden coordinates fields -->
-                    <input type="hidden" name="latitude" id="latitude" required>
-                    <input type="hidden" name="longitude" id="longitude" required>
+                    <!-- Hidden fields for coordinates -->
+                    <input type="hidden" name="latitude" id="latitude" value="{{ form.latitude.value|default:'' }}">
+                    <input type="hidden" name="longitude" id="longitude" value="{{ form.longitude.value|default:'' }}">
                     
                     <div class="row">
+                        <!-- Hotel Name -->
                         <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold">Hotel Name</label>
-                            <input type="text" name="name" class="form-control" required
-                                   placeholder="e.g., My Custom Hotel">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
+                            <input type="text" name="name" class="form-control" 
+                                   placeholder="e.g., Mandalay Hill Resort" required
+                                   value="{{ form.name.value|default:'' }}">
                         </div>
+                        
+                        <!-- Destination -->
                         <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold">Destination</label>
-                            <select name="destination" class="form-select" required>
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
+                            <select name="destination" class="form-select" required id="destinationSelect">
                                 <option value="">Select Destination</option>
                                 {% for dest in destinations %}
-                                <option value="{{ dest.id }}">{{ dest.name }}</option>
+                                <option value="{{ dest.id }}" 
+                                    {% if form.destination.value == dest.id %}selected{% endif %}
+                                    data-lat="{{ dest.latitude|default:'21.9588' }}"
+                                    data-lng="{{ dest.longitude|default:'96.0891' }}">
+                                    {{ dest.name }} ({{ dest.region }})
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
                     </div>
                     
+                    <!-- Address Input -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold">Address (from map)</label>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Address *</label>
                         <textarea name="address" class="form-control" rows="2" 
-                                  id="addressField" required readonly></textarea>
+                                  placeholder="Enter complete hotel address" 
+                                  required id="addressInput">{{ form.address.value|default:'' }}</textarea>
+                        <small class="text-muted">Enter the hotel's full address</small>
                     </div>
                     
+                    <!-- Map Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Select Location on Map</label>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Navigate to the hotel location on Google Maps below, then center the red pin on the exact spot.
+                        </div>
+                        
+                        <!-- Google Maps iFrame -->
+                        <div class="iframe-wrapper">
+                            <iframe 
+                                id="googleMapIframe"
+                                style="width: 100%; height: 100%; border: none;"
+                                src="https://www.google.com/maps/embed/v1/place?key={{ google_maps_api_key }}&q=Myanmar&zoom=6"
+                                allowfullscreen>
+                            </iframe>
+                            <div class="location-pin">
+                                <i class="fas fa-map-pin"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnGetCoords">
+                                <i class="fas fa-crosshairs me-1"></i>Get Current Location Coordinates
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnManualCoords">
+                                <i class="fas fa-keyboard me-1"></i>Enter Coordinates Manually
+                            </button>
+                        </div>
+                        
+                        <!-- Coordinates Display -->
+                        <div class="coordinates-display mt-3">
+                            <div class="row align-items-center">
+                                <div class="col-md-4">
+                                    <strong>Latitude:</strong>
+                                    <input type="text" class="form-control form-control-sm mt-1" 
+                                           id="displayLat" placeholder="e.g., 21.8790" readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Longitude:</strong>
+                                    <input type="text" class="form-control form-control-sm mt-1" 
+                                           id="displayLng" placeholder="e.g., 95.9780" readonly>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button type="button" class="btn btn-success btn-sm" id="btnUseCoords">
+                                        <i class="fas fa-check me-1"></i>Use These Coordinates
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-muted small">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                Tip: Zoom in closely on Google Maps for precise location
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Coordinates Entry Modal -->
+                    <div class="modal fade" id="manualCoordsModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Enter Coordinates Manually</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Latitude</label>
+                                        <input type="text" class="form-control" id="manualLat" 
+                                               placeholder="e.g., 21.8790">
+                                        <small class="text-muted">Example from Sagaing: 21.8790</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Longitude</label>
+                                        <input type="text" class="form-control" id="manualLng" 
+                                               placeholder="e.g., 95.9780">
+                                        <small class="text-muted">Example from Sagaing: 95.9780</small>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="btnSaveManualCoords">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Other fields -->
                     <div class="row">
-                        <div class="col-md-4 mb-4">
-                            <label class="form-label fw-bold">Price (MMK)</label>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
                             <input type="number" name="price_per_night" class="form-control" 
-                                   min="0" step="1000" required
-                                   placeholder="e.g., 50000">
-                            <small class="text-muted">Price in Myanmar Kyat per night</small>
+                                   placeholder="e.g., 50000" min="0" step="1000" required
+                                   value="{{ form.price_per_night.value|default:'' }}">
                         </div>
-                        <div class="col-md-4 mb-4">
-                            <label class="form-label fw-bold">Category</label>
-                            <select name="category" class="form-select" required>
-                                <option value="budget">Budget (Under 50,000 MMK)</option>
-                                <option value="medium">Medium (50,000 - 150,000 MMK)</option>
-                                <option value="luxury">Luxury (150,000+ MMK)</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-4">
-                            <label class="form-label fw-bold">Rating</label>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
                             <input type="number" name="rating" class="form-control" 
-                                   min="0" max="5" step="0.1"
-                                   placeholder="e.g., 4.5">
+                                   placeholder="e.g., 4.5" min="0" max="5" step="0.1" required
+                                   value="{{ form.rating.value|default:'' }}">
                         </div>
+                    </div>
+                    
+                    <!-- Amenities -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
+                        <textarea name="amenities" class="form-control" rows="2" 
+                                  placeholder="wifi, pool, spa, restaurant, gym, parking, breakfast">{{ form.amenities.value|default:'' }}</textarea>
+                        <small class="text-muted">Enter amenities separated by commas</small>
+                    </div>
+                    
+                    <!-- Category -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
+                        <select name="category" class="form-select" required>
+                            <option value="">Select Category</option>
+                            <option value="budget" {% if form.category.value == 'budget' %}selected{% endif %}>
+                                Budget (Under 50,000 MMK)
+                            </option>
+                            <option value="medium" {% if form.category.value == 'medium' %}selected{% endif %}>
+                                Medium (50,000 - 150,000 MMK)
+                            </option>
+                            <option value="luxury" {% if form.category.value == 'luxury' %}selected{% endif %}>
+                                Luxury (150,000+ MMK)
+                            </option>
+                        </select>
+                    </div>
+                    
+                    <!-- Image -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Image</label>
+                        <input type="file" name="image" class="form-control" accept="image/*">
+                    </div>
+                    
+                    <!-- Real Hotel Checkbox -->
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" name="is_real_hotel" id="is_real_hotel" 
+                               {% if form.is_real_hotel.value|default:False %}checked{% endif %}>
+                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="is_real_hotel">
+                            Mark as real hotel
+                        </label>
                     </div>
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
                             Cancel
                         </a>
-                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-                            <i class="fas fa-plus me-2"></i>Add Hotel at Selected Location
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="fas fa-plus me-2"></i>Add Hotel with Location
                         </button>
                     </div>
                 </form>
@@ -171,182 +273,159 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Google Maps API -->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initAdminMap" async defer></script>
-
+{% block extra_js %}
 <script>
-    let adminMap;
-    let marker;
-    let geocoder;
-    let placesService;
+    // Initial coordinates (using Sagaing example)
+    let currentLat = {{ form.latitude.value|default:"21.8790" }};
+    let currentLng = {{ form.longitude.value|default:"95.9780" }};
+    let mapIframe;
     
-    function initAdminMap() {
-        // Initialize map centered on Myanmar
-        adminMap = new google.maps.Map(document.getElementById('locationMap'), {
-            center: { lat: 21.9588, lng: 96.0891 }, // Myanmar center
-            zoom: 6,
-            mapTypeControl: true,
-            streetViewControl: false
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        mapIframe = document.getElementById('googleMapIframe');
         
-        geocoder = new google.maps.Geocoder();
-        placesService = new google.maps.places.PlacesService(adminMap);
-        
-        // Add initial marker
-        marker = new google.maps.Marker({
-            map: adminMap,
-            draggable: true,
-            animation: google.maps.Animation.DROP,
-            title: "Drag me to set hotel location"
-        });
-        
-        // Set initial position to Yangon
-        const yangon = { lat: 16.8409, lng: 96.1735 };
-        marker.setPosition(yangon);
-        adminMap.setCenter(yangon);
-        updateLocationInfo(yangon);
-        
-        // Marker drag event
-        marker.addListener('dragend', function() {
-            const position = marker.getPosition();
-            updateLocationInfo(position);
-            checkExistingHotelsAtLocation(position);
-        });
-        
-        // Map click event
-        adminMap.addListener('click', function(event) {
-            marker.setPosition(event.latLng);
-            updateLocationInfo(event.latLng);
-            checkExistingHotelsAtLocation(event.latLng);
-        });
-        
-        // Search box
-        const input = document.getElementById('locationSearch');
-        const searchBox = new google.maps.places.SearchBox(input);
-        
-        searchBox.addListener('places_changed', function() {
-            const places = searchBox.getPlaces();
-            if (places.length === 0) return;
+        // Get coordinates from current map center
+        document.getElementById('btnGetCoords').addEventListener('click', function() {
+            // Get URL parameters from iframe
+            const iframeSrc = mapIframe.src;
+            const urlParams = new URLSearchParams(iframeSrc.split('?')[1]);
             
-            const place = places[0];
-            if (!place.geometry) return;
+            // Extract coordinates from URL (approximate from center)
+            const qParam = urlParams.get('q');
+            const centerParam = urlParams.get('center');
             
-            marker.setPosition(place.geometry.location);
-            adminMap.setCenter(place.geometry.location);
-            adminMap.setZoom(15);
-            
-            updateLocationInfo(place.geometry.location);
-            checkExistingHotelsAtLocation(place.geometry.location);
-        });
-        
-        // Check existing hotels button
-        document.getElementById('checkExistingHotels').addEventListener('click', function() {
-            const position = marker.getPosition();
-            checkExistingHotelsAtLocation(position);
-        });
-    }
-    
-    function updateLocationInfo(position) {
-        const lat = position.lat();
-        const lng = position.lng();
-        
-        // Update display
-        document.getElementById('displayLatitude').value = lat.toFixed(6);
-        document.getElementById('displayLongitude').value = lng.toFixed(6);
-        
-        // Update hidden fields
-        document.getElementById('latitude').value = lat.toFixed(6);
-        document.getElementById('longitude').value = lng.toFixed(6);
-        
-        // Enable submit button
-        document.getElementById('submitBtn').disabled = false;
-        
-        // Reverse geocode to get address
-        geocoder.geocode({ location: position }, (results, status) => {
-            if (status === 'OK' && results[0]) {
-                document.getElementById('addressField').value = results[0].formatted_address;
+            if (centerParam) {
+                const [lat, lng] = centerParam.split(',').map(Number);
+                updateCoordinateDisplay(lat, lng);
+            } else if (qParam) {
+                // Try to extract from query
+                alert('Please zoom in and center the map exactly on the hotel location, then click this button again.');
             } else {
-                document.getElementById('addressField').value = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+                alert('Map not loaded yet. Please wait or refresh the page.');
             }
         });
-    }
-    
-    function checkExistingHotelsAtLocation(position) {
-        const radius = 500; // 500 meters radius
         
-        placesService.nearbySearch({
-            location: position,
-            radius: radius,
-            type: 'lodging'
-        }, (results, status) => {
-            const alertDiv = document.getElementById('existingHotelsAlert');
-            const countText = document.getElementById('hotelsCountText');
-            const hotelsList = document.getElementById('hotelsList');
-            
-            if (status === 'OK') {
-                const existingHotels = results.filter(place => 
-                    place.business_status === 'OPERATIONAL'
-                );
-                
-                if (existingHotels.length > 0) {
-                    countText.textContent = `${existingHotels.length} real hotel(s) found within ${radius}m:`;
-                    
-                    let listHtml = '<ul class="mt-2 mb-0">';
-                    existingHotels.slice(0, 3).forEach(hotel => {
-                        listHtml += `<li>${hotel.name} (${Math.round(hotel.vicinity || '')})</li>`;
-                    });
-                    if (existingHotels.length > 3) {
-                        listHtml += `<li>... and ${existingHotels.length - 3} more</li>`;
-                    }
-                    listHtml += '</ul>';
-                    
-                    hotelsList.innerHTML = listHtml;
-                    alertDiv.style.display = 'block';
-                    
-                    // Warn admin
-                    if (existingHotels.length >= 2) {
-                        alertDiv.className = 'alert alert-danger mt-2';
-                        countText.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>
-                            ${existingHotels.length} hotels already exist in this area! 
-                            Consider choosing a different location.`;
-                    } else {
-                        alertDiv.className = 'alert alert-warning mt-2';
-                    }
-                } else {
-                    alertDiv.style.display = 'none';
-                }
-            } else {
-                alertDiv.style.display = 'none';
-            }
+        // Manual coordinates entry
+        document.getElementById('btnManualCoords').addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('manualCoordsModal'));
+            document.getElementById('manualLat').value = currentLat || '';
+            document.getElementById('manualLng').value = currentLng || '';
+            modal.show();
         });
-    }
-    
-    // Form validation
-    document.getElementById('hotelForm').addEventListener('submit', function(e) {
-        const lat = document.getElementById('latitude').value;
-        const lng = document.getElementById('longitude').value;
         
-        if (!lat || !lng) {
-            e.preventDefault();
-            alert('Please select a location on the map first.');
-            return false;
-        }
+        // Save manual coordinates
+        document.getElementById('btnSaveManualCoords').addEventListener('click', function() {
+            const lat = parseFloat(document.getElementById('manualLat').value);
+            const lng = parseFloat(document.getElementById('manualLng').value);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                alert('Please enter valid coordinates');
+                return;
+            }
+            
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                alert('Invalid coordinates. Latitude must be between -90 and 90. Longitude between -180 and 180.');
+                return;
+            }
+            
+            updateCoordinateDisplay(lat, lng);
+            bootstrap.Modal.getInstance(document.getElementById('manualCoordsModal')).hide();
+        });
         
-        // Confirm if there are existing hotels
-        const alertDiv = document.getElementById('existingHotelsAlert');
-        if (alertDiv.style.display === 'block' && alertDiv.className.includes('alert-danger')) {
-            const confirmAdd = confirm(
-                'Warning: There are existing hotels in this area. ' +
-                'Are you sure you want to add a hotel here?'
-            );
-            if (!confirmAdd) {
+        // Use coordinates button
+        document.getElementById('btnUseCoords').addEventListener('click', function() {
+            const lat = document.getElementById('displayLat').value;
+            const lng = document.getElementById('displayLng').value;
+            
+            if (!lat || !lng) {
+                alert('Please get coordinates first');
+                return;
+            }
+            
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            currentLat = parseFloat(lat);
+            currentLng = parseFloat(lng);
+            
+            alert('Coordinates saved! You can now submit the form.');
+            updateMapToCoordinates(lat, lng);
+        });
+        
+        // When destination changes, update map
+        document.getElementById('destinationSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const lat = selectedOption.dataset.lat || '21.8790';
+            const lng = selectedOption.dataset.lng || '95.9780';
+            
+            updateMapToCoordinates(lat, lng);
+            updateCoordinateDisplay(parseFloat(lat), parseFloat(lng));
+        });
+        
+        // Form validation
+        document.getElementById('hotelForm').addEventListener('submit', function(e) {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            const address = document.getElementById('addressInput').value;
+            
+            if (!lat || !lng) {
                 e.preventDefault();
+                alert('Please select coordinates first. Click "Get Current Location Coordinates" then "Use These Coordinates"');
                 return false;
             }
-        }
+            
+            if (!address.trim()) {
+                e.preventDefault();
+                alert('Please enter the hotel address');
+                return false;
+            }
+            
+            // Validate coordinates
+            const latNum = parseFloat(lat);
+            const lngNum = parseFloat(lng);
+            
+            if (isNaN(latNum) || isNaN(lngNum)) {
+                e.preventDefault();
+                alert('Invalid coordinates. Please enter valid numbers.');
+                return false;
+            }
+            
+            if (latNum < -90 || latNum > 90) {
+                e.preventDefault();
+                alert('Invalid latitude. Must be between -90 and 90.');
+                return false;
+            }
+            
+            if (lngNum < -180 || lngNum > 180) {
+                e.preventDefault();
+                alert('Invalid longitude. Must be between -180 and 180.');
+                return false;
+            }
+            
+            return true;
+        });
         
-        return true;
+        // Initialize with default coordinates
+        if (currentLat && currentLng) {
+            updateCoordinateDisplay(currentLat, currentLng);
+            document.getElementById('latitude').value = currentLat;
+            document.getElementById('longitude').value = currentLng;
+        }
     });
+    
+    function updateCoordinateDisplay(lat, lng) {
+        document.getElementById('displayLat').value = lat.toFixed(6);
+        document.getElementById('displayLng').value = lng.toFixed(6);
+        
+        // Show example coordinates for reference
+        console.log('Coordinates updated:', lat, lng);
+    }
+    
+    function updateMapToCoordinates(lat, lng) {
+        // Update Google Maps iframe to show the coordinates
+        const apiKey = '{{ google_maps_api_key }}';
+        const newSrc = `https://www.google.com/maps/embed/v1/view?key=${apiKey}&center=${lat},${lng}&zoom=16&maptype=roadmap`;
+        mapIframe.src = newSrc;
+    }
 </script>
 {% endblock %}

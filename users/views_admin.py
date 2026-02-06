@@ -139,7 +139,33 @@ def admin_add_hotel(request):
         'destinations': destinations,
     }
     return render(request, 'users/admin_add_hotel.html', context)
-
+@user_passes_test(is_admin)
+def admin_edit_user(request, user_id):
+    """Edit user view - CUSTOM VERSION"""
+    user = get_object_or_404(CustomUser, id=user_id)
+    
+    # Prevent editing your own account to avoid accidental lockout
+    if user == request.user:
+        messages.warning(request, 'You cannot edit your own account from this page. Use your profile settings instead.')
+        return redirect('users:admin_dashboard_users')
+    
+    if request.method == 'POST':
+        form = CustomUserAdminForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'User "{user.username}" updated successfully!')
+            return redirect('users:admin_dashboard_users')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = CustomUserAdminForm(instance=user)
+    
+    context = {
+        'form': form,
+        'user': user,
+        'title': f'Edit User {user.username}'
+    }
+    return render(request, 'users/admin_edit_user.html', context)
 @user_passes_test(is_admin)
 def admin_add_hotel_with_map(request):
     """Add new hotel with map location picker"""
@@ -443,7 +469,7 @@ def admin_add_destination(request):
 
 @user_passes_test(is_admin)
 def admin_edit_destination(request, destination_id):
-    """Edit destination view"""
+    """Edit destination view - CUSTOM VERSION"""
     destination = get_object_or_404(Destination, id=destination_id)
     
     if request.method == 'POST':
@@ -462,7 +488,8 @@ def admin_edit_destination(request, destination_id):
         'destination': destination,
         'title': f'Edit {destination.name}'
     }
-    return render(request, 'users/admin_add_destination.html', context)
+    # Change this line to use your custom template
+    return render(request, 'users/admin_edit_destination.html', context)
 
 @user_passes_test(is_admin)
 def admin_delete_destination(request, destination_id):
@@ -674,10 +701,9 @@ def admin_add_flight(request):
         'title': 'Add Flight'
     }
     return render(request, 'users/admin_add_flight.html', context)
-
 @user_passes_test(is_admin)
 def admin_edit_flight(request, flight_id):
-    """Edit flight view"""
+    """Edit flight view - CUSTOM VERSION"""
     flight = get_object_or_404(Flight, id=flight_id)
     
     if request.method == 'POST':
@@ -696,9 +722,24 @@ def admin_edit_flight(request, flight_id):
         'flight': flight,
         'title': f'Edit Flight {flight.flight_number}'
     }
-    return render(request, 'users/admin_add_flight.html', context)
+    # Change this line to use your custom template
+    return render(request, 'users/admin_edit_flight.html', context)
 
-# ==================== BUS MANAGEMENT ====================
+@user_passes_test(is_admin)
+def admin_delete_flight(request, flight_id):
+    """Delete flight view (AJAX)"""
+    if request.method == 'POST':
+        try:
+            flight = Flight.objects.get(id=flight_id)
+            flight_name = f"{flight.airline} {flight.flight_number}"
+            flight.delete()
+            return JsonResponse({'success': True, 'message': f'Flight {flight_name} deleted successfully!'})
+        except Flight.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Flight not found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 @user_passes_test(is_admin)
 def admin_buses(request):
     """Admin buses view"""
@@ -786,7 +827,7 @@ def admin_add_bus(request):
         'today': today,
         'next_month': next_month,
     }
-    return render(request, 'users/admin_add_bus.html', context)
+    return render(request, 'users/admin_edit_bus.html', context)
 
 def create_bus_schedules(bus, schedule_type, start_date_str, end_date_str=None, num_days=30):
     """Create transport schedules for a bus"""

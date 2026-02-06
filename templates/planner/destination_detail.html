@@ -13,8 +13,20 @@
     <!-- Destination Header -->
     <div class="row mb-5">
         <div class="col-lg-8">
-            <!-- Image Gallery -->
-            {% if destination.image %}
+            <!-- Main Image -->
+            {% if destination.main_image %}
+            <div class="position-relative">
+                <img src="{{ destination.main_image.url }}" 
+                     alt="{{ destination.name }}" 
+                     class="img-fluid rounded-3 shadow" 
+                     style="max-height: 400px; width: 100%; object-fit: cover;">
+                <div class="position-absolute bottom-0 start-0 p-4">
+                    <span class="badge bg-primary fs-6 p-2">
+                        {{ destination.get_type_display }}
+                    </span>
+                </div>
+            </div>
+            {% elif destination.image %}
             <div class="position-relative">
                 <img src="{{ destination.image.url }}" 
                      alt="{{ destination.name }}" 
@@ -24,6 +36,60 @@
                     <span class="badge bg-primary fs-6 p-2">
                         {{ destination.get_type_display }}
                     </span>
+                </div>
+            </div>
+            {% else %}
+            <div class="placeholder-image rounded-3 shadow d-flex align-items-center justify-content-center" 
+                 style="height: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="text-center text-white">
+                    <i class="fas fa-map-marker-alt fa-4x mb-3"></i>
+                    <h3>{{ destination.name }}</h3>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Gallery Images -->
+            <!-- FIXED: Added gallery_image4 to the condition -->
+            {% if destination.gallery_image1 or destination.gallery_image2 or destination.gallery_image3 or destination.gallery_image4 %}
+            <div class="mt-3">
+                <h5 class="mb-3">Photo Gallery</h5>
+                <div class="row g-2">
+                    {% if destination.gallery_image1 %}
+                    <div class="col-4">
+                        <img src="{{ destination.gallery_image1.url }}" 
+                             alt="{{ destination.name }} gallery 1" 
+                             class="img-fluid rounded shadow-sm"
+                             style="height: 120px; width: 100%; object-fit: cover; cursor: pointer;"
+                             onclick="openGalleryModal(this.src)">
+                    </div>
+                    {% endif %}
+                    {% if destination.gallery_image2 %}
+                    <div class="col-4">
+                        <img src="{{ destination.gallery_image2.url }}" 
+                             alt="{{ destination.name }} gallery 2" 
+                             class="img-fluid rounded shadow-sm"
+                             style="height: 120px; width: 100%; object-fit: cover; cursor: pointer;"
+                             onclick="openGalleryModal(this.src)">
+                    </div>
+                    {% endif %}
+                    {% if destination.gallery_image3 %}
+                    <div class="col-4">
+                        <img src="{{ destination.gallery_image3.url }}" 
+                             alt="{{ destination.name }} gallery 3" 
+                             class="img-fluid rounded shadow-sm"
+                             style="height: 120px; width: 100%; object-fit: cover; cursor: pointer;"
+                             onclick="openGalleryModal(this.src)">
+                    </div>
+                    {% endif %}
+                    {% if destination.gallery_image4 %}
+                    <div class="col-4">
+                        <img src="{{ destination.gallery_image4.url }}" 
+                             alt="{{ destination.name }} gallery 4" 
+                             class="img-fluid rounded shadow-sm"
+                             style="height: 120px; width: 100%; object-fit: cover; cursor: pointer;"
+                             onclick="openGalleryModal(this.src)">
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -36,6 +102,33 @@
                 <div class="d-flex align-items-center mb-3">
                     <i class="fas fa-map-marker-alt text-primary me-2"></i>
                     <span class="fs-5">{{ destination.region }}, Myanmar</span>
+                </div>
+                
+                <!-- Quick Facts -->
+                <div class="mb-4">
+                    <h5 class="mb-3"><i class="fas fa-info-circle me-2 text-info"></i>Quick Facts</h5>
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-plane me-2 {% if destination.has_airport %}text-success{% else %}text-secondary{% endif %}"></i>
+                                <span>{% if destination.has_airport %}Has Airport{% else %}No Airport{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-users me-2 text-info"></i>
+                                <span>{{ destination.get_type_display }}</span>
+                            </div>
+                        </div>
+                        {% if destination.best_time_to_visit %}
+                        <div class="col-12 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-calendar-alt me-2 text-warning"></i>
+                                <span><strong>Best Time:</strong> {{ destination.best_time_to_visit }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
                 
                 <!-- Weather Widget -->
@@ -56,25 +149,6 @@
                     </div>
                 </div>
                 
-                <!-- Quick Info -->
-                <div class="mb-4">
-                    <h5 class="mb-3">Quick Facts</h5>
-                    <div class="row">
-                        <div class="col-6 mb-2">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-plane me-2 text-success"></i>
-                                <span>{% if destination.has_airport %}Has Airport{% else %}No Airport{% endif %}</span>
-                            </div>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-users me-2 text-info"></i>
-                                <span>{{ destination.get_type_display }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Plan Trip Button -->
                 <a href="{% url 'planner:plan' %}?destination_id={{ destination.id }}&destination_name={{ destination.name }}" 
                    class="btn btn-primary w-100">
@@ -84,36 +158,58 @@
         </div>
     </div>
 
-    <!-- Destination Description -->
+    <!-- History Section -->
+    {% if destination.history %}
     <div class="row mb-5">
         <div class="col-12">
             <div class="card-glass p-4">
-                <h3 class="mb-4">About {{ destination.name }}</h3>
+                <h3 class="mb-4">
+                    <i class="fas fa-landmark me-2 text-primary"></i>
+                    History of {{ destination.name }}
+                </h3>
                 <div class="row">
                     <div class="col-md-8">
-                        <p class="fs-5 text-gray mb-4">
-                            {{ destination.description|default:"This beautiful destination in "|add:destination.region|add:" offers unique experiences for travelers. From cultural sites to natural wonders, there's something for everyone to enjoy." }}
-                        </p>
+                        <p class="fs-5 text-gray mb-0">{{ destination.history|linebreaks }}</p>
                     </div>
-                    <div class="col-md-4">
-                        {% if has_coordinates %}
-                        <div class="text-center">
-                            <i class="fas fa-map-marked-alt fa-3x text-primary mb-3"></i>
-                            <p class="mb-0">Coordinates: {{ destination.latitude }}, {{ destination.longitude }}</p>
-                        </div>
-                        {% endif %}
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-history fa-4x text-primary mb-3"></i>
+                        <p class="text-muted">Historical Significance</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <!-- Popular Attractions -->
-    {% if attractions %}
+    <!-- Top Attractions -->
+    {% if destination.attractions %}
     <div class="row mb-5">
         <div class="col-12">
             <h2 class="fw-bold mb-4">
                 <i class="fas fa-star me-2 text-warning"></i>
+                Top Attractions
+            </h2>
+            <div class="card-glass p-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="fs-5 text-gray mb-0">{{ destination.attractions|linebreaks }}</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-camera fa-4x text-warning mb-3"></i>
+                        <p class="text-muted">Must-See Places</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Popular Attractions (if attractions data exists separately) -->
+    {% if attractions %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="fw-bold mb-4">
+                <i class="fas fa-map-pin me-2 text-danger"></i>
                 Popular Attractions
             </h2>
             <div class="row g-4">
@@ -134,6 +230,88 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Activities Section -->
+    {% if destination.activities %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card-glass p-4">
+                <h3 class="mb-4">
+                    <i class="fas fa-hiking me-2 text-success"></i>
+                    Things to Do & Activities
+                </h3>
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="fs-5 text-gray mb-0">{{ destination.activities|linebreaks }}</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-bicycle fa-4x text-success mb-3"></i>
+                        <p class="text-muted">Adventure & Experiences</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Cultural Information -->
+    {% if destination.cultural_info %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card-glass p-4">
+                <h3 class="mb-4">
+                    <i class="fas fa-theater-masks me-2 text-info"></i>
+                    Cultural Information
+                </h3>
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="fs-5 text-gray mb-0">{{ destination.cultural_info|linebreaks }}</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-gem fa-4x text-info mb-3"></i>
+                        <p class="text-muted">Local Culture & Traditions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Practical Information -->
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-3">
+                    <i class="fas fa-utensils me-2 text-danger"></i>
+                    Local Cuisine
+                </h4>
+                {% if destination.local_cuisine %}
+                <p class="text-gray">{{ destination.local_cuisine|linebreaks }}</p>
+                {% else %}
+                <p class="text-gray">Experience authentic Myanmar cuisine including traditional dishes, street food, and local specialties unique to this region.</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 class="mb-3">
+                    <i class="fas fa-lightbulb me-2 text-warning"></i>
+                    Travel Tips
+                </h4>
+                {% if destination.tips %}
+                <p class="text-gray">{{ destination.tips|linebreaks }}</p>
+                {% else %}
+                <p class="text-gray">
+                    • Dress modestly when visiting religious sites<br>
+                    • Carry local currency (Kyat)<br>
+                    • Stay hydrated and use sunscreen<br>
+                    • Respect local customs and traditions<br>
+                    • Learn basic Burmese greetings
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
     <!-- Hotels in this Destination -->
     <div class="row mb-5">
@@ -217,7 +395,12 @@
                 {% for similar in similar_destinations %}
                 <div class="col-md-6 col-lg-3">
                     <div class="card similar-card h-100 border-0 shadow-sm">
-                        {% if similar.image %}
+                        {% if similar.main_image %}
+                        <img src="{{ similar.main_image.url }}" 
+                             class="card-img-top" 
+                             alt="{{ similar.name }}"
+                             style="height: 150px; object-fit: cover;">
+                        {% elif similar.image %}
                         <img src="{{ similar.image.url }}" 
                              class="card-img-top" 
                              alt="{{ similar.name }}"
@@ -226,7 +409,11 @@
                         <div class="card-body">
                             <h5 class="card-title fw-bold">{{ similar.name }}</h5>
                             <p class="card-text text-gray small mb-3">
+                                {% if similar.history %}
+                                {{ similar.history|truncatechars:80 }}
+                                {% else %}
                                 {{ similar.description|truncatechars:80|default:"Explore this destination" }}
+                                {% endif %}
                             </p>
                             <a href="{% url 'planner:destination_detail' similar.id %}" 
                                class="btn btn-sm btn-outline-primary w-100">
@@ -241,20 +428,40 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Gallery Modal -->
+<div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ destination.name }} Gallery</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid rounded">
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 function selectHotel(hotelId, hotelName) {
-    // Store hotel selection
     localStorage.setItem('selected_hotel_id', hotelId);
     localStorage.setItem('selected_hotel_name', hotelName);
     
-    // Show success message
     alert(`Hotel "${hotelName}" selected! You can now plan your trip with this hotel.`);
     
-    // Redirect to plan page
-    window.location.href = "{% url 'planner:plan' %}?hotel_id=" + hotelId + "&hotel_name=" + encodeURIComponent(hotelName) + "&destination_id={{ destination.id }}&destination_name={{ destination.name|urlencode }}";
+    window.location.href = "{% url 'planner:plan' %}?hotel_id=" + hotelId + 
+                          "&hotel_name=" + encodeURIComponent(hotelName) + 
+                          "&destination_id={{ destination.id }}&destination_name={{ destination.name|urlencode }}";
+}
+
+function openGalleryModal(imageSrc) {
+    document.getElementById('modalImage').src = imageSrc;
+    var modal = new bootstrap.Modal(document.getElementById('galleryModal'));
+    modal.show();
 }
 
 // Add card hover effects
@@ -269,6 +476,12 @@ document.addEventListener('DOMContentLoaded', function() {
         card.addEventListener('mouseleave', function() {
             this.style.transform = 'translateY(0)';
         });
+    });
+    
+    // Initialize tooltips if any
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 });
 </script>
@@ -288,6 +501,13 @@ document.addEventListener('DOMContentLoaded', function() {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
+.card-glass {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .bg-budget {
     background-color: rgba(46, 204, 113, 0.1);
     color: #27ae60;
@@ -301,6 +521,22 @@ document.addEventListener('DOMContentLoaded', function() {
 .bg-luxury {
     background-color: rgba(155, 89, 182, 0.1);
     color: #8e44ad;
+}
+
+.bg-purple-light {
+    background-color: rgba(155, 89, 182, 0.1);
+}
+
+.text-purple {
+    color: #764ba2;
+}
+
+.text-gray {
+    color: #6c757d;
+}
+
+.placeholder-image {
+    border: 2px dashed #dee2e6;
 }
 </style>
 {% endblock %}

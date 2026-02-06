@@ -16,9 +16,542 @@ from django.conf import settings
 from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat,TransportSchedule 
 from .real_hotels_service import real_hotels_service
 import urllib.parse  # Add this import for URL encoding
+from .weather_service import WeatherService
 
-# ========== UPDATE SELECT SEATS VIEW ==========
-# ========== UPDATE SELECT SEATS VIEW ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# Add these imports at the top of the file
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.units import inch, cm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from io import BytesIO
+import os
+class DownloadItineraryPDFView(LoginRequiredMixin, View):
+    """Generate and download itinerary as PDF using ReportLab"""
+    def get(self, request, trip_id, plan_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        try:
+            # Get itinerary data
+            itinerary_generator = PlanSelectionView()
+            days = trip.calculate_nights() + 1
+            
+            if plan_id == 'cultural':
+                days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
+                plan_title = 'Cultural Explorer'
+                plan_color = colors.HexColor('#3498db')  # Blue
+            elif plan_id == 'adventure':
+                days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
+                plan_title = 'Adventure Seeker'
+                plan_color = colors.HexColor('#2ecc71')  # Green
+            else:
+                days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
+                plan_title = 'Relaxed Wanderer'
+                plan_color = colors.HexColor('#9b59b6')  # Purple
+            
+            # Create PDF buffer
+            buffer = BytesIO()
+            
+            # Create PDF document - Use A4 size
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                topMargin=1*cm,
+                bottomMargin=1*cm,
+                leftMargin=1.5*cm,
+                rightMargin=1.5*cm,
+                title=f"{plan_title} Itinerary - {trip.destination.name}"
+            )
+            
+            # Build story (content) for PDF
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Custom styles
+            title_style = ParagraphStyle(
+                'TitleStyle',
+                parent=styles['Heading1'],
+                fontSize=24,
+                textColor=colors.HexColor('#2c3e50'),
+                spaceAfter=0.4*inch,
+                alignment=TA_CENTER,
+                fontName='Helvetica-Bold'
+            )
+            
+            subtitle_style = ParagraphStyle(
+                'SubtitleStyle',
+                parent=styles['Heading2'],
+                fontSize=16,
+                textColor=plan_color,
+                spaceAfter=0.3*inch,
+                alignment=TA_CENTER,
+                fontName='Helvetica-Bold'
+            )
+            
+            section_style = ParagraphStyle(
+                'SectionStyle',
+                parent=styles['Heading3'],
+                fontSize=14,
+                textColor=colors.HexColor('#2c3e50'),
+                spaceBefore=0.2*inch,
+                spaceAfter=0.1*inch,
+                fontName='Helvetica-Bold',
+                leftIndent=0,
+                backColor=colors.HexColor('#f8f9fa'),
+                borderPadding=5,
+                borderColor=colors.HexColor('#3498db'),
+                borderWidth=1
+            )
+            
+            day_style = ParagraphStyle(
+                'DayStyle',
+                parent=styles['Heading4'],
+                fontSize=12,
+                textColor=colors.white,
+                spaceBefore=0.3*inch,
+                spaceAfter=0.1*inch,
+                fontName='Helvetica-Bold',
+                alignment=TA_LEFT,
+                backColor=plan_color,
+                borderPadding=8,
+                borderRadius=4
+            )
+            
+            activity_time_style = ParagraphStyle(
+                'ActivityTime',
+                parent=styles['Normal'],
+                fontSize=10,
+                textColor=colors.HexColor('#3498db'),
+                fontName='Helvetica-Bold',
+                spaceAfter=2
+            )
+            
+            activity_title_style = ParagraphStyle(
+                'ActivityTitle',
+                parent=styles['Normal'],
+                fontSize=11,
+                textColor=colors.HexColor('#2c3e50'),
+                fontName='Helvetica-Bold',
+                spaceAfter=3
+            )
+            
+            activity_detail_style = ParagraphStyle(
+                'ActivityDetail',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#666666'),
+                spaceAfter=5,
+                leftIndent=20
+            )
+            
+            footer_style = ParagraphStyle(
+                'FooterStyle',
+                parent=styles['Normal'],
+                fontSize=8,
+                textColor=colors.HexColor('#999999'),
+                alignment=TA_CENTER,
+                spaceBefore=0.5*inch
+            )
+            
+            # Label style for table headers
+            label_style = ParagraphStyle(
+                'LabelStyle',
+                parent=styles['Normal'],
+                fontSize=10,
+                textColor=colors.HexColor('#2c3e50'),
+                fontName='Helvetica-Bold',
+                alignment=TA_RIGHT,
+                rightIndent=5
+            )
+            
+            value_style = ParagraphStyle(
+                'ValueStyle',
+                parent=styles['Normal'],
+                fontSize=10,
+                textColor=colors.HexColor('#333333'),
+                alignment=TA_LEFT,
+                leftIndent=5
+            )
+            
+            # ========== TITLE PAGE ==========
+            # Main title
+            story.append(Paragraph(f"{plan_title} Itinerary", title_style))
+            story.append(Paragraph(f"{trip.destination.name}, Myanmar", subtitle_style))
+            
+            # Add a decorative line
+            story.append(Spacer(1, 0.1*inch))
+            story.append(Table(
+                [[ "" ]],
+                colWidths=[6*inch],
+                style=TableStyle([
+                    ('LINEABOVE', (0, 0), (0, 0), 2, plan_color),
+                ])
+            ))
+            story.append(Spacer(1, 0.3*inch))
+            
+            # ========== TRIP OVERVIEW ==========
+            story.append(Paragraph("Trip Overview", section_style))
+            
+            # Trip summary table - FIXED: Use Paragraph objects instead of raw HTML
+            summary_data = [
+                [Paragraph("Destination:", label_style), 
+                 Paragraph(f"{trip.destination.name}, {trip.destination.region}", value_style)],
+                [Paragraph("Travel Dates:", label_style), 
+                 Paragraph(f"{trip.start_date.strftime('%B %d, %Y')} to {trip.end_date.strftime('%B %d, %Y')}", value_style)],
+                [Paragraph("Duration:", label_style), 
+                 Paragraph(f"{days} days ({trip.calculate_nights()} nights)", value_style)],
+                [Paragraph("Travelers:", label_style), 
+                 Paragraph(f"{trip.travelers} person{'s' if trip.travelers > 1 else ''}", value_style)],
+                [Paragraph("Travel Plan:", label_style), 
+                 Paragraph(plan_title, value_style)],
+                [Paragraph("Generated on:", label_style), 
+                 Paragraph(timezone.now().strftime('%B %d, %Y at %I:%M %p'), value_style)],
+            ]
+            
+            summary_table = Table(summary_data, colWidths=[2*inch, 4*inch])
+            summary_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+            ]))
+            
+            story.append(summary_table)
+            story.append(Spacer(1, 0.3*inch))
+            
+            # ========== ACCOMMODATION DETAILS ==========
+            if trip.selected_hotel:
+                story.append(Paragraph("Accommodation Details", section_style))
+                
+                hotel = trip.selected_hotel
+                hotel_data = [
+                    [Paragraph("Hotel Name:", label_style), 
+                     Paragraph(hotel.name, value_style)],
+                    [Paragraph("Address:", label_style), 
+                     Paragraph(hotel.address, value_style)],
+                    [Paragraph("Category:", label_style), 
+                     Paragraph(hotel.get_category_display(), value_style)],
+                    [Paragraph("Price per Night:", label_style), 
+                     Paragraph(hotel.price_in_mmk(), value_style)],
+                ]
+                
+                if hotel.amenities:
+                    amenities_text = ', '.join([a.replace('_', ' ').title() for a in hotel.get_amenities_list()[:5]])
+                    if len(hotel.get_amenities_list()) > 5:
+                        amenities_text += '...'
+                    hotel_data.append([Paragraph("Amenities:", label_style), 
+                                      Paragraph(amenities_text, value_style)])
+                
+                hotel_table = Table(hotel_data, colWidths=[1.5*inch, 4.5*inch])
+                hotel_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('LEFTPADDING', (0, 0), (0, -1), 5),
+                    ('LEFTPADDING', (1, 0), (1, -1), 5),
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+                ]))
+                story.append(hotel_table)
+                story.append(Spacer(1, 0.3*inch))
+            
+            # ========== TRANSPORTATION DETAILS ==========
+            if trip.selected_transport:
+                story.append(Paragraph("Transportation Details", section_style))
+                
+                transport = trip.selected_transport
+                transport_data = []
+                
+                if isinstance(transport, dict):
+                    if transport.get('type') == 'flight':
+                        transport_data = [
+                            [Paragraph("Type:", label_style), Paragraph("Flight", value_style)],
+                            [Paragraph("Airline:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('airline', 'N/A'), value_style)],
+                            [Paragraph("Flight Number:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('flight_number', 'N/A'), value_style)],
+                            [Paragraph("Departure:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('departure', 'N/A'), value_style)],
+                            [Paragraph("Arrival:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('arrival', 'N/A'), value_style)],
+                            [Paragraph("Travel Date:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('travel_date', 'N/A'), value_style)],
+                            [Paragraph("Departure Time:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('departure_time', 'N/A'), value_style)],
+                        ]
+                    elif transport.get('type') == 'bus':
+                        transport_data = [
+                            [Paragraph("Type:", label_style), Paragraph("Bus", value_style)],
+                            [Paragraph("Company:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('company', 'N/A'), value_style)],
+                            [Paragraph("Bus Type:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('bus_type', 'N/A'), value_style)],
+                            [Paragraph("Departure:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('departure', 'N/A'), value_style)],
+                            [Paragraph("Arrival:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('arrival', 'N/A'), value_style)],
+                            [Paragraph("Travel Date:", label_style), 
+                             Paragraph(transport.get('booking_details', {}).get('travel_date', 'N/A'), value_style)],
+                        ]
+                    elif transport.get('type') == 'car':
+                        company = transport.get('name', 'N/A').split(' - ')[0] if ' - ' in transport.get('name', '') else transport.get('name', 'N/A')
+                        car_model = transport.get('name', 'N/A').split(' - ')[1] if ' - ' in transport.get('name', '') else 'N/A'
+                        transport_data = [
+                            [Paragraph("Type:", label_style), Paragraph("Car Rental", value_style)],
+                            [Paragraph("Company:", label_style), Paragraph(company, value_style)],
+                            [Paragraph("Car Model:", label_style), Paragraph(car_model, value_style)],
+                            [Paragraph("Pickup Location:", label_style), 
+                             Paragraph(trip.origin.name if trip.origin else 'N/A', value_style)],
+                            [Paragraph("Travel Date:", label_style), 
+                             Paragraph(trip.start_date.strftime('%B %d, %Y'), value_style)],
+                        ]
+                    else:
+                        transport_data = [
+                            [Paragraph("Type:", label_style), 
+                             Paragraph(transport.get('type', 'N/A').title(), value_style)],
+                            [Paragraph("Service:", label_style), 
+                             Paragraph(transport.get('name', 'N/A'), value_style)],
+                        ]
+                else:
+                    # If transport is not a dict, just show basic info
+                    transport_data = [
+                        [Paragraph("Transport:", label_style), 
+                         Paragraph(str(transport)[:100], value_style)],
+                    ]
+                
+                if transport_data:
+                    transport_table = Table(transport_data, colWidths=[1.5*inch, 4.5*inch])
+                    transport_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('LEFTPADDING', (0, 0), (0, -1), 5),
+                        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+                    ]))
+                    story.append(transport_table)
+                
+                story.append(Spacer(1, 0.3*inch))
+            
+            # Page break before daily itinerary
+            story.append(PageBreak())
+            
+            # ========== DAILY ITINERARY ==========
+            story.append(Paragraph("Daily Itinerary", title_style))
+            story.append(Spacer(1, 0.2*inch))
+            
+            for day_index, day in enumerate(days_data):
+                # Check if day is a dictionary
+                if isinstance(day, dict):
+                    # Get day number and date from dictionary
+                    day_number = day.get('day_number', day_index + 1)
+                    day_date = day.get('date', '')
+                    
+                    # Day header
+                    day_title = f"Day {day_number}: {day_date}"
+                    story.append(Paragraph(day_title, day_style))
+                    
+                    # Get activities for the day
+                    activities = day.get('activities', [])
+                    
+                    # Activities for the day
+                    for activity_index, activity in enumerate(activities):
+                        if isinstance(activity, dict):
+                            # Activity time and title
+                            time_text = activity.get('time', 'N/A')
+                            story.append(Paragraph(time_text, activity_time_style))
+                            
+                            title_text = activity.get('title', 'Activity')
+                            story.append(Paragraph(title_text, activity_title_style))
+                            
+                            # Activity details
+                            details_text = ""
+                            
+                            location = activity.get('location')
+                            if location:
+                                details_text += f"<b>Location:</b> {location}<br/>"
+                            
+                            duration = activity.get('duration')
+                            if duration:
+                                details_text += f"<b>Duration:</b> {duration}<br/>"
+                            
+                            description = activity.get('description')
+                            if description:
+                                details_text += f"<b>Description:</b> {description}"
+                            
+                            if details_text:
+                                story.append(Paragraph(details_text, activity_detail_style))
+                            
+                            # Add spacing between activities, but not after the last one
+                            if activity_index < len(activities) - 1:
+                                story.append(Spacer(1, 0.15*inch))
+                                # Add a subtle separator
+                                story.append(Table(
+                                    [[ "" ]],
+                                    colWidths=[6*inch],
+                                    style=TableStyle([
+                                        ('LINEABOVE', (0, 0), (0, 0), 0.5, colors.HexColor('#f0f0f0')),
+                                    ])
+                                ))
+                                story.append(Spacer(1, 0.15*inch))
+                
+                # Add spacing between days, but not after the last day
+                if day_index < len(days_data) - 1:
+                    story.append(Spacer(1, 0.3*inch))
+                    
+                    # Check if we need a page break
+                    if (day_index + 1) % 3 == 0:  # Every 3 days, add page break
+                        story.append(PageBreak())
+                        # Add header for new page
+                        story.append(Paragraph("Daily Itinerary (continued)", section_style))
+                        story.append(Spacer(1, 0.1*inch))
+            
+            # ========== IMPORTANT NOTES PAGE ==========
+            story.append(PageBreak())
+            story.append(Paragraph("Important Notes & Information", title_style))
+            story.append(Spacer(1, 0.2*inch))
+            
+            # Notes data - FIXED: Use proper Paragraph objects
+            notes_categories = [
+                ("Before You Travel", [
+                    "Ensure your passport is valid for at least 6 months",
+                    "Check visa requirements for Myanmar",
+                    "Purchase travel insurance",
+                    "Inform your bank about international travel",
+                    "Download offline maps of your destination"
+                ]),
+                ("During Your Trip", [
+                    "Keep photocopies of important documents separately",
+                    "Respect local customs and dress modestly at religious sites",
+                    "Carry local currency (MMK) for small purchases",
+                    "Stay hydrated and use sunscreen",
+                    "Be mindful of local laws and regulations"
+                ]),
+                ("Emergency Contacts", [
+                    "Local Emergency: 199",
+                    "Police: 199", 
+                    "Fire: 191",
+                    "Tourist Police: +95 1 549 622",
+                    "Your Hotel: Contact information provided separately"
+                ]),
+                ("Health & Safety", [
+                    "Drink bottled water only",
+                    "Use mosquito repellent",
+                    "Carry basic first aid supplies",
+                    "Know the location of the nearest hospital",
+                    "Have travel insurance contact details handy"
+                ]),
+            ]
+            
+            for category_title, items in notes_categories:
+                story.append(Paragraph(category_title, section_style))
+                
+                # Create bullet points
+                for item in items:
+                    story.append(Paragraph(f"• {item}", ParagraphStyle(
+                        'BulletStyle',
+                        parent=styles['Normal'],
+                        fontSize=9,
+                        leftIndent=20,
+                        spaceAfter=3
+                    )))
+                
+                story.append(Spacer(1, 0.1*inch))
+            
+            story.append(Spacer(1, 0.3*inch))
+            
+            # ========== COST ESTIMATE ==========
+            try:
+                cost_breakdown = trip.get_cost_breakdown()
+                if cost_breakdown and cost_breakdown.get('total', 0) > 0:
+                    story.append(Paragraph("Cost Estimate", section_style))
+                    
+                    # Cost data - FIXED: Use proper formatting
+                    cost_data = [
+                        [Paragraph("Category", ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', alignment=TA_LEFT)),
+                         Paragraph("Estimated Cost (MMK)", ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT))],
+                        
+                        [Paragraph("Hotel Accommodation", value_style),
+                         Paragraph(f"{cost_breakdown.get('hotel', 0):,}", ParagraphStyle('ValueRight', parent=value_style, alignment=TA_RIGHT))],
+                        
+                        [Paragraph("Transportation", value_style),
+                         Paragraph(f"{cost_breakdown.get('transport', 0):,}", ParagraphStyle('ValueRight', parent=value_style, alignment=TA_RIGHT))],
+                        
+                        [Paragraph("Activities & Meals", value_style),
+                         Paragraph(f"{cost_breakdown.get('destination', 0):,}", ParagraphStyle('ValueRight', parent=value_style, alignment=TA_RIGHT))],
+                    ]
+                    
+                    # Add additional travelers cost if applicable
+                    additional_cost = cost_breakdown.get('additional_travelers', 0)
+                    if additional_cost > 0:
+                        cost_data.append([
+                            Paragraph("Additional Travelers", value_style),
+                            Paragraph(f"{additional_cost:,}", ParagraphStyle('ValueRight', parent=value_style, alignment=TA_RIGHT))
+                        ])
+                    
+                    # Add total row
+                    cost_data.append([
+                        Paragraph("TOTAL ESTIMATED COST", ParagraphStyle('TotalLabel', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', alignment=TA_LEFT)),
+                        Paragraph(f"{cost_breakdown.get('total', 0):,}", ParagraphStyle('TotalValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT))
+                    ])
+                    
+                    cost_table = Table(cost_data, colWidths=[3.5*inch, 2.5*inch])
+                    cost_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                        ('TOPPADDING', (0, 0), (-1, -1), 8),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                        ('GRID', (0, 0), (-1, -3), 0.5, colors.HexColor('#e0e0e0')),
+                        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#3498db')),
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f8f9fa')),
+                    ]))
+                    
+                    story.append(cost_table)
+                    story.append(Spacer(1, 0.2*inch))
+                    story.append(Paragraph('Note: Costs are estimates and may vary. All amounts in Myanmar Kyat (MMK).', 
+                                          ParagraphStyle('NoteStyle', parent=styles['Normal'], fontSize=8, textColor=colors.gray)))
+            except Exception as cost_error:
+                print(f"Cost calculation error: {cost_error}")
+                # Continue without cost section if there's an error
+            
+            # ========== FOOTER ==========
+            story.append(Spacer(1, 0.5*inch))
+            footer_text = '''<b>Generated by GoMyanmar Travel Planner</b><br/>
+            Thank you for choosing Myanmar for your adventure!<br/>
+            For assistance or questions, contact: support@gomyanmar.com<br/>
+            <font size="7">This itinerary is computer-generated. Please verify all details before travel.</font>'''
+            
+            story.append(Paragraph(footer_text, footer_style))
+            
+            # ========== BUILD PDF ==========
+            doc.build(story)
+            
+            # Get PDF value from buffer
+            pdf = buffer.getvalue()
+            buffer.close()
+            
+            # Create HTTP response with PDF
+            response = HttpResponse(pdf, content_type='application/pdf')
+            filename = f"{plan_title.lower().replace(' ', '_')}_{trip.destination.name.lower().replace(' ', '_')}_{timezone.now().strftime('%Y%m%d')}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+            
+        except Exception as e:
+            print(f"PDF Generation Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            messages.error(request, f'Error generating PDF: {str(e)}')
+            return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
 class SelectSeatsView(LoginRequiredMixin, View):
     template_name = 'planner/select_seats.html'
     
@@ -995,6 +1528,9 @@ class DestinationSearchView(View):
 # ========== HOTEL SELECTION WITH MAP ==========
 
 
+# ========== SELECT HOTEL WITH MAP VIEW ==========
+# ========== SELECT HOTEL WITH MAP VIEW ==========
+# In the same views.py file, update SelectHotelWithMapView
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     """View for selecting hotels with SIMPLE Google Maps iframe embeds (NO API KEY)"""
     template_name = 'planner/select_hotel_map_simple.html'
@@ -1007,11 +1543,13 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         # Get filter parameters from request
         category_filter = request.GET.get('category', 'all')
         amenities_filter = request.GET.getlist('amenities')
+        search_query = request.GET.get('search', '').strip()
         
         print(f"🔍 DEBUG: Starting hotel filtering")
         print(f"🔍 DEBUG: Destination: {trip.destination.name}")
         print(f"🔍 DEBUG: Category filter: {category_filter}")
         print(f"🔍 DEBUG: Amenities filter: {amenities_filter}")
+        print(f"🔍 DEBUG: Search query: '{search_query}'")
         
         # Get hotels for this destination from YOUR DATABASE
         hotels = Hotel.objects.filter(
@@ -1020,6 +1558,15 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         )
         
         print(f"🔍 DEBUG: Initial hotels found: {hotels.count()}")
+        
+        # Apply search filter
+        if search_query:
+            print(f"🔍 DEBUG: Applying search filter: '{search_query}'")
+            hotels = hotels.filter(
+                Q(name__icontains=search_query) |
+                Q(address__icontains=search_query)
+            )
+            print(f"🔍 DEBUG: After search filter: {hotels.count()}")
         
         # Apply category filter
         if category_filter != 'all':
@@ -1032,73 +1579,64 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 hotels = hotels.filter(category__in=['luxury', 'high'])
             print(f"🔍 DEBUG: After category filter: {hotels.count()}")
         
-        # Apply amenities filter - FIXED VERSION
+        # Apply amenities filter - NEW: Use the same logic as FilterHotelsView
         if amenities_filter:
             print(f"🔍 DEBUG: Applying amenities filter: {amenities_filter}")
             
-            # Debug: Show what's in database
-            if hotels.exists():
-                sample_hotel = hotels.first()
-                print(f"🔍 DEBUG: Sample hotel: {sample_hotel.name}")
-                print(f"🔍 DEBUG: Sample amenities: {sample_hotel.amenities}")
-                print(f"🔍 DEBUG: Amenities type: {type(sample_hotel.amenities)}")
-            
-            # Build query for amenities
-            amenity_query = Q()
-            amenities_added = 0
-            
+            # Clean and normalize amenities
+            clean_amenities = []
             for amenity in amenities_filter:
-                if amenity and amenity.strip():  # Skip empty
-                    amenity_clean = amenity.strip()
-                    
-                    # IMPORTANT: The database uses underscores (air_conditioning)
-                    # Check if amenity has spaces, convert to underscore for database matching
-                    amenity_db_format = amenity_clean.replace(' ', '_').lower()
-                    print(f"🔍 DEBUG: Looking for amenity '{amenity_clean}' -> DB format: '{amenity_db_format}'")
-                    
-                    # For JSONField containing array of strings
-                    amenity_query &= Q(amenities__contains=amenity_db_format)
-                    amenities_added += 1
+                if amenity and amenity.strip():
+                    clean_amenity = amenity.strip().lower().replace(' ', '_')
+                    clean_amenities.append(clean_amenity)
             
-            print(f"🔍 DEBUG: Built query with {amenities_added} amenities")
+            print(f"🔍 DEBUG: Cleaned amenities: {clean_amenities}")
             
-            if amenities_added > 0:
-                hotels = hotels.filter(amenity_query)
+            if clean_amenities:
+                # Manually filter for ALL amenities
+                filtered_hotels = []
+                
+                for hotel in hotels:
+                    hotel_has_all_amenities = True
+                    
+                    if hotel.amenities and isinstance(hotel.amenities, list):
+                        hotel_amenities_lower = []
+                        for hotel_amenity in hotel.amenities:
+                            if isinstance(hotel_amenity, str):
+                                normalized_hotel_amenity = hotel_amenity.strip().lower().replace(' ', '_')
+                                hotel_amenities_lower.append(normalized_hotel_amenity)
+                        
+                        for selected_amenity in clean_amenities:
+                            if selected_amenity not in hotel_amenities_lower:
+                                hotel_has_all_amenities = False
+                                break
+                        
+                        if hotel_has_all_amenities:
+                            filtered_hotels.append(hotel)
+                
+                # Create a new queryset from filtered hotels
+                hotel_ids = [h.id for h in filtered_hotels]
+                hotels = hotels.filter(id__in=hotel_ids)
+                
                 print(f"🔍 DEBUG: After amenities filter: {hotels.count()} hotels")
-            else:
-                print(f"🔍 DEBUG: No valid amenities to filter")
         
-        # Order hotels
+        # Default order by price
         hotels = hotels.order_by('price_per_night')
+        
         print(f"🔍 DEBUG: Final hotel count: {hotels.count()}")
         
-        # Get all unique categories for this destination
-        categories = Hotel.objects.filter(
-            destination=trip.destination,
-            is_active=True
-        ).values_list('category', flat=True).distinct()
-        
-        # Get all unique amenities for this destination
+        # Get all unique amenities for this destination - FIXED
         all_amenities = set()
         for hotel in Hotel.objects.filter(destination=trip.destination, is_active=True):
             if hotel.amenities:
-                # Handle both list and string amenities
                 if isinstance(hotel.amenities, list):
-                    all_amenities.update(hotel.amenities)
-                elif isinstance(hotel.amenities, str):
-                    try:
-                        parsed_amenities = json.loads(hotel.amenities)
-                        if isinstance(parsed_amenities, list):
-                            all_amenities.update(parsed_amenities)
-                    except:
-                        # If it's a comma-separated string
-                        if ',' in hotel.amenities:
-                            all_amenities.update([a.strip() for a in hotel.amenities.split(',')])
-                        else:
-                            all_amenities.add(hotel.amenities.strip())
+                    for amenity in hotel.amenities:
+                        if amenity and isinstance(amenity, str):
+                            # Normalize for display (replace underscores with spaces, title case)
+                            display_amenity = amenity.replace('_', ' ').title()
+                            all_amenities.add(display_amenity)
         
         print(f"🔍 DEBUG: Total unique amenities found: {len(all_amenities)}")
-        print(f"🔍 DEBUG: First 10 amenities: {list(all_amenities)[:10]}")
         
         # Prepare hotel data with Google Maps embed URL
         hotel_data = []
@@ -1118,20 +1656,20 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             # Generate iframe URL (NO API KEY NEEDED)
             iframe_url = f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={maps_query_encoded}&t=&z=14&ie=UTF8&iwloc=B&output=embed"
             
-            # Get amenities as list
-            hotel_amenities = []
+            # Get amenities as list for display
+            hotel_amenities_display = []
             if hotel.amenities:
                 if isinstance(hotel.amenities, list):
-                    hotel_amenities = hotel.amenities
+                    hotel_amenities_display = [str(a).replace('_', ' ').title() for a in hotel.amenities if a]
                 elif isinstance(hotel.amenities, str):
                     try:
                         parsed = json.loads(hotel.amenities)
                         if isinstance(parsed, list):
-                            hotel_amenities = parsed
+                            hotel_amenities_display = [str(a).replace('_', ' ').title() for a in parsed if a]
                         else:
-                            hotel_amenities = [hotel.amenities]
+                            hotel_amenities_display = [hotel.amenities.replace('_', ' ').title()]
                     except:
-                        hotel_amenities = [hotel.amenities]
+                        hotel_amenities_display = [hotel.amenities.replace('_', ' ').title()]
             
             hotel_data.append({
                 'id': hotel.id,
@@ -1143,8 +1681,8 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 'review_count': hotel.review_count,
                 'category': hotel.category,
                 'category_display': hotel.get_category_display(),
-                'amenities': hotel_amenities[:8],  # Show more amenities
-                'amenities_count': len(hotel_amenities),
+                'amenities': hotel_amenities_display[:8],
+                'amenities_count': len(hotel_amenities_display),
                 'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
                 'image_url': image_url,
                 'phone_number': hotel.phone_number or '',
@@ -1160,9 +1698,6 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         # Sort amenities alphabetically for display
         sorted_amenities = sorted(list(all_amenities))
         
-        # Convert amenities to JSON for JavaScript
-        selected_amenities_json = json.dumps(amenities_filter)
-        
         context = {
             'trip': trip,
             'hotels': hotel_data,
@@ -1170,15 +1705,13 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             'destination_name': trip.destination.name,
             'destination_id': trip.destination.id,
             'today': timezone.now().date(),
-            'categories': list(categories),
             'all_amenities': sorted_amenities,
             'selected_category': category_filter,
             'selected_amenities': amenities_filter,
-            'selected_amenities_json': selected_amenities_json,
+            'search_query': search_query,
         }
         return render(request, self.template_name, context)
-
-
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 class FilterHotelsView(View):
     def get(self, request, destination_id):
         destination = get_object_or_404(Destination, id=destination_id)
@@ -1186,10 +1719,13 @@ class FilterHotelsView(View):
         # Get all filter parameters
         category = request.GET.get('category', 'all')
         amenities = request.GET.getlist('amenities[]', [])
+        search_query = request.GET.get('search', '').strip()
         
+        print(f"🔍 DEBUG [FilterHotelsView]: Starting hotel filtering")
         print(f"🔍 DEBUG [FilterHotelsView]: Destination: {destination.name}")
         print(f"🔍 DEBUG [FilterHotelsView]: Category: {category}")
         print(f"🔍 DEBUG [FilterHotelsView]: Amenities: {amenities}")
+        print(f"🔍 DEBUG [FilterHotelsView]: Search query: '{search_query}'")
         
         # Start with all hotels for this destination
         hotels = Hotel.objects.filter(
@@ -1198,6 +1734,15 @@ class FilterHotelsView(View):
         )
         
         print(f"🔍 DEBUG [FilterHotelsView]: Initial hotels: {hotels.count()}")
+        
+        # Apply search filter
+        if search_query:
+            print(f"🔍 DEBUG [FilterHotelsView]: Applying search: '{search_query}'")
+            hotels = hotels.filter(
+                Q(name__icontains=search_query) |
+                Q(address__icontains=search_query)
+            )
+            print(f"🔍 DEBUG [FilterHotelsView]: After search: {hotels.count()}")
         
         # Apply category filter
         if category != 'all':
@@ -1209,28 +1754,58 @@ class FilterHotelsView(View):
                 hotels = hotels.filter(category__in=['luxury', 'high'])
             print(f"🔍 DEBUG [FilterHotelsView]: After category filter: {hotels.count()}")
         
-        # Apply amenities filter - FIXED VERSION
+        # Apply amenities filter - FIXED: Use custom filtering for JSON arrays
         if amenities:
             print(f"🔍 DEBUG [FilterHotelsView]: Filtering amenities: {amenities}")
             
-            amenity_query = Q()
+            # Clean and normalize amenities
+            clean_amenities = []
             for amenity in amenities:
                 if amenity and amenity.strip():
-                    # Convert spaces to underscores to match database format
-                    amenity_db_format = amenity.strip().replace(' ', '_').lower()
-                    print(f"🔍 DEBUG [FilterHotelsView]: Looking for: '{amenity}' -> DB: '{amenity_db_format}'")
-                    
-                    # Filter hotels that have this amenity
-                    amenity_query &= Q(amenities__contains=amenity_db_format)
+                    # Normalize: lowercase, replace spaces with underscores
+                    clean_amenity = amenity.strip().lower().replace(' ', '_')
+                    clean_amenities.append(clean_amenity)
             
-            if amenity_query:
-                hotels = hotels.filter(amenity_query)
+            print(f"🔍 DEBUG [FilterHotelsView]: Cleaned amenities: {clean_amenities}")
+            
+            if clean_amenities:
+                # We need to manually filter because Django's JSONField queries are tricky
+                filtered_hotels = []
+                
+                for hotel in hotels:
+                    hotel_has_all_amenities = True
+                    
+                    if hotel.amenities and isinstance(hotel.amenities, list):
+                        hotel_amenities_lower = []
+                        for hotel_amenity in hotel.amenities:
+                            if isinstance(hotel_amenity, str):
+                                # Normalize hotel amenity for comparison
+                                normalized_hotel_amenity = hotel_amenity.strip().lower().replace(' ', '_')
+                                hotel_amenities_lower.append(normalized_hotel_amenity)
+                        
+                        # Check if hotel has ALL selected amenities
+                        for selected_amenity in clean_amenities:
+                            if selected_amenity not in hotel_amenities_lower:
+                                hotel_has_all_amenities = False
+                                break
+                        
+                        if hotel_has_all_amenities:
+                            filtered_hotels.append(hotel)
+                    else:
+                        # Hotel has no amenities, can't match any
+                        continue
+                
+                # Create a new queryset from filtered hotels
+                hotel_ids = [h.id for h in filtered_hotels]
+                hotels = hotels.filter(id__in=hotel_ids)
+                
                 print(f"🔍 DEBUG [FilterHotelsView]: After amenities filter: {hotels.count()}")
         
-        # Order by price
-        hotels = hotels.order_by('price_per_night')
+        # Order by price (unless searching)
+        if not search_query:
+            hotels = hotels.order_by('price_per_night')
         
-        # Prepare hotel data
+        # Prepare hotel data for JSON response
         hotel_data = []
         for hotel in hotels:
             image_url = ''
@@ -1242,19 +1817,20 @@ class FilterHotelsView(View):
             
             maps_query = f"{hotel.name} {hotel.address} {destination.name} Myanmar"
             
-            # Get amenities as list
-            hotel_amenities = []
+            # Get amenities as list for display
+            hotel_amenities_display = []
             if hotel.amenities:
                 if isinstance(hotel.amenities, list):
-                    hotel_amenities = hotel.amenities
+                    hotel_amenities_display = [str(a).replace('_', ' ').title() for a in hotel.amenities if a]
                 elif isinstance(hotel.amenities, str):
                     try:
-                        import json
                         parsed = json.loads(hotel.amenities)
                         if isinstance(parsed, list):
-                            hotel_amenities = parsed
+                            hotel_amenities_display = [str(a).replace('_', ' ').title() for a in parsed if a]
+                        else:
+                            hotel_amenities_display = [hotel.amenities.replace('_', ' ').title()]
                     except:
-                        hotel_amenities = [hotel.amenities]
+                        hotel_amenities_display = [hotel.amenities.replace('_', ' ').title()]
             
             hotel_data.append({
                 'id': hotel.id,
@@ -1266,8 +1842,8 @@ class FilterHotelsView(View):
                 'review_count': hotel.review_count,
                 'category': hotel.category,
                 'category_display': hotel.get_category_display(),
-                'amenities': hotel_amenities,
-                'amenities_count': len(hotel_amenities),
+                'amenities': hotel_amenities_display[:8],
+                'amenities_count': len(hotel_amenities_display),
                 'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
                 'image_url': image_url,
                 'maps_query': maps_query,
@@ -1285,86 +1861,10 @@ class FilterHotelsView(View):
             'filters': {
                 'category': category,
                 'amenities': amenities,
+                'search': search_query,
             }
         })
-# ========== FILTER HOTELS VIEW ==========
-class FilterHotelsView(View):
-    def get(self, request, destination_id):
-        destination = get_object_or_404(Destination, id=destination_id)
-        
-        # Get all filter parameters
-        category = request.GET.get('category', 'all')
-        amenities = request.GET.getlist('amenities[]', [])
-        
-        print(f"DEBUG: Filtering hotels for {destination.name}")
-        print(f"DEBUG: Category: {category}, Amenities: {amenities}")
-        
-        # Start with all hotels for this destination
-        hotels = Hotel.objects.filter(
-            destination=destination,
-            is_active=True
-        )
-        
-        # Apply category filter
-        if category != 'all':
-            if category == 'budget':
-                hotels = hotels.filter(category='budget')
-            elif category == 'medium':
-                hotels = hotels.filter(category='medium')
-            elif category == 'luxury':
-                hotels = hotels.filter(category__in=['luxury', 'high'])
-        
-        # Apply amenities filter - SIMPLE VERSION
-        if amenities:
-            # Filter hotels that have ALL selected amenities
-            for amenity in amenities:
-                hotels = hotels.filter(amenities__contains=amenity)
-        
-        # Order by price
-        hotels = hotels.order_by('price_per_night')
-        
-        # Prepare hotel data
-        hotel_data = []
-        for hotel in hotels:
-            image_url = ''
-            if hotel.image and hasattr(hotel.image, 'url'):
-                try:
-                    image_url = hotel.image.url
-                except:
-                    image_url = ''
-            
-            maps_query = f"{hotel.name} {hotel.address} {destination.name} Myanmar"
-            
-            hotel_data.append({
-                'id': hotel.id,
-                'name': hotel.name,
-                'address': hotel.address,
-                'price': float(hotel.price_per_night),
-                'price_display': hotel.price_in_mmk(),
-                'rating': float(hotel.rating),
-                'review_count': hotel.review_count,
-                'category': hotel.category,
-                'category_display': hotel.get_category_display(),
-                'amenities': hotel.amenities if hotel.amenities else [],
-                'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
-                'image_url': image_url,
-                'maps_query': maps_query,
-                'iframe_url': f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={urllib.parse.quote(maps_query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed",
-                'phone': hotel.phone_number or '',
-                'has_image': bool(image_url),
-            })
-        
-        print(f"DEBUG: Found {len(hotel_data)} hotels")
-        
-        return JsonResponse({
-            'success': True,
-            'hotels': hotel_data,
-            'count': len(hotel_data),
-            'filters': {
-                'category': category,
-                'amenities': amenities,
-            }
-        })
+# ========== SAVE HOTEL VIEW ==========
 # ========== SAVE HOTEL VIEW ==========
 class SaveHotelView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
@@ -1385,15 +1885,15 @@ class SaveHotelView(LoginRequiredMixin, View):
                 # CRITICAL: Always include origin and destination
                 if trip.origin:
                     params.append(f'origin_id={trip.origin.id}')
-                    params.append(f'origin_name={trip.origin.name}')
+                    params.append(f'origin_name={urllib.parse.quote(trip.origin.name)}')
                 
                 if trip.destination:
                     params.append(f'destination_id={trip.destination.id}')
-                    params.append(f'destination_name={trip.destination.name}')
+                    params.append(f'destination_name={urllib.parse.quote(trip.destination.name)}')
                 
                 # Add hotel
                 params.append(f'hotel_id={hotel_id}')
-                params.append(f'hotel_name={hotel.name}')
+                params.append(f'hotel_name={urllib.parse.quote(hotel.name)}')
                 
                 # Add dates
                 if trip.start_date:
@@ -1410,22 +1910,43 @@ class SaveHotelView(LoginRequiredMixin, View):
                     if transport_data.get('id'):
                         params.append(f'transport_id={transport_data.get("id")}')
                         params.append(f'transport_type={transport_data.get("type", "")}')
-                        params.append(f'transport_name={transport_data.get("name", "")}')
+                        params.append(f'transport_name={urllib.parse.quote(transport_data.get("name", ""))}')
                 
                 # Build final URL
                 if params:
                     redirect_url += '?' + '&'.join(params)
                 
-                messages.success(request, f'Hotel {hotel.name} selected successfully!')
-                return redirect(redirect_url)
+                # Return JSON response for AJAX
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Hotel {hotel.name} selected successfully!',
+                        'hotel_name': hotel.name,
+                        'redirect_url': redirect_url
+                    })
+                else:
+                    messages.success(request, f'Hotel {hotel.name} selected successfully!')
+                    return redirect(redirect_url)
                 
             except Hotel.DoesNotExist:
-                messages.error(request, 'Hotel not found.')
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Hotel not found.'
+                    })
+                else:
+                    messages.error(request, 'Hotel not found.')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Please select a hotel'
+                })
+            else:
+                messages.error(request, 'Please select a hotel')
         
-        messages.error(request, 'Please select a hotel')
+        # Fallback redirect for non-AJAX requests
         return redirect('planner:select_hotel_map', trip_id=trip.id)
-
-
 # ========== REAL HOTELS VIEW ==========
 class GetRealHotelsView(LoginRequiredMixin, View):
     def get(self, request):
@@ -2488,7 +3009,6 @@ class SelectPlanView(LoginRequiredMixin, View):
         return redirect('planner:plan_selection', trip_id=trip.id)
 
 
-
 class ItineraryDetailView(LoginRequiredMixin, View):
     """Display detailed itinerary with weather and activity management"""
     template_name = 'planner/itinerary_detail.html'
@@ -2513,7 +3033,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             days_data = []
             plan_title = 'Custom Plan'
         
-        # Get weather forecast
+        # Get weather forecast (LIMITED TO 5 DAYS)
         weather_forecast = self.get_weather_forecast_for_trip(trip)
         
         # Get trip cost estimate
@@ -2547,24 +3067,37 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
     
     def get_weather_forecast_for_trip(self, trip):
-        """Get weather forecast for the trip destination and dates"""
+        """Get weather forecast for the trip destination and dates (MAX 5 DAYS)"""
         try:
             from .weather_service import weather_service
             
             # Use the destination name
             destination_name = trip.destination.name
             
-            print(f"Fetching weather for {destination_name} from {trip.start_date} to {trip.end_date}")
+            # LIMIT TO 5 DAYS MAX - Calculate end date (max 5 days from start)
+            start_date = trip.start_date
+            max_end_date = start_date + timedelta(days=4)  # 5 days total (including start day)
+            actual_end_date = min(trip.end_date, max_end_date)
             
-            # Get forecast using the weather service
+            print(f"Fetching weather for {destination_name} from {start_date} to {actual_end_date} (MAX 5 DAYS)")
+            
+            # Get forecast using the weather service (limited to 5 days)
             forecast = weather_service.get_weather_forecast(
                 destination_name,
-                trip.start_date.strftime('%Y-%m-%d'),
-                trip.end_date.strftime('%Y-%m-%d')
+                start_date.strftime('%Y-%m-%d'),
+                actual_end_date.strftime('%Y-%m-%d')
             )
             
             if forecast:
-                print(f"Successfully got weather forecast with {len(forecast)} days")
+                print(f"Successfully got weather forecast with {len(forecast)} days (limited to 5)")
+                
+                # LIMIT TO 5 DAYS if we got more
+                if len(forecast) > 5:
+                    # Take only first 5 days
+                    forecast_keys = list(forecast.keys())[:5]
+                    forecast = {key: forecast[key] for key in forecast_keys}
+                    print(f"Limited forecast from {len(forecast_keys) + (len(forecast) - 5)} to 5 days")
+                
                 # Check if we got real data or mock data
                 first_date = list(forecast.keys())[0] if forecast else None
                 if first_date and forecast[first_date].get('is_mock', True):
@@ -2574,23 +3107,32 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 
                 return forecast
             else:
-                print("No forecast data received, using mock data")
-                return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+                print("No forecast data received, using mock data (5 days max)")
+                return self.generate_mock_weather_forecast(start_date, actual_end_date)
                 
         except Exception as e:
             print(f"Error getting weather forecast: {e}")
             import traceback
             traceback.print_exc()
-            return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+            return self.generate_mock_weather_forecast(start_date, start_date + timedelta(days=4))
     
     def generate_mock_weather_forecast(self, start_date, end_date):
-        """Generate realistic mock weather data for Myanmar"""
+        """Generate realistic mock weather data for Myanmar (MAX 5 DAYS)"""
         from datetime import timedelta
         import random
         
+        # LIMIT TO 5 DAYS MAX
+        max_end_date = start_date + timedelta(days=4)  # 5 days total
+        actual_end_date = min(end_date, max_end_date)
+        
         forecasts = {}
         current_date = start_date
-        days = (end_date - start_date).days + 1
+        days = (actual_end_date - start_date).days + 1
+        
+        # Ensure we don't generate more than 5 days
+        if days > 5:
+            days = 5
+            print(f"Warning: Generating mock weather limited to 5 days instead of {days}")
         
         # Typical Myanmar weather conditions
         myanmar_weather = [
@@ -2701,7 +3243,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         return {
             'total': breakdown['total'],
             'breakdown': breakdown
-        }  
+        } 
 
 class AddActivityView(LoginRequiredMixin, View):
     """Add a new activity to itinerary"""
@@ -2748,49 +3290,7 @@ class RemoveActivityView(LoginRequiredMixin, View):
             })
 
 
-class DownloadItineraryPDFView(LoginRequiredMixin, View):
-    """Generate and download itinerary as PDF"""
-    def get(self, request, trip_id, plan_id):
-        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        
-        try:
-            # For now, we'll create a simple HTML response
-            from django.template.loader import render_to_string
-            from django.http import HttpResponse
-            
-            itinerary_generator = PlanSelectionView()
-            days = trip.calculate_nights() + 1
-            
-            if plan_id == 'cultural':
-                days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
-                plan_title = 'Cultural Explorer'
-            elif plan_id == 'adventure':
-                days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
-                plan_title = 'Adventure Seeker'
-            else:
-                days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
-                plan_title = 'Relaxed Wanderer'
-            
-            context = {
-                'trip': trip,
-                'plan_title': plan_title,
-                'days_data': days_data,
-                'current_date': timezone.now().strftime('%Y-%m-%d'),
-                'hotel': trip.selected_hotel,
-                'transport': trip.selected_transport,
-            }
-            
-            html_content = render_to_string('planner/itinerary_pdf.html', context)
-            
-            # Create PDF response (simplified)
-            response = HttpResponse(html_content, content_type='text/html')
-            response['Content-Disposition'] = f'attachment; filename="itinerary_{trip.destination.name}_{plan_title}.html"'
-            
-            return response
-            
-        except Exception as e:
-            messages.error(request, f'Error generating PDF: {str(e)}')
-            return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
+
 
 
 class TestWeatherAPIView(LoginRequiredMixin, View):
@@ -2856,46 +3356,62 @@ class TestWeatherAPIView(LoginRequiredMixin, View):
         
         return JsonResponse(results)
 # ========== DESTINATION BROWSING VIEWS ==========
+from django.views import View
+from django.shortcuts import render, get_object_or_404
+from django.db.models import Q
+
+from planner.models import Destination, Hotel
+
 
 class DestinationListView(View):
-    """Browse destinations by region/city"""
+    """Browse destinations by region / type / search"""
     template_name = 'planner/destinations.html'
-    
+
     def get(self, request):
         # Get filter parameters
         region_filter = request.GET.get('region', 'all')
         type_filter = request.GET.get('type', 'all')
         search_query = request.GET.get('search', '')
-        
-        # Get all destinations
+
+        # Base queryset
         destinations = Destination.objects.filter(is_active=True)
-        
+
         # Apply filters
         if region_filter != 'all':
             destinations = destinations.filter(region__iexact=region_filter)
-        
+
         if type_filter != 'all':
             destinations = destinations.filter(type=type_filter)
-        
+
         if search_query:
             destinations = destinations.filter(
-                Q(name__icontains=search_query) | 
+                Q(name__icontains=search_query) |
                 Q(description__icontains=search_query) |
                 Q(region__icontains=search_query)
             )
-        
+
         # Group by region
         destinations_by_region = {}
         for destination in destinations.order_by('region', 'name'):
-            region = destination.region
-            if region not in destinations_by_region:
-                destinations_by_region[region] = []
-            destinations_by_region[region].append(destination)
-        
-        # Get unique regions for filter
-        all_regions = Destination.objects.filter(is_active=True).values_list('region', flat=True).distinct()
-        all_types = Destination.objects.filter(is_active=True).values_list('type', flat=True).distinct()
-        
+            destinations_by_region.setdefault(destination.region, []).append(destination)
+
+        # Filter dropdown data
+        all_regions = (
+            Destination.objects
+            .filter(is_active=True)
+            .values_list('region', flat=True)
+            .distinct()
+            .order_by('region')
+        )
+
+        all_types = (
+            Destination.objects
+            .filter(is_active=True)
+            .values_list('type', flat=True)
+            .distinct()
+            .order_by('type')
+        )
+
         context = {
             'destinations_by_region': destinations_by_region,
             'all_regions': all_regions,
@@ -2905,79 +3421,57 @@ class DestinationListView(View):
             'search_query': search_query,
             'destinations_count': destinations.count(),
         }
-        
+
         return render(request, self.template_name, context)
 
-
+    
 class DestinationDetailView(View):
     """Detailed view of a destination"""
     template_name = 'planner/destination_detail.html'
-    
+
     def get(self, request, destination_id):
-        destination = get_object_or_404(Destination, id=destination_id, is_active=True)
-        
-        # Get weather forecast for this destination
-        weather_service_instance = weather_service
-        weather_data = weather_service_instance.get_weather_by_city(destination.name)
-        
-        # Get hotels in this destination
-        hotels = Hotel.objects.filter(destination=destination, is_active=True).order_by('price_per_night')[:5]
-        
-        # Get similar destinations (same region)
-        similar_destinations = Destination.objects.filter(
-            region=destination.region,
+        destination = get_object_or_404(
+            Destination,
+            id=destination_id,
             is_active=True
-        ).exclude(id=destination.id).order_by('?')[:4]
-        
-        # Get popular attractions (for major cities)
-        attractions = []
-        if destination.name.lower() in ['yangon', 'mandalay', 'bagan']:
-            attractions = self.get_popular_attractions(destination.name)
-        
+        )
+
+        from .weather_service import weather_service
+
+        # Weather (coordinates first – fallback safe)
+        if destination.latitude and destination.longitude:
+            weather_data = weather_service.get_weather_by_coords(
+                destination.latitude,
+                destination.longitude,
+                destination.name
+            )
+        else:
+            weather_data = weather_service.get_weather_by_city(destination.name)
+
+        # Hotels in this destination
+        hotels = (
+            Hotel.objects
+            .filter(destination=destination, is_active=True)
+            .order_by('price_per_night')[:5]
+        )
+
+        # Similar destinations
+        similar_destinations = (
+            Destination.objects
+            .filter(region=destination.region, is_active=True)
+            .exclude(id=destination.id)
+            .order_by('?')[:4]
+        )
+
         context = {
             'destination': destination,
             'weather_data': weather_data,
             'hotels': hotels,
             'similar_destinations': similar_destinations,
-            'attractions': attractions,
             'has_coordinates': bool(destination.latitude and destination.longitude),
         }
-        
-        return render(request, self.template_name, context)
-    
-    def get_popular_attractions(self, city_name):
-        """Get popular attractions for major cities"""
-        attractions_map = {
-            'yangon': [
-                {'name': 'Shwedagon Pagoda', 'type': 'Religious Site', 'description': 'Gilded pagoda with beautiful sunset views'},
-                {'name': 'Bogyoke Market', 'type': 'Market', 'description': 'Colonial-era market with local crafts'},
-                {'name': 'Kandawgyi Park', 'type': 'Park', 'description': 'Beautiful park with royal barge'},
-                {'name': 'Sule Pagoda', 'type': 'Religious Site', 'description': 'Ancient pagoda in city center'},
-                {'name': 'National Museum', 'type': 'Museum', 'description': 'Largest museum in Myanmar'},
-            ],
-            'mandalay': [
-                {'name': 'Mandalay Palace', 'type': 'Historical Site', 'description': 'Last royal palace of Myanmar'},
-                {'name': 'Mandalay Hill', 'type': 'Natural Site', 'description': 'Hill with panoramic city views'},
-                {'name': 'U Bein Bridge', 'type': 'Bridge', 'description': 'World\'s longest teak bridge'},
-                {'name': 'Kuthodaw Pagoda', 'type': 'Religious Site', 'description': 'Home to the world\'s largest book'},
-                {'name': 'Mingun Pahtodawgyi', 'type': 'Historical Site', 'description': 'Massive unfinished stupa'},
-            ],
-            'bagan': [
-                {'name': 'Ananda Temple', 'type': 'Temple', 'description': 'One of Bagan\'s most beautiful temples'},
-                {'name': 'Shwezigon Pagoda', 'type': 'Pagoda', 'description': 'Gilded pagoda built in 11th century'},
-                {'name': 'Dhammayangyi Temple', 'type': 'Temple', 'description': 'Largest temple in Bagan'},
-                {'name': 'Sunset at Buledi', 'type': 'Viewpoint', 'description': 'Popular sunset viewing spot'},
-                {'name': 'Hot Air Balloon Ride', 'type': 'Activity', 'description': 'Spectacular sunrise over temples'},
-            ]
-        }
-        
-        city_lower = city_name.lower()
-        for key, attractions in attractions_map.items():
-            if key in city_lower:
-                return attractions
-        
-        return []
 
+        return render(request, self.template_name, context)
 
 class DestinationAutocompleteView(View):
     """AJAX endpoint for destination autocomplete"""

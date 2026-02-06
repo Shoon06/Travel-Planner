@@ -44,6 +44,20 @@ class Destination(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    history = models.TextField(blank=True, null=True)
+    attractions = models.TextField(blank=True, null=True)  # JSON or comma-separated
+    activities = models.TextField(blank=True, null=True)
+    cultural_info = models.TextField(blank=True, null=True)
+    best_time_to_visit = models.CharField(max_length=200, blank=True, null=True)
+    local_cuisine = models.TextField(blank=True, null=True)
+    tips = models.TextField(blank=True, null=True)
+    
+    # Image fields
+    main_image = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    gallery_image1 = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    gallery_image2 = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    gallery_image3 = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    gallery_image4 = models.ImageField(upload_to='destinations/', blank=True, null=True)
     
     default_airlines = models.ManyToManyField(Airline, blank=True, 
         help_text="Default airlines for this destination")

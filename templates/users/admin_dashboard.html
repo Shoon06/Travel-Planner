@@ -1,4 +1,4 @@
-<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_dashboard.html -->
+\<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_dashboard.html -->
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Admin Dashboard - GoMyanmar{% endblock %}
@@ -43,12 +43,8 @@
                         <i class="fas fa-users me-2"></i>Users
                     </a>
                     <a href="{% url 'users:admin_trip_list' %}" 
-   class="list-group-item list-group-item-action">
-    <i class="fas fa-suitcase me-2"></i>Trips
-</a>
-                    <a href="{% url 'users:admin_content' %}" 
                        class="list-group-item list-group-item-action">
-                        <i class="fas fa-newspaper me-2"></i>Content
+                        <i class="fas fa-suitcase me-2"></i>Trips
                     </a>
                     <a href="{% url 'users:admin_system_settings' %}" 
                        class="list-group-item list-group-item-action">
@@ -57,16 +53,16 @@
                 </div>
             </div>
             
-            <div class="card-glass p-3">
-                <h6 class="fw-bold mb-3">Quick Actions</h6>
+            <div class="card-glass p-3 bg-success bg-opacity-10 border-success border-opacity-25">
+                <h6 class="fw-bold mb-3 text-success">Quick Actions</h6>
                 <div class="d-grid gap-2">
-                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-primary btn-sm">
+                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-success btn-sm">
                         <i class="fas fa-plus me-1"></i> Add Hotel
                     </a>
-                    <a href="{% url 'users:admin_add_destination' %}" class="btn btn-outline-light btn-sm">
+                    <a href="{% url 'users:admin_add_destination' %}" class="btn btn-success btn-sm">
                         <i class="fas fa-plus me-1"></i> Add Destination
                     </a>
-                    <a href="{% url 'users:admin_add_user' %}" class="btn btn-outline-light btn-sm">
+                    <a href="{% url 'users:admin_add_user' %}" class="btn btn-success btn-sm">
                         <i class="fas fa-user-plus me-1"></i> Add User
                     </a>
                 </div>
@@ -220,40 +216,39 @@
                 </div>
             </div>
             
-            <!-- Quick Stats -->
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="card-glass p-3">
-                        <h6 class="fw-bold mb-3">System Overview</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2 d-flex justify-content-between">
-                                <span class="text-gray">Destinations:</span>
-                                <span class="fw-bold">{{ total_destinations }}</span>
-                            </li>
-                            <li class="mb-2 d-flex justify-content-between">
-                                <span class="text-gray">Flights:</span>
-                                <span class="fw-bold">{{ total_flights }}</span>
-                            </li>
-                            <li class="mb-2 d-flex justify-content-between">
-                                <span class="text-gray">Buses:</span>
-                                <span class="fw-bold">{{ total_buses }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card-glass p-3">
-                        <h6 class="fw-bold mb-3">Quick Links</h6>
-                        <div class="d-grid gap-2">
-                            <a href="/admin/" class="btn btn-outline-light btn-sm">
-                                <i class="fas fa-shield-alt me-1"></i> Django Admin
-                            </a>
-                            <a href="{% url 'users:admin_database_backup' %}" class="btn btn-outline-light btn-sm">
-                                <i class="fas fa-database me-1"></i> Backup Database
-                            </a>
-                            <a href="{% url 'users:admin_system_settings' %}" class="btn btn-outline-light btn-sm">
-                                <i class="fas fa-cog me-1"></i> System Settings
-                            </a>
+            <!-- Quick Stats - Updated to full width -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card-glass p-4">
+                        <h5 class="fw-bold mb-3">System Overview</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-teal d-inline-flex mb-3">
+                                        <i class="fas fa-map-marker-alt fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_destinations }}</h3>
+                                    <p class="text-gray mb-0">Destinations</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-blue d-inline-flex mb-3">
+                                        <i class="fas fa-plane fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_flights }}</h3>
+                                    <p class="text-gray mb-0">Flights</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-purple d-inline-flex mb-3">
+                                        <i class="fas fa-bus fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_buses }}</h3>
+                                    <p class="text-gray mb-0">Buses</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
