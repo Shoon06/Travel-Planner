@@ -130,38 +130,82 @@
             </table>
         </div>
         
-        <!-- Pagination -->
+        <!-- Improved Pagination -->
         {% if is_paginated %}
         <nav aria-label="Page navigation" class="mt-4">
             <ul class="pagination justify-content-center">
+                <!-- Previous Button -->
                 {% if page_obj.has_previous %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                        Previous
+                        <i class="fas fa-chevron-left"></i>
                     </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-left"></i></span>
                 </li>
                 {% endif %}
                 
-                {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% else %}
+                <!-- First Page -->
+                {% if page_obj.number > 3 %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                        {{ num }}
-                    </a>
+                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">1</a>
+                </li>
+                {% if page_obj.number > 4 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
                 </li>
                 {% endif %}
+                {% endif %}
+                
+                <!-- Page Numbers (Limited to 5 around current) -->
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
                 {% endfor %}
                 
+                <!-- Last Page -->
+                {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
+                {% if page_obj.number < page_obj.paginator.num_pages|add:"-3" %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        {{ page_obj.paginator.num_pages }}
+                    </a>
+                </li>
+                {% endif %}
+                
+                <!-- Next Button -->
                 {% if page_obj.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
-                        Next
+                        <i class="fas fa-chevron-right"></i>
                     </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-right"></i></span>
                 </li>
                 {% endif %}
             </ul>
+            
+            <!-- Page Info -->
+            <div class="text-center mt-2 text-gray">
+                <small>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</small>
+            </div>
         </nav>
         {% endif %}
     </div>

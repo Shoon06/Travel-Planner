@@ -113,3 +113,38 @@ class CustomUser(AbstractUser):
             self.is_staff = False
         
         super().save(*args, **kwargs)
+class SystemSettings(models.Model):
+    """System-wide settings stored in database"""
+    site_name = models.CharField(max_length=100, default="GoMyanmar")
+    site_description = models.TextField(default="Myanmar's Premier Travel Planning Platform")
+    default_currency = models.CharField(max_length=10, default="MMK - Myanmar Kyat")
+    maintenance_mode = models.BooleanField(default=False)
+    
+    # Email settings
+    smtp_host = models.CharField(max_length=100, default="smtp.gmail.com")
+    smtp_port = models.IntegerField(default=587)
+    email_address = models.EmailField(default="noreply@gomyanmar.com")
+    email_password = models.CharField(max_length=255, blank=True)
+    enable_email_notifications = models.BooleanField(default=False)
+    
+    # System info (auto-updated)
+    last_backup = models.DateTimeField(null=True, blank=True)
+    last_maintenance = models.DateTimeField(null=True, blank=True)
+    version = models.CharField(max_length=20, default="1.0.0")
+    
+    class Meta:
+        verbose_name = "System Settings"
+        verbose_name_plural = "System Settings"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one instance exists
+        self.pk = 1
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+    
+    def __str__(self):
+        return "System Settings"

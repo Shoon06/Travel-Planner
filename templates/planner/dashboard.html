@@ -21,7 +21,7 @@
     
     <!-- Quick Stats -->
     <div class="row mb-5">
-        <div class="col-md-3 col-sm-6 mb-4">
+        <div class="col-md-4 col-sm-6 mb-4">
             <a href="{% url 'planner:trip_list' %}" class="text-decoration-none">
                 <div class="card-glass p-4 text-center clickable-card">
                     <div class="feature-icon gradient-bg mx-auto mb-3">
@@ -34,7 +34,7 @@
             </a>
         </div>
         
-        <div class="col-md-3 col-sm-6 mb-4">
+        <div class="col-md-4 col-sm-6 mb-4">
             <a href="{% url 'planner:upcoming_trips' %}" class="text-decoration-none">
                 <div class="card-glass p-4 text-center clickable-card">
                     <div class="feature-icon gradient-teal mx-auto mb-3">
@@ -47,7 +47,7 @@
             </a>
         </div>
         
-        <div class="col-md-3 col-sm-6 mb-4">
+        <div class="col-md-4 col-sm-6 mb-4">
             <a href="{% url 'planner:trip_cost_analysis' %}" class="text-decoration-none">
                 <div class="card-glass p-4 text-center clickable-card">
                     <div class="feature-icon gradient-gold mx-auto mb-3">
@@ -61,19 +61,6 @@
                 </div>
             </a>
         </div>
-        
-        <div class="col-md-3 col-sm-6 mb-4">
-            <a href="{% url 'planner:visited_destinations' %}" class="text-decoration-none">
-                <div class="card-glass p-4 text-center clickable-card">
-                    <div class="feature-icon gradient-bg-reverse mx-auto mb-3">
-                        <i class="fas fa-map-marked-alt text-white"></i>
-                    </div>
-                    <h3 class="mb-2">{{ destinations_visited }}</h3>
-                    <p class="text-gray mb-0">Destinations Visited</p>
-                    <small class="text-muted">Click to view visited destinations</small>
-                </div>
-            </a>
-        </div>
     </div>
     
     <!-- Main Features -->
@@ -82,7 +69,7 @@
             <h3 class="section-title">Plan Your Next Adventure</h3>
         </div>
         
-        <div class="col-md-4 mb-4">
+        <div class="col-md-6 mb-4">
             <div class="card-glass p-4 text-center h-100">
                 <div class="feature-icon gradient-bg mx-auto mb-4">
                     <i class="fas fa-robot text-white"></i>
@@ -95,28 +82,15 @@
             </div>
         </div>
         
-        <div class="col-md-4 mb-4">
+        <div class="col-md-6 mb-4">
             <div class="card-glass p-4 text-center h-100">
                 <div class="feature-icon gradient-teal mx-auto mb-4">
                     <i class="fas fa-map-marked-alt text-white"></i>
                 </div>
-                <h4 class="mb-3">Interactive Maps</h4>
-                <p class="text-gray mb-4">Visualize your journey with pinned locations and optimal routes.</p>
-                <a href="#" class="btn btn-primary w-100">
-                    <i class="fas fa-map me-2"></i>Explore Maps
-                </a>
-            </div>
-        </div>
-        
-        <div class="col-md-4 mb-4">
-            <div class="card-glass p-4 text-center h-100">
-                <div class="feature-icon gradient-gold mx-auto mb-4">
-                    <i class="fas fa-calculator text-dark"></i>
-                </div>
-                <h4 class="mb-3">Budget Planner</h4>
-                <p class="text-gray mb-4">Plan and track expenses with detailed cost breakdowns in MMK.</p>
-                <a href="#" class="btn btn-primary w-100">
-                    <i class="fas fa-chart-pie me-2"></i>Plan Budget
+                <h4 class="mb-3">Trip Destinations</h4>
+                <p class="text-gray mb-4">Browse and select from our curated list of Myanmar destinations.</p>
+                <a href="{% url 'planner:destinations' %}" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>Explore Destinations
                 </a>
             </div>
         </div>

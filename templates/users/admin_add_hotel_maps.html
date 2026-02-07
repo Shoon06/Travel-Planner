@@ -4,16 +4,14 @@
 
 {% block extra_css %}
 <style>
-    #locationMap {
+    .map-container {
         height: 400px;
         width: 100%;
         border-radius: 10px;
         margin: 20px 0;
         border: 2px solid #dee2e6;
-    }
-    
-    .map-container {
         position: relative;
+        overflow: hidden;
     }
     
     .map-instructions {
@@ -32,11 +30,6 @@
         font-family: monospace;
     }
     
-    .iframe-wrapper {
-        position: relative;
-        height: 400px;
-    }
-    
     .location-pin {
         position: absolute;
         top: 50%;
@@ -46,6 +39,26 @@
         font-size: 32px;
         z-index: 1000;
         pointer-events: none;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    
+    .iframe-wrapper {
+        height: 100%;
+        width: 100%;
+    }
+    
+    .form-errors {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .form-errors ul {
+        margin-bottom: 0;
+        padding-left: 20px;
     }
 </style>
 {% endblock %}
@@ -60,202 +73,179 @@
                         <i class="fas fa-map-marked-alt fa-2x text-white"></i>
                     </div>
                     <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Map Location</h2>
-                    <p class="text-gray">Add a new hotel and select its exact location on the map</p>
+                    <p class="text-gray">Add a new hotel and select its location on the map</p>
                 </div>
                 
+                <!-- Display form errors -->
+                {% if form.errors %}
+                <div class="form-errors">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Please correct these errors:</h6>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <!-- Instructions -->
                 <div class="map-instructions">
-                    <h6><i class="fas fa-info-circle me-2"></i>How to use:</h6>
-                    <ol class="mb-0">
-                        <li>Fill in the hotel details below</li>
-                        <li>Use the map to navigate to the hotel location</li>
-                        <li>Center the red pin exactly on the hotel location</li>
-                        <li>Copy the coordinates shown below the map</li>
-                        <li>Click "Add Hotel" to save</li>
-                    </ol>
+                    <h6><i class="fas fa-info-circle me-2"></i>How to add hotel location:</h6>
+                    <p class="mb-2">Find coordinates on Google Maps (right-click → "What's here?") and enter them below.</p>
+                    <p class="mb-0"><strong>Example:</strong> Yangon coordinates: <code>16.8409, 96.1735</code></p>
                 </div>
                 
                 <form method="post" enctype="multipart/form-data" id="hotelForm" novalidate>
                     {% csrf_token %}
                     
-                    <!-- Hidden fields for coordinates -->
-                    <input type="hidden" name="latitude" id="latitude" value="{{ form.latitude.value|default:'' }}">
-                    <input type="hidden" name="longitude" id="longitude" value="{{ form.longitude.value|default:'' }}">
-                    
-                    <div class="row">
-                        <!-- Hotel Name -->
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
-                            <input type="text" name="name" class="form-control" 
-                                   placeholder="e.g., Mandalay Hill Resort" required
-                                   value="{{ form.name.value|default:'' }}">
-                        </div>
-                        
-                        <!-- Destination -->
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
-                            <select name="destination" class="form-select" required id="destinationSelect">
-                                <option value="">Select Destination</option>
-                                {% for dest in destinations %}
-                                <option value="{{ dest.id }}" 
-                                    {% if form.destination.value == dest.id %}selected{% endif %}
-                                    data-lat="{{ dest.latitude|default:'21.9588' }}"
-                                    data-lng="{{ dest.longitude|default:'96.0891' }}">
-                                    {{ dest.name }} ({{ dest.region }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                    <!-- Hotel Name -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small">{{ form.name.errors }}</div>
+                        {% endif %}
                     </div>
                     
-                    <!-- Address Input -->
+                    <!-- Destination -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
+                        {{ form.destination }}
+                        {% if form.destination.errors %}
+                        <div class="text-danger small">{{ form.destination.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Address -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Address *</label>
-                        <textarea name="address" class="form-control" rows="2" 
-                                  placeholder="Enter complete hotel address" 
-                                  required id="addressInput">{{ form.address.value|default:'' }}</textarea>
-                        <small class="text-muted">Enter the hotel's full address</small>
+                        {{ form.address }}
+                        {% if form.address.errors %}
+                        <div class="text-danger small">{{ form.address.errors }}</div>
+                        {% endif %}
                     </div>
                     
-                    <!-- Map Selection -->
+                    <!-- Coordinates Selection -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Select Location on Map</label>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Coordinates Selection</label>
+                        
+                        <!-- Google Maps iFrame for reference -->
                         <div class="alert alert-info mb-3">
                             <i class="fas fa-info-circle me-2"></i>
-                            Navigate to the hotel location on Google Maps below, then center the red pin on the exact spot.
+                            Use Google Maps below to find coordinates. Right-click on location and select "What's here?"
                         </div>
                         
-                        <!-- Google Maps iFrame -->
-                        <div class="iframe-wrapper">
-                            <iframe 
-                                id="googleMapIframe"
-                                style="width: 100%; height: 100%; border: none;"
-                                src="https://www.google.com/maps/embed/v1/place?key={{ google_maps_api_key }}&q=Myanmar&zoom=6"
-                                allowfullscreen>
-                            </iframe>
+                        <div class="map-container">
+                            <div class="iframe-wrapper">
+                                <iframe 
+                                    id="googleMapIframe"
+                                    style="width: 100%; height: 100%; border: none;"
+                                    src="https://maps.google.com/maps?q=Myanmar&z=6&output=embed&hl=en"
+                                    allowfullscreen
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer-when-downgrade">
+                                </iframe>
+                            </div>
                             <div class="location-pin">
                                 <i class="fas fa-map-pin"></i>
                             </div>
                         </div>
                         
-                        <!-- Map Controls -->
-                        <div class="d-flex gap-2 mt-3">
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnGetCoords">
-                                <i class="fas fa-crosshairs me-1"></i>Get Current Location Coordinates
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnManualCoords">
-                                <i class="fas fa-keyboard me-1"></i>Enter Coordinates Manually
-                            </button>
-                        </div>
-                        
-                        <!-- Coordinates Display -->
+                        <!-- Coordinate Inputs -->
                         <div class="coordinates-display mt-3">
-                            <div class="row align-items-center">
-                                <div class="col-md-4">
-                                    <strong>Latitude:</strong>
-                                    <input type="text" class="form-control form-control-sm mt-1" 
-                                           id="displayLat" placeholder="e.g., 21.8790" readonly>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Latitude *</label>
+                                    <input type="text" class="form-control" id="latInput" 
+                                           placeholder="e.g., 16.8409"
+                                           required>
+                                    <small class="text-muted">Decimal degrees (e.g., 16.8409 for Yangon)</small>
                                 </div>
-                                <div class="col-md-4">
-                                    <strong>Longitude:</strong>
-                                    <input type="text" class="form-control form-control-sm mt-1" 
-                                           id="displayLng" placeholder="e.g., 95.9780" readonly>
-                                </div>
-                                <div class="col-md-4 text-end">
-                                    <button type="button" class="btn btn-success btn-sm" id="btnUseCoords">
-                                        <i class="fas fa-check me-1"></i>Use These Coordinates
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="mt-2 text-muted small">
-                                <i class="fas fa-lightbulb me-1"></i>
-                                Tip: Zoom in closely on Google Maps for precise location
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Manual Coordinates Entry Modal -->
-                    <div class="modal fade" id="manualCoordsModal" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Enter Coordinates Manually</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Latitude</label>
-                                        <input type="text" class="form-control" id="manualLat" 
-                                               placeholder="e.g., 21.8790">
-                                        <small class="text-muted">Example from Sagaing: 21.8790</small>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Longitude</label>
-                                        <input type="text" class="form-control" id="manualLng" 
-                                               placeholder="e.g., 95.9780">
-                                        <small class="text-muted">Example from Sagaing: 95.9780</small>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" id="btnSaveManualCoords">Save</button>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Longitude *</label>
+                                    <input type="text" class="form-control" id="lngInput" 
+                                           placeholder="e.g., 96.1735"
+                                           required>
+                                    <small class="text-muted">Decimal degrees (e.g., 96.1735 for Yangon)</small>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Other fields -->
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
-                            <input type="number" name="price_per_night" class="form-control" 
-                                   placeholder="e.g., 50000" min="0" step="1000" required
-                                   value="{{ form.price_per_night.value|default:'' }}">
+                            <button type="button" class="btn btn-primary" id="btnSetCoords">
+                                <i class="fas fa-check me-2"></i>Set These Coordinates
+                            </button>
+                            <small class="ms-3 text-muted">
+                                Tip: Copy coordinates from Google Maps and paste here
+                            </small>
                         </div>
                         
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
-                            <input type="number" name="rating" class="form-control" 
-                                   placeholder="e.g., 4.5" min="0" max="5" step="0.1" required
-                                   value="{{ form.rating.value|default:'' }}">
-                        </div>
+                        <!-- Hidden coordinate fields for form submission -->
+                        {{ form.latitude }}
+                        {{ form.longitude }}
+                        
+                        <!-- Coordinate Validation Message -->
+                        <div id="coordStatus" class="mt-2"></div>
                     </div>
                     
-                    <!-- Amenities -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
-                        <textarea name="amenities" class="form-control" rows="2" 
-                                  placeholder="wifi, pool, spa, restaurant, gym, parking, breakfast">{{ form.amenities.value|default:'' }}</textarea>
-                        <small class="text-muted">Enter amenities separated by commas</small>
+                    <!-- Price and Rating -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
+                            {{ form.price_per_night }}
+                            {% if form.price_per_night.errors %}
+                            <div class="text-danger small">{{ form.price_per_night.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
+                            {{ form.rating }}
+                            {% if form.rating.errors %}
+                            <div class="text-danger small">{{ form.rating.errors }}</div>
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <!-- Category -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
-                        <select name="category" class="form-select" required>
-                            <option value="">Select Category</option>
-                            <option value="budget" {% if form.category.value == 'budget' %}selected{% endif %}>
-                                Budget (Under 50,000 MMK)
-                            </option>
-                            <option value="medium" {% if form.category.value == 'medium' %}selected{% endif %}>
-                                Medium (50,000 - 150,000 MMK)
-                            </option>
-                            <option value="luxury" {% if form.category.value == 'luxury' %}selected{% endif %}>
-                                Luxury (150,000+ MMK)
-                            </option>
-                        </select>
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                        <div class="text-danger small">{{ form.category.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Amenities -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
+                        {{ form.amenities }}
+                        <small class="text-muted">Enter amenities separated by commas (e.g., wifi, pool, spa, restaurant)</small>
+                        {% if form.amenities.errors %}
+                        <div class="text-danger small">{{ form.amenities.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="text-danger small">{{ form.description.errors }}</div>
+                        {% endif %}
                     </div>
                     
                     <!-- Image -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Image</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
+                        {{ form.image }}
+                        {% if form.image.errors %}
+                        <div class="text-danger small">{{ form.image.errors }}</div>
+                        {% endif %}
                     </div>
                     
                     <!-- Real Hotel Checkbox -->
                     <div class="form-check mb-4">
-                        <input class="form-check-input" type="checkbox" name="is_real_hotel" id="is_real_hotel" 
-                               {% if form.is_real_hotel.value|default:False %}checked{% endif %}>
-                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="is_real_hotel">
+                        {{ form.is_real_hotel }}
+                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="{{ form.is_real_hotel.id_for_label }}">
                             Mark as real hotel
                         </label>
                     </div>
@@ -264,7 +254,7 @@
                         <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
                             Cancel
                         </a>
-                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <button type="submit" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Add Hotel with Location
                         </button>
                     </div>
@@ -277,155 +267,92 @@
 
 {% block extra_js %}
 <script>
-    // Initial coordinates (using Sagaing example)
-    let currentLat = {{ form.latitude.value|default:"21.8790" }};
-    let currentLng = {{ form.longitude.value|default:"95.9780" }};
-    let mapIframe;
-    
     document.addEventListener('DOMContentLoaded', function() {
-        mapIframe = document.getElementById('googleMapIframe');
+        const latInput = document.getElementById('latInput');
+        const lngInput = document.getElementById('lngInput');
+        const latitudeField = document.getElementById('id_latitude');
+        const longitudeField = document.getElementById('id_longitude');
+        const coordStatus = document.getElementById('coordStatus');
+        const hotelForm = document.getElementById('hotelForm');
         
-        // Get coordinates from current map center
-        document.getElementById('btnGetCoords').addEventListener('click', function() {
-            // Get URL parameters from iframe
-            const iframeSrc = mapIframe.src;
-            const urlParams = new URLSearchParams(iframeSrc.split('?')[1]);
+        // Set coordinates button
+        document.getElementById('btnSetCoords').addEventListener('click', function() {
+            const lat = latInput.value.trim();
+            const lng = lngInput.value.trim();
             
-            // Extract coordinates from URL (approximate from center)
-            const qParam = urlParams.get('q');
-            const centerParam = urlParams.get('center');
-            
-            if (centerParam) {
-                const [lat, lng] = centerParam.split(',').map(Number);
-                updateCoordinateDisplay(lat, lng);
-            } else if (qParam) {
-                // Try to extract from query
-                alert('Please zoom in and center the map exactly on the hotel location, then click this button again.');
-            } else {
-                alert('Map not loaded yet. Please wait or refresh the page.');
-            }
-        });
-        
-        // Manual coordinates entry
-        document.getElementById('btnManualCoords').addEventListener('click', function() {
-            const modal = new bootstrap.Modal(document.getElementById('manualCoordsModal'));
-            document.getElementById('manualLat').value = currentLat || '';
-            document.getElementById('manualLng').value = currentLng || '';
-            modal.show();
-        });
-        
-        // Save manual coordinates
-        document.getElementById('btnSaveManualCoords').addEventListener('click', function() {
-            const lat = parseFloat(document.getElementById('manualLat').value);
-            const lng = parseFloat(document.getElementById('manualLng').value);
-            
-            if (isNaN(lat) || isNaN(lng)) {
-                alert('Please enter valid coordinates');
-                return;
-            }
-            
-            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-                alert('Invalid coordinates. Latitude must be between -90 and 90. Longitude between -180 and 180.');
-                return;
-            }
-            
-            updateCoordinateDisplay(lat, lng);
-            bootstrap.Modal.getInstance(document.getElementById('manualCoordsModal')).hide();
-        });
-        
-        // Use coordinates button
-        document.getElementById('btnUseCoords').addEventListener('click', function() {
-            const lat = document.getElementById('displayLat').value;
-            const lng = document.getElementById('displayLng').value;
-            
+            // Validate coordinates
             if (!lat || !lng) {
-                alert('Please get coordinates first');
+                showCoordStatus('Please enter both latitude and longitude', 'error');
                 return;
             }
             
-            document.getElementById('latitude').value = lat;
-            document.getElementById('longitude').value = lng;
-            currentLat = parseFloat(lat);
-            currentLng = parseFloat(lng);
+            if (!isValidCoordinate(lat, true) || !isValidCoordinate(lng, false)) {
+                showCoordStatus('Invalid coordinates. Please check the values.', 'error');
+                return;
+            }
             
-            alert('Coordinates saved! You can now submit the form.');
-            updateMapToCoordinates(lat, lng);
-        });
-        
-        // When destination changes, update map
-        document.getElementById('destinationSelect').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const lat = selectedOption.dataset.lat || '21.8790';
-            const lng = selectedOption.dataset.lng || '95.9780';
+            // Set the hidden form fields
+            latitudeField.value = lat;
+            longitudeField.value = lng;
             
-            updateMapToCoordinates(lat, lng);
-            updateCoordinateDisplay(parseFloat(lat), parseFloat(lng));
+            showCoordStatus('Coordinates set successfully!', 'success');
         });
         
         // Form validation
-        document.getElementById('hotelForm').addEventListener('submit', function(e) {
-            const lat = document.getElementById('latitude').value;
-            const lng = document.getElementById('longitude').value;
-            const address = document.getElementById('addressInput').value;
-            
-            if (!lat || !lng) {
+        hotelForm.addEventListener('submit', function(e) {
+            // Check if coordinates are set
+            if (!latitudeField.value || !longitudeField.value) {
                 e.preventDefault();
-                alert('Please select coordinates first. Click "Get Current Location Coordinates" then "Use These Coordinates"');
+                showCoordStatus('Please set coordinates before submitting!', 'error');
+                latInput.focus();
                 return false;
             }
             
-            if (!address.trim()) {
+            // Check if manual inputs are filled but not set
+            if ((latInput.value || lngInput.value) && (!latitudeField.value || !longitudeField.value)) {
                 e.preventDefault();
-                alert('Please enter the hotel address');
-                return false;
-            }
-            
-            // Validate coordinates
-            const latNum = parseFloat(lat);
-            const lngNum = parseFloat(lng);
-            
-            if (isNaN(latNum) || isNaN(lngNum)) {
-                e.preventDefault();
-                alert('Invalid coordinates. Please enter valid numbers.');
-                return false;
-            }
-            
-            if (latNum < -90 || latNum > 90) {
-                e.preventDefault();
-                alert('Invalid latitude. Must be between -90 and 90.');
-                return false;
-            }
-            
-            if (lngNum < -180 || lngNum > 180) {
-                e.preventDefault();
-                alert('Invalid longitude. Must be between -180 and 180.');
+                showCoordStatus('Please click "Set These Coordinates" button to save coordinates', 'error');
                 return false;
             }
             
             return true;
         });
         
-        // Initialize with default coordinates
-        if (currentLat && currentLng) {
-            updateCoordinateDisplay(currentLat, currentLng);
-            document.getElementById('latitude').value = currentLat;
-            document.getElementById('longitude').value = currentLng;
+        // Helper functions
+        function isValidCoordinate(value, isLatitude) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return false;
+            
+            if (isLatitude) {
+                return num >= -90 && num <= 90;
+            } else {
+                return num >= -180 && num <= 180;
+            }
         }
-    });
-    
-    function updateCoordinateDisplay(lat, lng) {
-        document.getElementById('displayLat').value = lat.toFixed(6);
-        document.getElementById('displayLng').value = lng.toFixed(6);
         
-        // Show example coordinates for reference
-        console.log('Coordinates updated:', lat, lng);
-    }
-    
-    function updateMapToCoordinates(lat, lng) {
-        // Update Google Maps iframe to show the coordinates
-        const apiKey = '{{ google_maps_api_key }}';
-        const newSrc = `https://www.google.com/maps/embed/v1/view?key=${apiKey}&center=${lat},${lng}&zoom=16&maptype=roadmap`;
-        mapIframe.src = newSrc;
-    }
+        function showCoordStatus(message, type) {
+            coordStatus.innerHTML = `
+                <div class="alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show">
+                    <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Auto-dismiss success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    const alert = coordStatus.querySelector('.alert');
+                    if (alert) {
+                        alert.remove();
+                    }
+                }, 3000);
+            }
+        }
+        
+        // Pre-fill with example coordinates
+        latInput.value = '16.8409';
+        lngInput.value = '96.1735';
+    });
 </script>
 {% endblock %}

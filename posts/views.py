@@ -358,18 +358,32 @@ def get_replies(request, comment_id):
 @login_required
 def notifications_view(request):
     """View for notifications page"""
-    notifications = Notification.objects.filter(
+    # Get all notifications
+    all_notifications = Notification.objects.filter(
         recipient=request.user
-    ).select_related('sender', 'post', 'comment').order_by('-created_at')[:50]
+    ).select_related('sender', 'post', 'comment').order_by('-created_at')
     
-    # Mark all as read
-    unread_notifications = notifications.filter(is_read=False)
-    unread_notifications.update(is_read=True)
+    # Get the most recent 50 for display
+    notifications_list = list(all_notifications[:50])
     
-    unread_count = Notification.objects.filter(
-        recipient=request.user,
-        is_read=False
-    ).count()
+    # Mark only the displayed notifications as read
+    if notifications_list:
+        notification_ids = [n.id for n in notifications_list]
+        Notification.objects.filter(
+            id__in=notification_ids,
+            is_read=False
+        ).update(is_read=True)
+    
+    # Get refreshed notifications with updated read status
+    if notifications_list:
+        notifications = Notification.objects.filter(
+            id__in=[n.id for n in notifications_list]
+        ).select_related('sender', 'post', 'comment').order_by('-created_at')
+    else:
+        notifications = Notification.objects.none()
+    
+    # Get current unread count
+    unread_count = all_notifications.filter(is_read=False).count()
     
     return render(request, 'posts/notifications.html', {
         'notifications': notifications,

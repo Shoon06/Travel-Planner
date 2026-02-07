@@ -201,7 +201,7 @@
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link position-relative {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'posts:notifications' %}">
-                            <i class="fas fa-bell"></i>
+                            <i class="fas fa-bell"></i>Notifications
                             {% if unread_notifications and unread_notifications > 0 %}
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge">
                                 {{ unread_notifications }}
@@ -218,8 +218,8 @@
                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-question-circle me-1"></i>How It Works
+                        <a class="nav-link" href="{% url 'planner:how_it_works' %}">How It Works</a>
+                            
                         </a>
                     </li>
                 </ul>

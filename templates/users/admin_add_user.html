@@ -34,131 +34,64 @@
         <form method="post" action="{% url 'users:admin_add_user' %}">
             {% csrf_token %}
             
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
             <div class="row">
-                <!-- Username -->
+                {% for field in form %}
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-user me-1"></i>Username *
+                        {% if field.name == 'username' %}
+                            <i class="fas fa-user me-1"></i>
+                        {% elif field.name == 'email' %}
+                            <i class="fas fa-envelope me-1"></i>
+                        {% elif field.name == 'password1' or field.name == 'password2' %}
+                            <i class="fas fa-lock me-1"></i>
+                        {% elif field.name == 'user_type' %}
+                            <i class="fas fa-user-tag me-1"></i>
+                        {% elif field.name == 'first_name' or field.name == 'last_name' %}
+                            <i class="fas fa-user me-1"></i>
+                        {% elif field.name == 'phone_number' %}
+                            <i class="fas fa-phone me-1"></i>
+                        {% elif field.name == 'is_active' %}
+                            <i class="fas fa-user-check me-1"></i>
+                        {% endif %}
+                        {{ field.label }}
                     </label>
-                    <input type="text" name="username" class="form-control" required
-                           placeholder="Enter username" value="{{ form.username.value|default:'' }}">
-                    {% if form.username.errors %}
-                    <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.username.errors.0 }}
-                    </div>
-                    {% else %}
-                    <div class="form-text">150 characters or fewer. Letters, digits and @/./+/-/_ only.</div>
-                    {% endif %}
-                </div>
-                
-                <!-- Email -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-envelope me-1"></i>Email Address *
-                    </label>
-                    <input type="email" name="email" class="form-control" required
-                           placeholder="user@example.com" value="{{ form.email.value|default:'' }}">
-                    {% if form.email.errors %}
-                    <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.email.errors.0 }}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <!-- Password -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-lock me-1"></i>Password *
-                    </label>
-                    <input type="password" name="password1" class="form-control" required
-                           placeholder="Enter password" id="password1">
-                    {% if form.password1.errors %}
-                    <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password1.errors.0 }}
-                    </div>
-                    {% endif %}
-                    <div class="form-text">
-                        <small>
-                            <i class="fas fa-info-circle me-1"></i>
-                            At least 8 characters with letters and numbers.
-                        </small>
-                    </div>
-                </div>
-                
-                <!-- Confirm Password -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-lock me-1"></i>Confirm Password *
-                    </label>
-                    <input type="password" name="password2" class="form-control" required
-                           placeholder="Confirm password" id="password2">
-                    {% if form.password2.errors %}
-                    <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password2.errors.0 }}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <!-- User Type -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-user-tag me-1"></i>User Type *
-                    </label>
-                    <select name="user_type" class="form-select" required>
-                        <option value="">Select user type</option>
-                        <option value="user" {% if form.user_type.value == 'user' %}selected{% endif %}>Regular User</option>
-                        <option value="admin" {% if form.user_type.value == 'admin' %}selected{% endif %}>Administrator</option>
-                    </select>
-                    {% if form.user_type.errors %}
-                    <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.user_type.errors.0 }}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <!-- First Name -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-user me-1"></i>First Name
-                    </label>
-                    <input type="text" name="first_name" class="form-control"
-                           placeholder="First name" value="{{ form.first_name.value|default:'' }}">
-                </div>
-                
-                <!-- Last Name -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-user me-1"></i>Last Name
-                    </label>
-                    <input type="text" name="last_name" class="form-control"
-                           placeholder="Last name" value="{{ form.last_name.value|default:'' }}">
-                </div>
-                
-                <!-- Phone Number -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold" style="color: #2c3e50;">
-                        <i class="fas fa-phone me-1"></i>Phone Number
-                    </label>
-                    <input type="text" name="phone_number" class="form-control"
-                           placeholder="Phone number" value="{{ form.phone_number.value|default:'' }}">
-                </div>
-                
-                <!-- Account Status -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
-                        <i class="fas fa-user-check me-1"></i>Account Status
-                    </label>
+                    
+                    {% if field.name == 'is_active' %}
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="is_active" 
-                               id="is_active" checked style="width: 3em; height: 1.5em;">
-                        <label class="form-check-label ms-2" for="is_active" style="color: #7f8c8d;">
+                        {{ field }}
+                        <label class="form-check-label ms-2" for="{{ field.id_for_label }}" style="color: #7f8c8d;">
                             Active Account
                         </label>
                     </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    
+                    {% if field.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ field.errors.0 }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if field.help_text and field.name != 'is_active' %}
+                    <div class="form-text">
+                        <small>{{ field.help_text }}</small>
+                    </div>
+                    {% elif field.name == 'is_active' %}
                     <div class="form-text">
                         <small>Designates whether this user can log in.</small>
                     </div>
+                    {% endif %}
                 </div>
+                {% endfor %}
                 
                 <!-- Staff Status (for superusers) -->
                 {% if request.user.is_superuser %}
@@ -276,162 +209,4 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     }
 </style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Password validation
-        const password1 = document.getElementById('password1');
-        const password2 = document.getElementById('password2');
-        
-        function validatePasswords() {
-            const password1Value = password1.value;
-            const password2Value = password2.value;
-            
-            if (password1Value && password2Value) {
-                // Check if passwords match
-                if (password1Value !== password2Value) {
-                    password2.setCustomValidity('Passwords do not match');
-                    return false;
-                }
-                
-                // Check password strength
-                if (password1Value.length < 8) {
-                    password1.setCustomValidity('Password must be at least 8 characters long');
-                    return false;
-                }
-                
-                // Check for at least one letter and one number
-                const hasLetter = /[a-zA-Z]/.test(password1Value);
-                const hasNumber = /\d/.test(password1Value);
-                
-                if (!hasLetter || !hasNumber) {
-                    password1.setCustomValidity('Password must contain both letters and numbers');
-                    return false;
-                }
-                
-                // Clear validation messages
-                password1.setCustomValidity('');
-                password2.setCustomValidity('');
-                return true;
-            }
-            return false;
-        }
-        
-        // Real-time validation
-        password1.addEventListener('input', function() {
-            validatePasswords();
-            updatePasswordStrength();
-        });
-        
-        password2.addEventListener('input', validatePasswords);
-        
-        // Email validation
-        const emailInput = document.querySelector('input[name="email"]');
-        emailInput.addEventListener('blur', function() {
-            const email = this.value;
-            if (email) {
-                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailPattern.test(email)) {
-                    this.setCustomValidity('Please enter a valid email address');
-                } else {
-                    this.setCustomValidity('');
-                }
-            }
-        });
-        
-        // Username validation
-        const usernameInput = document.querySelector('input[name="username"]');
-        usernameInput.addEventListener('input', function() {
-            const username = this.value;
-            if (username) {
-                const usernamePattern = /^[a-zA-Z0-9@.+-_]+$/;
-                if (!usernamePattern.test(username)) {
-                    this.setCustomValidity('Username can only contain letters, digits and @/./+/-/_');
-                } else if (username.length > 150) {
-                    this.setCustomValidity('Username must be 150 characters or fewer');
-                } else {
-                    this.setCustomValidity('');
-                }
-            }
-        });
-        
-        // Password strength indicator
-        function updatePasswordStrength() {
-            const password = password1.value;
-            const strengthIndicator = document.getElementById('password-strength');
-            
-            if (!strengthIndicator) {
-                // Create strength indicator if it doesn't exist
-                const div = document.createElement('div');
-                div.id = 'password-strength';
-                div.className = 'mt-2';
-                password1.parentNode.appendChild(div);
-            }
-            
-            const indicator = document.getElementById('password-strength');
-            let strength = 0;
-            let message = '';
-            let color = 'danger';
-            
-            if (password.length >= 8) strength++;
-            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-            if (/\d/.test(password)) strength++;
-            if (/[^a-zA-Z0-9]/.test(password)) strength++;
-            
-            switch(strength) {
-                case 0:
-                    message = 'Very Weak';
-                    color = 'danger';
-                    break;
-                case 1:
-                    message = 'Weak';
-                    color = 'danger';
-                    break;
-                case 2:
-                    message = 'Fair';
-                    color = 'warning';
-                    break;
-                case 3:
-                    message = 'Good';
-                    color = 'info';
-                    break;
-                case 4:
-                    message = 'Strong';
-                    color = 'success';
-                    break;
-            }
-            
-            if (password.length > 0) {
-                indicator.innerHTML = `
-                    <div class="progress" style="height: 5px;">
-                        <div class="progress-bar bg-${color}" role="progressbar" 
-                             style="width: ${strength * 25}%" aria-valuenow="${strength * 25}" 
-                             aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <small class="text-${color} mt-1 d-block">Password strength: ${message}</small>
-                `;
-            } else {
-                indicator.innerHTML = '';
-            }
-        }
-        
-        // Form submission validation
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            if (!validatePasswords()) {
-                e.preventDefault();
-                alert('Please fix the password errors before submitting.');
-            }
-        });
-        
-        // "Save & Add Another" button functionality
-        const addAnotherBtn = document.querySelector('button[name="add_another"]');
-        if (addAnotherBtn) {
-            addAnotherBtn.addEventListener('click', function() {
-                // This will submit the form with the add_another parameter
-                // The view should handle redirecting back to the add form
-            });
-        }
-    });
-</script>
 {% endblock %}

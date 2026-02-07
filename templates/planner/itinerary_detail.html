@@ -6,6 +6,9 @@
 {% block title %}Your Itinerary - GoMyanmar{% endblock %}
 
 {% block content %}
+<!-- MINIMAL DEBUG -->
+
+<!-- END DEBUG -->
 <div class="container-fluid px-0">
     <!-- Hero Header -->
     <div class="itinerary-hero py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -211,9 +214,7 @@
                                                                     data-index="{{ forloop.counter0 }}">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
-                                                            <button class="btn btn-sm btn-outline-secondary edit-activity">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
+                                                           
                                                         </div>
                                                     </div>
                                                 </div>
@@ -336,7 +337,7 @@
                             <div class="xsmall text-muted mb-2">{{ hotel.address }}</div>
                             <div class="badge bg-light text-dark">{{ hotel.get_category_display }}</div>
                             <div class="mt-2">
-                                <span class="badge bg-primary">${{ hotel.price_per_night }} per night</span>
+                                <span class="badge bg-primary">mmk{{ hotel.price_per_night }} per night</span>
                             </div>
                         </div>
                     </div>

@@ -3,9 +3,22 @@ from . import views
 from . import views_admin
 
 app_name = 'users'
-
+from django.urls import path
+from . import views
+from .views_admin import (
+    admin_trip_list,
+    admin_trip_detail,
+    admin_delete_trip,
+    admin_update_trip_status,
+    admin_trip_analytics
+)
 urlpatterns = [
     # Authentication URLs
+    path('admin/trips/', admin_trip_list, name='admin_trip_list'),
+    path('admin/trips/<int:trip_id>/', admin_trip_detail, name='admin_trip_detail'),
+    path('admin/trips/<int:trip_id>/delete/', admin_delete_trip, name='admin_delete_trip'),
+    path('admin/trips/<int:trip_id>/update-status/', admin_update_trip_status, name='admin_update_trip_status'),
+    path('admin/trips/analytics/', admin_trip_analytics, name='admin_trip_analytics'),
     path('login/', views.login_view, name='login'),
     path('signup/', views.signup_view, name='signup'),
     path('logout/', views.logout_view, name='logout'),
@@ -19,11 +32,14 @@ urlpatterns = [
     path('admin/users/update-role/', views_admin.admin_update_user_role, name='admin_update_user_role'),
     path('admin/users/toggle-active/<int:user_id>/', views_admin.admin_toggle_user_active, name='admin_toggle_user_active'),
     path('admin/flights/<int:flight_id>/delete/', views_admin.admin_delete_flight, name='admin_delete_flight'),
-    
+    path('admin/trips/<int:trip_id>/edit/', views_admin.admin_edit_trip, name='admin_edit_trip'),
+    path('admin/trips/<int:trip_id>/delete/', views_admin.admin_delete_trip, name='admin_delete_trip'),
     # Trip Management
     path('admin/trips/', views_admin.AdminTripListView.as_view(), name='admin_trip_list'),
     path('admin/trips/<int:trip_id>/', views_admin.admin_trip_details, name='admin_trip_details'),
     path('admin/trips/analytics/', views_admin.AdminTripAnalyticsView.as_view(), name='admin_trip_analytics'),
+    # Add this line to the urlpatterns list
+    path('admin/trips/<int:trip_id>/delete/', views_admin.admin_delete_trip, name='admin_delete_trip'),
     
     # Content Management
     path('admin/content/', views_admin.admin_content, name='admin_content'),

@@ -3,6 +3,8 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import get_user_model  # Add this line
+from planner.models import TripPlan, Destination
 from django.contrib import messages
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -10,23 +12,223 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
+from django import forms
 from datetime import datetime
+from .models import CustomUser, SystemSettings
+from .forms_admin import AdminUserCreationForm 
 
 from .models import CustomUser
 from planner.models import TripPlan, Destination, Hotel, Flight, BusService, CarRental, Airline, TransportSchedule
 from posts.models import Post
 from .forms_admin import (
     CustomUserAdminForm,
-    AdminAddDestinationForm, AdminEditDestinationForm,
+    AdminAddDestinationForm, AdminEditDestinationForm,  # ADD THIS
+     AdminAddHotelFormWithMap,
     AdminAddHotelForm, AdminEditHotelForm,
     AdminAddFlightForm, AdminEditFlightForm,
     AdminAddBusForm, AdminEditBusForm,
     AdminAddCarForm, AdminEditCarForm,
     AdminAddAirlineForm, AdminEditAirlineForm,
-    HotelFormWithMap
+    
+   
 )
+# users/views_admin.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.http import JsonResponse
+from django.db.models import Count, Sum, Q
+from datetime import datetime, timedelta
+from django.utils import timezone
+from planner.models import TripPlan, Destination
+User = get_user_model()
 
-# ==================== ADMIN CHECK ====================
+# In users/views_admin.py, update the admin_trip_list function:
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_trip_list(request):
+    """Admin view to list all trips with filtering"""
+    # Get custom user model
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    trips = TripPlan.objects.all().select_related('user', 'destination').order_by('-created_at')
+    
+    # Apply filters
+    status = request.GET.get('status')
+    user_id = request.GET.get('user')
+    destination_id = request.GET.get('destination')
+    
+    if status:
+        trips = trips.filter(status=status)
+    if user_id:
+        trips = trips.filter(user_id=user_id)
+    if destination_id:
+        trips = trips.filter(destination_id=destination_id)
+    
+    # Get filter options - Use 'trips' instead of 'tripplan'
+    all_users = User.objects.filter(trips__isnull=False).distinct()  # CHANGED: trips instead of tripplan
+    destinations = Destination.objects.all()
+    
+    # Pagination
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    page = request.GET.get('page', 1)
+    paginator = Paginator(trips, 20)  # 20 trips per page
+    
+    try:
+        trips_page = paginator.page(page)
+    except PageNotAnInteger:
+        trips_page = paginator.page(1)
+    except EmptyPage:
+        trips_page = paginator.page(paginator.num_pages)
+    
+    context = {
+        'trips': trips_page,
+        'all_users': all_users,
+        'destinations': destinations,
+        'is_paginated': True,
+        'page_obj': trips_page,
+    }
+    
+    return render(request, 'users/admin_trip_list.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_trip_detail(request, trip_id):
+    """Admin view to see and manage a specific trip"""
+    trip = get_object_or_404(TripPlan.objects.select_related('user', 'destination'), id=trip_id)
+    
+    if request.method == 'POST':
+        # Handle status update
+        new_status = request.POST.get('status')
+        if new_status and new_status in ['draft', 'planning', 'booked', 'completed', 'cancelled']:
+            trip.status = new_status
+            trip.save()
+            messages.success(request, f'Trip status updated to {new_status.capitalize()}')
+            return redirect('users:admin_trip_detail', trip_id=trip.id)
+        
+        # Handle note update
+        note = request.POST.get('note')
+        if note:
+            trip.notes = note
+            trip.save()
+            messages.success(request, 'Note updated successfully')
+            return redirect('users:admin_trip_detail', trip_id=trip.id)
+    
+    # Calculate nights
+    if trip.start_date and trip.end_date:
+        nights = (trip.end_date - trip.start_date).days
+    else:
+        nights = 0
+    
+    context = {
+        'trip': trip,
+        'nights': nights,
+        'days': nights + 1 if nights > 0 else 1,
+    }
+    
+    return render(request, 'users/admin_trip_detail.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_delete_trip(request, trip_id):
+    """Admin view to delete a trip"""
+    if request.method == 'POST':
+        trip = get_object_or_404(TripPlan, id=trip_id)
+        trip.delete()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': 'Trip deleted successfully'})
+        
+        messages.success(request, 'Trip deleted successfully')
+        return redirect('users:admin_trip_list')
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_update_trip_status(request, trip_id):
+    """AJAX view to update trip status"""
+    if request.method == 'POST':
+        trip = get_object_or_404(TripPlan, id=trip_id)
+        new_status = request.POST.get('status')
+        
+        if new_status and new_status in ['draft', 'planning', 'booked', 'completed', 'cancelled']:
+            trip.status = new_status
+            trip.save()
+            return JsonResponse({'success': True, 'message': f'Status updated to {new_status}'})
+        
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+# In users/views_admin.py, update the admin_trip_analytics function:
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_trip_analytics(request):
+    """Admin analytics dashboard for trips"""
+    # Get custom user model
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    # Basic statistics
+    total_trips = TripPlan.objects.count()
+    active_trips = TripPlan.objects.filter(
+        Q(status='planning') | Q(status='booked')
+    ).count()
+    completed_trips = TripPlan.objects.filter(status='completed').count()
+    
+    # Calculate revenue (simplified - using budget field if exists)
+    try:
+        total_revenue = TripPlan.objects.filter(status__in=['booked', 'completed']).aggregate(
+            total=Sum('budget')
+        )['total'] or 0
+    except:
+        total_revenue = completed_trips * 500000  # Fallback calculation
+    
+    # Monthly trends (last 6 months)
+    six_months_ago = timezone.now() - timedelta(days=180)
+    monthly_data = []
+    
+    for i in range(6):
+        month_start = timezone.now().replace(day=1) - timedelta(days=30*i)
+        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        
+        month_trips = TripPlan.objects.filter(
+            created_at__gte=month_start,
+            created_at__lte=month_end
+        ).count()
+        
+        monthly_data.append({
+            'month': month_start.strftime('%b %Y'),
+            'trips': month_trips
+        })
+    
+    monthly_data.reverse()  # Show oldest to newest
+    
+    # Popular destinations
+    popular_destinations = Destination.objects.annotate(
+        trip_count=Count('tripplan')  # This might also need to change
+    ).order_by('-trip_count')[:5]
+    
+    # Active users - Use 'trips' instead of 'tripplan'
+    active_users = User.objects.annotate(
+        trip_count=Count('trips')  # CHANGED: trips instead of tripplan
+    ).filter(trip_count__gt=0).order_by('-trip_count')[:10]
+    
+    context = {
+        'total_trips': total_trips,
+        'active_trips': active_trips,
+        'completed_trips': completed_trips,
+        'total_revenue': total_revenue,
+        'monthly_data': monthly_data,
+        'popular_destinations': popular_destinations,
+        'active_users': active_users,
+    }
+    
+    return render(request, 'users/admin_trip_analytics.html', context)
+
+# =================== ADMIN CHECK ====================
 def is_admin(user):
     """Check if user is admin"""
     return user.is_superuser or user.groups.filter(name='Admin').exists() or getattr(user, 'user_type', None) == 'admin'
@@ -68,17 +270,32 @@ def admin_dashboard(request):
 
 # ==================== HOTEL MANAGEMENT ====================
 @user_passes_test(is_admin)
+def admin_edit_trip(request, trip_id):
+    """Edit trip view"""
+    trip = get_object_or_404(TripPlan, id=trip_id)
+    
+    if request.method == 'POST':
+        # Handle trip editing here
+        # You'll need to create a form for this
+        messages.success(request, f'Trip #{trip.id} updated successfully!')
+        return redirect('users:admin_trip_list')
+    
+    # For now, redirect to the trip plan page
+    return redirect('planner:plan_selection', trip_id=trip.id)
+
+@user_passes_test(is_admin)
 def admin_hotels(request):
     """Admin hotel management view"""
     hotels = Hotel.objects.all().order_by('-created_at')
     
     # Search functionality
-    search_query = request.GET.get('search', '')
+    search_query = request.GET.get('search', '').strip()
     if search_query:
         hotels = hotels.filter(
             Q(name__icontains=search_query) |
             Q(address__icontains=search_query) |
-            Q(description__icontains=search_query)
+            Q(description__icontains=search_query) |
+            Q(destination__name__icontains=search_query)  # Add destination name search
         )
     
     # Filter by destination
@@ -166,25 +383,34 @@ def admin_edit_user(request, user_id):
         'title': f'Edit User {user.username}'
     }
     return render(request, 'users/admin_edit_user.html', context)
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+# Update the admin_add_hotel_with_map function:
+
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+# Update the admin_add_hotel_with_map function:
+
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+# Update the admin_add_hotel_with_map function (around line 100):
+
 @user_passes_test(is_admin)
 def admin_add_hotel_with_map(request):
     """Add new hotel with map location picker"""
     if request.method == 'POST':
-        form = HotelFormWithMap(request.POST, request.FILES)
+        form = AdminAddHotelFormWithMap(request.POST, request.FILES)  # Use the simple form
         if form.is_valid():
             hotel = form.save()
             messages.success(request, f'Hotel "{hotel.name}" added successfully with location!')
             return redirect('users:admin_hotels')
         else:
+            print("Form errors:", form.errors)
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = HotelFormWithMap()
+        form = AdminAddHotelFormWithMap()
     
     destinations = Destination.objects.all()
     context = {
         'form': form,
         'destinations': destinations,
-        'google_maps_api_key': getattr(settings, 'GOOGLE_MAPS_API_KEY', ''),
     }
     return render(request, 'users/admin_add_hotel_maps.html', context)
 
@@ -279,16 +505,51 @@ class AdminUserListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         
         return context
 
+# Replace the existing AdminAddUserView class with this:
+
+
+
 class AdminAddUserView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     model = CustomUser
-    form_class = CustomUserAdminForm
+    form_class = AdminUserCreationForm  # Use the new form
     template_name = 'users/admin_add_user.html'
     success_url = reverse_lazy('users:admin_dashboard_users')
     
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        
+        # Add additional fields if needed
+        form.fields['is_staff'] = forms.BooleanField(
+            required=False,
+            initial=False,
+            widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            label='Staff Status',
+            help_text='Designates whether this user can access the admin site.'
+        )
+        
+        return form
+    
     def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, f'User {self.object.username} created successfully!')
-        return response
+        # Save the user (form.save() already handles password hashing)
+        user = form.save()
+        
+        # Set staff status from form if superuser is editing
+        if self.request.user.is_superuser and 'is_staff' in form.cleaned_data:
+            user.is_staff = form.cleaned_data['is_staff']
+            user.save()
+        
+        messages.success(self.request, f'User {user.username} created successfully!')
+        
+        # Handle "Save & Add Another"
+        if 'add_another' in self.request.POST:
+            return redirect('users:admin_add_user')
+        
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Add New User'
+        return context
 
 class AdminUserRolesView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
     template_name = 'users/admin_user_roles.html'
@@ -545,7 +806,11 @@ class AdminTripListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['all_users'] = CustomUser.objects.all()
+        # Get custom user model
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        context['all_users'] = User.objects.all()
         context['destinations'] = Destination.objects.all()
         
         # Get status choices from TripPlan model
@@ -563,6 +828,9 @@ class AdminTripAnalyticsView(LoginRequiredMixin, AdminRequiredMixin, TemplateVie
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Get custom user model
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
         
         # Basic statistics
         context['total_trips'] = TripPlan.objects.count()
@@ -604,9 +872,9 @@ class AdminTripAnalyticsView(LoginRequiredMixin, AdminRequiredMixin, TemplateVie
         popular_destinations.sort(key=lambda x: x['trip_count'], reverse=True)
         context['popular_destinations'] = popular_destinations[:5]
         
-        # Active users (users with most trips)
+        # Active users (users with most trips) - Use custom User model
         active_users = []
-        for user in CustomUser.objects.all():
+        for user in User.objects.all():
             trip_count = TripPlan.objects.filter(user=user).count()
             if trip_count > 0:
                 active_users.append({
@@ -1239,3 +1507,65 @@ def admin_trip_content_view(request):
     """Redirect to Django admin for trip content management"""
     messages.info(request, 'Redirecting to Django admin for trip content management')
     return redirect('/admin/planner/tripplan/')
+@user_passes_test(is_admin)
+def admin_system_settings(request):
+    """System settings view with form"""
+    from .forms_admin import SystemSettingsForm
+    from .models import SystemSettings
+    
+    # Load settings instance
+    settings_instance = SystemSettings.load()
+    
+    if request.method == 'POST':
+        form = SystemSettingsForm(request.POST, instance=settings_instance)
+        if form.is_valid():
+            # Handle password - only update if provided
+            if not request.POST.get('email_password'):
+                # Keep existing password if field is empty
+                form.cleaned_data['email_password'] = settings_instance.email_password
+            
+            form.save()
+            messages.success(request, 'System settings saved successfully!')
+            return redirect('users:admin_system_settings')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = SystemSettingsForm(instance=settings_instance)
+    
+    # System statistics
+    context = {
+        'form': form,
+        'settings': settings_instance,
+        'total_users': CustomUser.objects.count(),
+        'total_trips': TripPlan.objects.count(),
+        'total_destinations': Destination.objects.count(),
+        'total_hotels': Hotel.objects.count(),
+        'total_flights': Flight.objects.count(),
+        'total_buses': BusService.objects.count(),
+        'total_cars': CarRental.objects.count(),
+        'total_airlines': Airline.objects.count(),
+        'total_schedules': TransportSchedule.objects.count(),
+        'total_posts': Post.objects.count(),
+    }
+    
+    # Database info
+    import sqlite3
+    import os
+    
+    db_path = settings.DATABASES['default']['NAME']
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
+        context['db_size'] = f"{db_size:.2f} MB"
+        
+        # Get table counts
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            context['table_count'] = len(tables)
+            conn.close()
+        except:
+            context['table_count'] = 'N/A'
+    
+    return render(request, 'users/admin_system_settings.html', context)

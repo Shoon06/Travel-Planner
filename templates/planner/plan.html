@@ -569,39 +569,67 @@
         }
         
         // Clear Form button
+        // Clear Form button - UPDATED VERSION
         if (clearFormBtn) {
             clearFormBtn.addEventListener('click', function() {
-                // Clear all form fields
-                originInput.value = '';
-                originIdInput.value = '';
-                originInput.classList.remove('is-valid');
-                
-                destinationInput.value = '';
-                destinationIdInput.value = '';
-                destinationInput.classList.remove('is-valid');
-                
-                if (selectedHotelId) selectedHotelId.value = '';
-                if (selectedTransportId) selectedTransportId.value = '';
-                if (selectedTransportType) selectedTransportType.value = '';
-                
-                // Reset to default dates
-                const today = new Date().toISOString().split('T')[0];
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                
-                startDate.value = today;
-                endDate.value = tomorrowStr;
-                
-                travelersSelect.value = '2';
-                
-                // Update UI
-                updateContinueButton();
-                
-                // Show message
+                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected transport\n• Clear all saved trip data')) {
+            
+            // Clear all form fields
+                   originInput.value = '';
+                   originIdInput.value = '';
+                   originInput.classList.remove('is-valid');
+            
+                   destinationInput.value = '';
+                   destinationIdInput.value = '';
+                   destinationInput.classList.remove('is-valid');
+            
+            // Reset to default dates
+                   const today = new Date().toISOString().split('T')[0];
+                   const tomorrow = new Date();
+                   tomorrow.setDate(tomorrow.getDate() + 1);
+                   const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+                   startDate.value = today;
+                   endDate.value = tomorrowStr;
+            
+                   travelersSelect.value = '2';
+            
+            // Clear hidden hotel and transport fields
+                  if (selectedHotelId) selectedHotelId.value = '';
+                  if (selectedTransportId) selectedTransportId.value = '';
+                  if (selectedTransportType) selectedTransportType.value = '';
+            
+            // Clear displayed hotel and transport
+                 const hotelDisplay = document.getElementById('selectedHotelName');
+                 const transportDisplay = document.getElementById('selectedTransportName');
+            
+                 if (hotelDisplay) hotelDisplay.textContent = '';
+                 if (transportDisplay) transportDisplay.textContent = '';
+            
+            // Update UI
+                 updateContinueButton();
+            
+            // Send request to server to clear session data
+                 fetch('/planner/clear-trip/', {
+                     method: 'GET',
+                     headers: {
+                         'X-Requested-With': 'XMLHttpRequest'
+                     }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Trip data cleared on server');
+                   }
+                })
+                .catch(error => {
+                    console.error('Error clearing trip data:', error);
+                });
+            
+            // Show message
                 alert('Form cleared. You can start a new trip.');
-            });
         }
+    });
+}
         
         // ========== FORM SUBMISSION - UPDATED FOR PLAN SELECTION ==========
         tripForm.addEventListener('submit', async function(e) {

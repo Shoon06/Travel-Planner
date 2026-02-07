@@ -206,9 +206,10 @@ class Flight(models.Model):
 
 
 # ========== HOTEL MODEL ==========
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+# REPLACE ONLY the Hotel model section with this:
 
+# ========== HOTEL MODEL ==========
 class Hotel(models.Model):
     CATEGORY_CHOICES = [
         ('budget', 'Budget (Under 50,000 MMK)'),
@@ -239,7 +240,7 @@ class Hotel(models.Model):
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
-    review_count = models.IntegerField(default=0)
+    review_count = models.IntegerField(default=0, blank=True, null=True)  # FIXED: Added blank=True, null=True
     image = models.ImageField(upload_to='hotels/', blank=True, null=True)
     description = models.TextField(blank=True)
     gallery_images = models.JSONField(default=list, blank=True)
@@ -352,7 +353,6 @@ class Hotel(models.Model):
             'gallery_images': self.gallery_images if isinstance(self.gallery_images, list) else [],
             'description': self.description[:100] + '...' if self.description and len(self.description) > 100 else (self.description or '')
         }
-    
     def get_booking_data(self):
         """Return data for booking"""
         return {
@@ -501,6 +501,7 @@ class TripPlan(models.Model):
     ])
     accommodation_type = models.CharField(max_length=20, blank=True)
     selected_hotel = models.ForeignKey(Hotel, on_delete=models.SET_NULL, null=True, blank=True)
+    selected_plan = models.CharField(max_length=100, blank=True, null=True)
     transportation_preference = models.CharField(max_length=20, blank=True)
     selected_transport = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, default='draft', choices=[

@@ -119,15 +119,17 @@
                         </td>
                         <td>
                             <div class="btn-group" role="group">
-                                <a href="#" class="btn btn-sm btn-outline-primary view-trip-btn" 
-                                   data-trip-id="{{ trip.id }}">
-                                    <i class="fas fa-eye"></i>
+                                <!-- Status Management Button -->
+                                <a href="{% url 'users:admin_trip_detail' trip.id %}" 
+                                   class="btn btn-sm btn-outline-info"
+                                   title="Manage Trip Status">
+                                    <i class="fas fa-cog"></i>
                                 </a>
-                                <a href="#" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                
+                                <!-- Delete Button -->
                                 <button class="btn btn-sm btn-outline-danger delete-trip-btn" 
-                                        data-trip-id="{{ trip.id }}">
+                                        data-trip-id="{{ trip.id }}"
+                                        title="Delete Trip">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -224,36 +226,71 @@
             window.location.href = window.location.pathname;
         });
         
-        // View trip details
-        document.querySelectorAll('.view-trip-btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const tripId = this.getAttribute('data-trip-id');
-                window.open(`/planner/plan/${tripId}/`, '_blank');
-            });
-        });
-        
         // Delete trip
         document.querySelectorAll('.delete-trip-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const tripId = this.getAttribute('data-trip-id');
-                if (confirm('Are you sure you want to delete this trip?')) {
-                    fetch(`/admin/trip/${tripId}/delete/`, {
+                if (confirm('Are you sure you want to delete this trip? This action cannot be undone.')) {
+                    fetch(`/users/admin/trips/${tripId}/delete/`, {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': '{{ csrf_token }}',
-                        }
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({})
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Network response was not ok.');
+                    })
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            // Show success message
+                            showAlert('Trip deleted successfully!', 'success');
+                            // Reload after 1 second
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
                         } else {
-                            alert('Error: ' + data.error);
+                            showAlert('Error: ' + data.error, 'danger');
                         }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showAlert('Failed to delete trip. Please try again.', 'danger');
                     });
                 }
             });
+        });
+        
+        // Helper function to show alerts
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.top = '20px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '1050';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        }
+        
+        // Add tooltips to action buttons
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     });
 </script>

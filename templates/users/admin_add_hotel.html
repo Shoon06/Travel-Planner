@@ -47,30 +47,18 @@
         width: 100%;
     }
     
-    .iframe-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 900;
-        cursor: pointer;
+    .form-errors {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #dc3545;
     }
     
-    .map-controls {
-        background: white;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .coordinates-input {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 10px;
+    .form-errors ul {
+        margin-bottom: 0;
+        padding-left: 20px;
     }
 </style>
 {% endblock %}
@@ -88,110 +76,69 @@
                     <p class="text-gray">Add a new hotel and select its location on the map</p>
                 </div>
                 
+                <!-- Display form errors -->
+                {% if form.errors %}
+                <div class="form-errors">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Please correct these errors:</h6>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
                 <!-- Instructions -->
                 <div class="map-instructions">
                     <h6><i class="fas fa-info-circle me-2"></i>How to add hotel location:</h6>
-                    <p class="mb-2">Since you can manually add hotels with coordinates (like in your script), you have two options:</p>
-                    <ol class="mb-0">
-                        <li><strong>Option A (Recommended):</strong> Look up coordinates on Google Maps, then enter them below</li>
-                        <li><strong>Option B:</strong> Use the interactive map to approximate location and get coordinates</li>
-                    </ol>
-                    <div class="mt-3 alert alert-info">
-                        <i class="fas fa-lightbulb me-2"></i>
-                        <strong>Example from your script:</strong> Sagaing coordinates: <code>21.8790, 95.9780</code>
-                    </div>
+                    <p class="mb-2">Find coordinates on Google Maps (right-click → "What's here?") and enter them below.</p>
+                    <p class="mb-0"><strong>Example:</strong> Yangon coordinates: <code>16.8409, 96.1735</code></p>
                 </div>
                 
                 <form method="post" enctype="multipart/form-data" id="hotelForm" novalidate>
                     {% csrf_token %}
                     
-                    <!-- Hidden fields for coordinates -->
-                    <input type="hidden" name="latitude" id="latitude" value="{{ form.latitude.value|default:'' }}">
-                    <input type="hidden" name="longitude" id="longitude" value="{{ form.longitude.value|default:'' }}">
-                    
-                    <div class="row">
-                        <!-- Hotel Name -->
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
-                            <input type="text" name="name" class="form-control" 
-                                   placeholder="e.g., Mandalay Hill Resort" required
-                                   value="{{ form.name.value|default:'' }}">
-                        </div>
-                        
-                        <!-- Destination -->
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
-                            <select name="destination" class="form-select" required id="destinationSelect">
-                                <option value="">Select Destination</option>
-                                {% for dest in destinations %}
-                                <option value="{{ dest.id }}" 
-                                    {% if form.destination.value == dest.id %}selected{% endif %}
-                                    data-lat="{{ dest.latitude|default:'21.9588' }}"
-                                    data-lng="{{ dest.longitude|default:'96.0891' }}">
-                                    {{ dest.name }} ({{ dest.region }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                    <!-- Hotel Name -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Name *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small">{{ form.name.errors }}</div>
+                        {% endif %}
                     </div>
                     
-                    <!-- Address Input -->
+                    <!-- Destination -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
+                        {{ form.destination }}
+                        {% if form.destination.errors %}
+                        <div class="text-danger small">{{ form.destination.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Address -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Address *</label>
-                        <textarea name="address" class="form-control" rows="2" 
-                                  placeholder="Enter complete hotel address" 
-                                  required id="addressInput">{{ form.address.value|default:'' }}</textarea>
-                        <small class="text-muted">Enter the hotel's full address</small>
+                        {{ form.address }}
+                        {% if form.address.errors %}
+                        <div class="text-danger small">{{ form.address.errors }}</div>
+                        {% endif %}
                     </div>
                     
-                    <!-- Option A: Manual Coordinate Entry -->
+                    <!-- Coordinates Selection -->
                     <div class="mb-4">
-                        <h5 class="fw-bold" style="color: #2c3e50;">
-                            <i class="fas fa-keyboard me-2"></i>Option A: Enter Coordinates Manually
-                        </h5>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Coordinates Selection</label>
                         
-                        <div class="coordinates-input">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Latitude *</label>
-                                    <input type="text" class="form-control" id="manualLatInput" 
-                                           placeholder="e.g., 21.8790"
-                                           pattern="-?\d+(\.\d+)?"
-                                           title="Enter a valid latitude (e.g., 21.8790)">
-                                    <small class="text-muted">Decimal degrees (-90 to 90)</small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Longitude *</label>
-                                    <input type="text" class="form-control" id="manualLngInput" 
-                                           placeholder="e.g., 95.9780"
-                                           pattern="-?\d+(\.\d+)?"
-                                           title="Enter a valid longitude (e.g., 95.9780)">
-                                    <small class="text-muted">Decimal degrees (-180 to 180)</small>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-primary" id="btnUseManualCoords">
-                                <i class="fas fa-check me-2"></i>Use These Coordinates
-                            </button>
-                            <small class="ms-3 text-muted">
-                                Tip: Find coordinates on Google Maps by right-clicking a location
-                            </small>
-                        </div>
-                    </div>
-                    
-                    <!-- Option B: Interactive Map -->
-                    <div class="mb-4">
-                        <h5 class="fw-bold" style="color: #2c3e50;">
-                            <i class="fas fa-map me-2"></i>Option B: Use Interactive Map
-                        </h5>
-                        
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Note:</strong> This map is for visual reference only. Coordinates are approximate.
+                        <!-- Google Maps iFrame for reference -->
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Use Google Maps below to find coordinates. Right-click on location and select "What's here?"
                         </div>
                         
                         <div class="map-container">
                             <div class="iframe-wrapper">
-                                <!-- Google Maps iFrame WITHOUT API key -->
                                 <iframe 
                                     id="googleMapIframe"
                                     style="width: 100%; height: 100%; border: none;"
@@ -204,126 +151,101 @@
                             <div class="location-pin">
                                 <i class="fas fa-map-pin"></i>
                             </div>
-                            <div class="iframe-overlay" id="mapOverlay"></div>
                         </div>
                         
-                        <!-- Map Controls -->
-                        <div class="map-controls">
-                            <div class="row align-items-center">
-                                <div class="col-md-4">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnGetMapCoords">
-                                        <i class="fas fa-crosshairs me-1"></i>Get Current Map Coordinates
-                                    </button>
-                                </div>
-                                <div class="col-md-8">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" id="mapSearchInput" 
-                                               placeholder="Search location...">
-                                        <button class="btn btn-outline-secondary" type="button" id="btnSearchMap">
-                                            <i class="fas fa-search"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Current Coordinates Display -->
+                        <!-- Coordinate Inputs -->
                         <div class="coordinates-display mt-3">
-                            <div class="row align-items-center">
-                                <div class="col-md-4">
-                                    <strong>Current Latitude:</strong>
-                                    <input type="text" class="form-control form-control-sm mt-1 bg-white" 
-                                           id="currentLat" placeholder="--" readonly>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Latitude *</label>
+                                    <input type="text" class="form-control" id="latInput" 
+                                           placeholder="e.g., 16.8409"
+                                           required>
+                                    <small class="text-muted">Decimal degrees (e.g., 16.8409 for Yangon)</small>
                                 </div>
-                                <div class="col-md-4">
-                                    <strong>Current Longitude:</strong>
-                                    <input type="text" class="form-control form-control-sm mt-1 bg-white" 
-                                           id="currentLng" placeholder="--" readonly>
-                                </div>
-                                <div class="col-md-4 text-end">
-                                    <button type="button" class="btn btn-success btn-sm" id="btnUseCurrentCoords">
-                                        <i class="fas fa-check me-1"></i>Use Current Coordinates
-                                    </button>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Longitude *</label>
+                                    <input type="text" class="form-control" id="lngInput" 
+                                           placeholder="e.g., 96.1735"
+                                           required>
+                                    <small class="text-muted">Decimal degrees (e.g., 96.1735 for Yangon)</small>
                                 </div>
                             </div>
-                            <div class="mt-2 text-muted small">
-                                <i class="fas fa-lightbulb me-1"></i>
-                                Drag/zoom map to position the red pin, then click "Get Current Map Coordinates"
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Selected Coordinates Summary -->
-                    <div class="alert alert-success" id="selectedCoordsAlert" style="display: none;">
-                        <h6><i class="fas fa-check-circle me-2"></i>Coordinates Selected!</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Latitude:</strong> <span id="selectedLatDisplay">--</span>
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Longitude:</strong> <span id="selectedLngDisplay">--</span>
-                            </div>
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnChangeCoords">
-                                <i class="fas fa-edit me-1"></i>Change Coordinates
+                            <button type="button" class="btn btn-primary" id="btnSetCoords">
+                                <i class="fas fa-check me-2"></i>Set These Coordinates
                             </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Other form fields (same as before) -->
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
-                            <input type="number" name="price_per_night" class="form-control" 
-                                   placeholder="e.g., 50000" min="0" step="1000" required
-                                   value="{{ form.price_per_night.value|default:'' }}">
+                            <small class="ms-3 text-muted">
+                                Tip: Copy coordinates from Google Maps and paste here
+                            </small>
                         </div>
                         
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
-                            <input type="number" name="rating" class="form-control" 
-                                   placeholder="e.g., 4.5" min="0" max="5" step="0.1" required
-                                   value="{{ form.rating.value|default:'' }}">
-                        </div>
+                        <!-- Hidden coordinate fields for form submission -->
+                        {{ form.latitude }}
+                        {{ form.longitude }}
+                        
+                        <!-- Coordinate Validation Message -->
+                        <div id="coordStatus" class="mt-2"></div>
                     </div>
                     
-                    <!-- Amenities -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
-                        <textarea name="amenities" class="form-control" rows="2" 
-                                  placeholder="wifi, pool, spa, restaurant, gym, parking, breakfast">{{ form.amenities.value|default:'' }}</textarea>
-                        <small class="text-muted">Enter amenities separated by commas</small>
+                    <!-- Price and Rating -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
+                            {{ form.price_per_night }}
+                            {% if form.price_per_night.errors %}
+                            <div class="text-danger small">{{ form.price_per_night.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
+                            {{ form.rating }}
+                            {% if form.rating.errors %}
+                            <div class="text-danger small">{{ form.rating.errors }}</div>
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <!-- Category -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
-                        <select name="category" class="form-select" required>
-                            <option value="">Select Category</option>
-                            <option value="budget" {% if form.category.value == 'budget' %}selected{% endif %}>
-                                Budget (Under 50,000 MMK)
-                            </option>
-                            <option value="medium" {% if form.category.value == 'medium' %}selected{% endif %}>
-                                Medium (50,000 - 150,000 MMK)
-                            </option>
-                            <option value="luxury" {% if form.category.value == 'luxury' %}selected{% endif %}>
-                                Luxury (150,000+ MMK)
-                            </option>
-                        </select>
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                        <div class="text-danger small">{{ form.category.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Amenities -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Amenities</label>
+                        {{ form.amenities }}
+                        <small class="text-muted">Enter amenities separated by commas (e.g., wifi, pool, spa, restaurant)</small>
+                        {% if form.amenities.errors %}
+                        <div class="text-danger small">{{ form.amenities.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="text-danger small">{{ form.description.errors }}</div>
+                        {% endif %}
                     </div>
                     
                     <!-- Image -->
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="color: #2c3e50;">Hotel Image</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
+                        {{ form.image }}
+                        {% if form.image.errors %}
+                        <div class="text-danger small">{{ form.image.errors }}</div>
+                        {% endif %}
                     </div>
                     
                     <!-- Real Hotel Checkbox -->
                     <div class="form-check mb-4">
-                        <input class="form-check-input" type="checkbox" name="is_real_hotel" id="is_real_hotel" 
-                               {% if form.is_real_hotel.value|default:False %}checked{% endif %}>
-                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="is_real_hotel">
+                        {{ form.is_real_hotel }}
+                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="{{ form.is_real_hotel.id_for_label }}">
                             Mark as real hotel
                         </label>
                     </div>
@@ -332,7 +254,7 @@
                         <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
                             Cancel
                         </a>
-                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <button type="submit" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Add Hotel with Location
                         </button>
                     </div>
@@ -345,182 +267,92 @@
 
 {% block extra_js %}
 <script>
-    // Initial state
-    let selectedLat = null;
-    let selectedLng = null;
-    let mapIframe = null;
-    
     document.addEventListener('DOMContentLoaded', function() {
-        mapIframe = document.getElementById('googleMapIframe');
+        const latInput = document.getElementById('latInput');
+        const lngInput = document.getElementById('lngInput');
+        const latitudeField = document.getElementById('id_latitude');
+        const longitudeField = document.getElementById('id_longitude');
+        const coordStatus = document.getElementById('coordStatus');
+        const hotelForm = document.getElementById('hotelForm');
         
-        // Option A: Manual coordinate entry
-        document.getElementById('btnUseManualCoords').addEventListener('click', function() {
-            const lat = document.getElementById('manualLatInput').value.trim();
-            const lng = document.getElementById('manualLngInput').value.trim();
+        // Set coordinates button
+        document.getElementById('btnSetCoords').addEventListener('click', function() {
+            const lat = latInput.value.trim();
+            const lng = lngInput.value.trim();
             
-            if (!validateCoordinates(lat, lng)) {
+            // Validate coordinates
+            if (!lat || !lng) {
+                showCoordStatus('Please enter both latitude and longitude', 'error');
                 return;
             }
             
-            // Parse and round to 4 decimal places (like your example)
-            const latNum = parseFloat(lat).toFixed(4);
-            const lngNum = parseFloat(lng).toFixed(4);
-            
-            selectCoordinates(latNum, lngNum, 'manual');
-        });
-        
-        // Option B: Get coordinates from map (approximate)
-        document.getElementById('btnGetMapCoords').addEventListener('click', function() {
-            // Since we can't directly access iframe content without API,
-            // we'll generate approximate coordinates based on recent destinations
-            
-            const destSelect = document.getElementById('destinationSelect');
-            const selectedOption = destSelect.options[destSelect.selectedIndex];
-            
-            if (selectedOption.value) {
-                // Use destination coordinates as base
-                const baseLat = parseFloat(selectedOption.dataset.lat) || 21.8790;
-                const baseLng = parseFloat(selectedOption.dataset.lng) || 95.9780;
-                
-                // Add small random offset to simulate different locations
-                const offsetLat = (Math.random() - 0.5) * 0.02; // ±0.01 degrees
-                const offsetLng = (Math.random() - 0.5) * 0.02; // ±0.01 degrees
-                
-                const lat = (baseLat + offsetLat).toFixed(4);
-                const lng = (baseLng + offsetLng).toFixed(4);
-                
-                // Update current display
-                document.getElementById('currentLat').value = lat;
-                document.getElementById('currentLng').value = lng;
-                
-                alert('Approximate coordinates generated. These are based on the selected destination with slight variation.');
-            } else {
-                alert('Please select a destination first to generate approximate coordinates.');
-            }
-        });
-        
-        // Use current map coordinates
-        document.getElementById('btnUseCurrentCoords').addEventListener('click', function() {
-            const lat = document.getElementById('currentLat').value;
-            const lng = document.getElementById('currentLng').value;
-            
-            if (!lat || !lng || lat === '--' || lng === '--') {
-                alert('Please generate coordinates first by clicking "Get Current Map Coordinates"');
+            if (!isValidCoordinate(lat, true) || !isValidCoordinate(lng, false)) {
+                showCoordStatus('Invalid coordinates. Please check the values.', 'error');
                 return;
             }
             
-            selectCoordinates(lat, lng, 'map');
-        });
-        
-        // Search map location
-        document.getElementById('btnSearchMap').addEventListener('click', function() {
-            const searchQuery = document.getElementById('mapSearchInput').value.trim();
-            if (!searchQuery) return;
+            // Set the hidden form fields
+            latitudeField.value = lat;
+            longitudeField.value = lng;
             
-            // Update iframe with search query
-            const searchUrl = `https://maps.google.com/maps?q=${encodeURIComponent(searchQuery + ' Myanmar')}&z=12&output=embed&hl=en`;
-            mapIframe.src = searchUrl;
+            showCoordStatus('Coordinates set successfully!', 'success');
         });
         
-        // Change coordinates button
-        document.getElementById('btnChangeCoords').addEventListener('click', function() {
-            document.getElementById('selectedCoordsAlert').style.display = 'none';
-        });
-        
-        // When destination changes
-        document.getElementById('destinationSelect').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            if (selectedOption.value) {
-                const lat = parseFloat(selectedOption.dataset.lat) || 21.8790;
-                const lng = parseFloat(selectedOption.dataset.lng) || 95.9780;
-                
-                // Update manual input fields with destination coordinates
-                document.getElementById('manualLatInput').value = lat.toFixed(4);
-                document.getElementById('manualLngInput').value = lng.toFixed(4);
-                
-                // Update map to show destination
-                const mapUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=12&output=embed&hl=en`;
-                mapIframe.src = mapUrl;
-            }
-        });
-        
-        // Form submission validation
-        document.getElementById('hotelForm').addEventListener('submit', function(e) {
-            if (!selectedLat || !selectedLng) {
+        // Form validation
+        hotelForm.addEventListener('submit', function(e) {
+            // Check if coordinates are set
+            if (!latitudeField.value || !longitudeField.value) {
                 e.preventDefault();
-                alert('Please select coordinates first. Use Option A or Option B above.');
+                showCoordStatus('Please set coordinates before submitting!', 'error');
+                latInput.focus();
                 return false;
             }
             
-            // Set the hidden fields
-            document.getElementById('latitude').value = selectedLat;
-            document.getElementById('longitude').value = selectedLng;
+            // Check if manual inputs are filled but not set
+            if ((latInput.value || lngInput.value) && (!latitudeField.value || !longitudeField.value)) {
+                e.preventDefault();
+                showCoordStatus('Please click "Set These Coordinates" button to save coordinates', 'error');
+                return false;
+            }
             
             return true;
         });
         
-        // Initialize with example coordinates from your script
-        document.getElementById('manualLatInput').value = '21.8790';
-        document.getElementById('manualLngInput').value = '95.9780';
+        // Helper functions
+        function isValidCoordinate(value, isLatitude) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return false;
+            
+            if (isLatitude) {
+                return num >= -90 && num <= 90;
+            } else {
+                return num >= -180 && num <= 180;
+            }
+        }
+        
+        function showCoordStatus(message, type) {
+            coordStatus.innerHTML = `
+                <div class="alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show">
+                    <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Auto-dismiss success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    const alert = coordStatus.querySelector('.alert');
+                    if (alert) {
+                        alert.remove();
+                    }
+                }, 3000);
+            }
+        }
+        
+        // Pre-fill with example coordinates
+        latInput.value = '16.8409';
+        lngInput.value = '96.1735';
     });
-    
-    // Validate coordinate inputs
-    function validateCoordinates(lat, lng) {
-        if (!lat || !lng) {
-            alert('Please enter both latitude and longitude');
-            return false;
-        }
-        
-        const latNum = parseFloat(lat);
-        const lngNum = parseFloat(lng);
-        
-        if (isNaN(latNum) || isNaN(lngNum)) {
-            alert('Please enter valid numbers for coordinates');
-            return false;
-        }
-        
-        if (latNum < -90 || latNum > 90) {
-            alert('Latitude must be between -90 and 90');
-            return false;
-        }
-        
-        if (lngNum < -180 || lngNum > 180) {
-            alert('Longitude must be between -180 and 180');
-            return false;
-        }
-        
-        return true;
-    }
-    
-    // Select coordinates and update UI
-    function selectCoordinates(lat, lng, source) {
-        selectedLat = lat;
-        selectedLng = lng;
-        
-        // Update hidden form fields
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
-        
-        // Update display
-        document.getElementById('selectedLatDisplay').textContent = lat;
-        document.getElementById('selectedLngDisplay').textContent = lng;
-        
-        // Show success alert
-        document.getElementById('selectedCoordsAlert').style.display = 'block';
-        
-        // Show success message
-        let sourceText = '';
-        if (source === 'manual') {
-            sourceText = 'manually entered';
-        } else if (source === 'map') {
-            sourceText = 'from map';
-        }
-        
-        console.log(`✅ Coordinates selected (${sourceText}): ${lat}, ${lng}`);
-        
-        // Optional: Update map to show selected location
-        const mapUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed&hl=en`;
-        mapIframe.src = mapUrl;
-    }
 </script>
 {% endblock %}
