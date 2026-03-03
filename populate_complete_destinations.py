@@ -1,183 +1,142 @@
-# C:\Users\ASUS\MyanmarTravelPlanner\populate_complete_destinations.py
-import os
-import sys
-import django
-import json
-from decimal import Decimal
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\management\commands\populate_complete_destinations_fixed.py
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mtravel.settings')
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-django.setup()
-
+from django.core.management.base import BaseCommand
 from planner.models import Destination
+import os
+from django.conf import settings
+from django.core.files import File
 
-# COMPLETE Myanmar Destinations with Coordinates
-MYANMAR_DESTINATIONS = [
-    # States (7 States)
-    {"name": "Kachin State", "region": "Northern Myanmar", "type": "state", 
-     "latitude": 25.8500, "longitude": 97.3833, "description": "Northernmost state known for jade mines, mountains, and Myitsone confluence."},
-    {"name": "Chin State", "region": "Western Myanmar", "type": "state", 
-     "latitude": 22.0000, "longitude": 93.5000, "description": "Mountainous western state famous for tribal cultures and Mount Victoria."},
-    {"name": "Kayah State", "region": "Eastern Myanmar", "type": "state", 
-     "latitude": 19.2500, "longitude": 97.5000, "description": "Smallest state known for Padaung (long-neck) women and scenic landscapes."},
-    {"name": "Kayin State", "region": "Southeastern Myanmar", "type": "state", 
-     "latitude": 17.0000, "longitude": 97.7500, "description": "Known for limestone mountains, caves, and the Thanlwin River."},
-    {"name": "Mon State", "region": "Southern Myanmar", "type": "state", 
-     "latitude": 16.5000, "longitude": 97.5000, "description": "Coastal state famous for Golden Rock (Kyaiktiyo) pagoda and beaches."},
-    {"name": "Rakhine State", "region": "Western Myanmar", "type": "state", 
-     "latitude": 19.5000, "longitude": 93.5000, "description": "Western coastal state with Ngapali Beach and ancient Mrauk-U."},
-    {"name": "Shan State", "region": "Eastern Myanmar", "type": "state", 
-     "latitude": 21.0000, "longitude": 98.0000, "description": "Largest state known for Inle Lake, hill tribes, and tea plantations."},
-    
-    # Regions (7 Regions)
-    {"name": "Sagaing Region", "region": "Northern Myanmar", "type": "region", 
-     "latitude": 21.8833, "longitude": 95.9667, "description": "Second largest region with ancient cities like Monywa and Shwebo."},
-    {"name": "Mandalay Region", "region": "Central Myanmar", "type": "region", 
-     "latitude": 21.9750, "longitude": 96.0833, "description": "Cultural heart of Myanmar with ancient capitals and Mandalay city."},
-    {"name": "Magway Region", "region": "Central Myanmar", "type": "region", 
-     "latitude": 20.1500, "longitude": 94.9500, "description": "Known for oil fields, Thanakha trees, and Magway city."},
-    {"name": "Bago Region", "region": "Lower Myanmar", "type": "region", 
-     "latitude": 17.3333, "longitude": 96.4833, "description": "Historic region with ancient capital Bago and Shwemawdaw Pagoda."},
-    {"name": "Yangon Region", "region": "Lower Myanmar", "type": "region", 
-     "latitude": 16.8409, "longitude": 96.1735, "description": "Commercial capital with Shwedagon Pagoda and colonial architecture."},
-    {"name": "Ayeyarwady Region", "region": "Lower Myanmar", "type": "region", 
-     "latitude": 16.8333, "longitude": 95.1667, "description": "Delta region known for rice cultivation and beaches like Ngwe Saung."},
-    {"name": "Tanintharyi Region", "region": "Southern Myanmar", "type": "region", 
-     "latitude": 13.0000, "longitude": 98.7500, "description": "Southernmost region with Myeik Archipelago and Dawei city."},
-    
-    # Union Territory
-    {"name": "Naypyidaw", "region": "Central Myanmar", "type": "union_territory", 
-     "latitude": 19.7475, "longitude": 96.1150, "description": "Capital city of Myanmar since 2005, known for its wide roads and government buildings."},
-    
-    # Major Cities (25+ cities)
-    {"name": "Yangon", "region": "Yangon Region", "type": "city", 
-     "latitude": 16.8409, "longitude": 96.1735, "description": "Largest city and former capital, famous for Shwedagon Pagoda."},
-    {"name": "Mandalay", "region": "Mandalay Region", "type": "city", 
-     "latitude": 21.9750, "longitude": 96.0833, "description": "Second largest city, cultural capital of Myanmar."},
-    {"name": "Naypyidaw", "region": "Naypyidaw", "type": "city", 
-     "latitude": 19.7475, "longitude": 96.1150, "description": "Capital city of Myanmar."},
-    {"name": "Bagan", "region": "Mandalay Region", "type": "city", 
-     "latitude": 21.1722, "longitude": 94.8603, "description": "Ancient city with thousands of Buddhist temples."},
-    {"name": "Mawlamyine", "region": "Mon State", "type": "city", 
-     "latitude": 16.4800, "longitude": 97.6300, "description": "Third largest city and former British colonial capital."},
-    {"name": "Taunggyi", "region": "Shan State", "type": "city", 
-     "latitude": 20.7833, "longitude": 97.0333, "description": "Capital of Shan State, known for its floating balloon festival."},
-    {"name": "Monywa", "region": "Sagaing Region", "type": "city", 
-     "latitude": 22.1167, "longitude": 95.1333, "description": "Major city in Sagaing Region, known for Thanboddhay Pagoda."},
-    {"name": "Pyay", "region": "Bago Region", "type": "city", 
-     "latitude": 18.8167, "longitude": 95.2167, "description": "Ancient Pyu city with Sri Ksetra archaeological site."},
-    {"name": "Sittwe", "region": "Rakhine State", "type": "city", 
-     "latitude": 20.1500, "longitude": 92.9000, "description": "Capital of Rakhine State, port city on Bay of Bengal."},
-    {"name": "Myitkyina", "region": "Kachin State", "type": "city", 
-     "latitude": 25.3833, "longitude": 97.4000, "description": "Capital of Kachin State, near Myitsone confluence."},
-    {"name": "Pathein", "region": "Ayeyarwady Region", "type": "city", 
-     "latitude": 16.7833, "longitude": 94.7333, "description": "Capital of Ayeyarwady Region, famous for umbrellas."},
-    {"name": "Magway", "region": "Magway Region", "type": "city", 
-     "latitude": 20.1500, "longitude": 94.9500, "description": "Capital of Magway Region, center of oil industry."},
-    {"name": "Pakokku", "region": "Magway Region", "type": "city", 
-     "latitude": 21.3333, "longitude": 95.0833, "description": "Important river port on the Irrawaddy River."},
-    {"name": "Hakha", "region": "Chin State", "type": "city", 
-     "latitude": 22.6500, "longitude": 93.6167, "description": "Capital of Chin State in the mountains."},
-    {"name": "Loikaw", "region": "Kayah State", "type": "city", 
-     "latitude": 19.6667, "longitude": 97.2167, "description": "Capital of Kayah State, known for Padaung tribe."},
-    {"name": "Dawei", "region": "Tanintharyi Region", "type": "city", 
-     "latitude": 14.0833, "longitude": 98.2000, "description": "Capital of Tanintharyi Region, southern port city."},
-    {"name": "Myeik", "region": "Tanintharyi Region", "type": "city", 
-     "latitude": 12.4333, "longitude": 98.6000, "description": "Port city in the Myeik Archipelago, known for pearls."},
-    {"name": "Shwebo", "region": "Sagaing Region", "type": "city", 
-     "latitude": 22.5667, "longitude": 95.7000, "description": "Historical capital of Konbaung Dynasty."},
-    {"name": "Kalay", "region": "Sagaing Region", "type": "city", 
-     "latitude": 23.1833, "longitude": 94.0500, "description": "Town in Sagaing Region near Indian border."},
-    {"name": "Meiktila", "region": "Mandalay Region", "type": "city", 
-     "latitude": 20.8833, "longitude": 95.8833, "description": "Important city in central Myanmar with a large lake."},
-    {"name": "Pyin Oo Lwin", "region": "Mandalay Region", "type": "town", 
-     "latitude": 22.0333, "longitude": 96.4667, "description": "Hill station known for colonial architecture and flowers."},
-    {"name": "Hsipaw", "region": "Shan State", "type": "town", 
-     "latitude": 22.6333, "longitude": 97.2833, "description": "Shan town known for trekking and Shan Palace."},
-    {"name": "Kalaw", "region": "Shan State", "type": "town", 
-     "latitude": 20.6333, "longitude": 96.5667, "description": "Hill station popular for trekking to Inle Lake."},
-    {"name": "Hpa-An", "region": "Kayin State", "type": "town", 
-     "latitude": 16.8833, "longitude": 97.6333, "description": "Capital of Kayin State with limestone caves."},
-    
-    # Popular Attractions
-    {"name": "Inle Lake", "region": "Shan State", "type": "attraction", 
-     "latitude": 20.5500, "longitude": 96.9167, "description": "Freshwater lake famous for leg-rowing fishermen and floating villages."},
-    {"name": "Ngapali Beach", "region": "Rakhine State", "type": "attraction", 
-     "latitude": 18.4500, "longitude": 94.3333, "description": "Pristine beach on Bay of Bengal with luxury resorts."},
-    {"name": "Ngwe Saung Beach", "region": "Ayeyarwady Region", "type": "attraction", 
-     "latitude": 16.6667, "longitude": 94.5667, "description": "Beautiful beach with white sand and clear water."},
-    {"name": "Kyaiktiyo Pagoda", "region": "Mon State", "type": "attraction", 
-     "latitude": 17.4819, "longitude": 97.0967, "description": "Golden Rock pagoda balancing on cliff edge."},
-    {"name": "U Bein Bridge", "region": "Mandalay Region", "type": "attraction", 
-     "latitude": 21.8700, "longitude": 96.0550, "description": "Longest teakwood bridge in the world."},
-    {"name": "Shwedagon Pagoda", "region": "Yangon Region", "type": "attraction", 
-     "latitude": 16.7983, "longitude": 96.1494, "description": "Most sacred Buddhist pagoda in Myanmar."},
-    {"name": "Mount Popa", "region": "Mandalay Region", "type": "attraction", 
-     "latitude": 20.9172, "longitude": 95.2500, "description": "Volcanic peak with monastery on top."},
-    {"name": "Mrauk U", "region": "Rakhine State", "type": "attraction", 
-     "latitude": 20.5967, "longitude": 93.1928, "description": "Ancient capital with hundreds of temples."},
-    {"name": "Pindaya Caves", "region": "Shan State", "type": "attraction", 
-     "latitude": 20.9500, "longitude": 96.6667, "description": "Limestone caves with thousands of Buddha images."},
-    {"name": "Chaung Tha Beach", "region": "Ayeyarwady Region", "type": "attraction", 
-     "latitude": 16.4667, "longitude": 94.3333, "description": "Popular beach destination near Pathein."},
-    
-    # Major Airports (as departure points)
-    {"name": "Yangon International Airport", "region": "Yangon Region", "type": "airport", 
-     "latitude": 16.9073, "longitude": 96.1332, "description": "Main international airport of Myanmar."},
-    {"name": "Mandalay International Airport", "region": "Mandalay Region", "type": "airport", 
-     "latitude": 21.7022, "longitude": 95.9792, "description": "Second largest airport in Myanmar."},
-    {"name": "Naypyidaw International Airport", "region": "Naypyidaw", "type": "airport", 
-     "latitude": 19.6235, "longitude": 96.2010, "description": "Capital city's international airport."},
-    {"name": "Heho Airport", "region": "Shan State", "type": "airport", 
-     "latitude": 20.7470, "longitude": 96.7920, "description": "Gateway to Inle Lake and Shan State."},
-    {"name": "Nyaung U Airport", "region": "Mandalay Region", "type": "airport", 
-     "latitude": 21.1788, "longitude": 94.9302, "description": "Gateway to Bagan temples."},
-    {"name": "Thandwe Airport", "region": "Rakhine State", "type": "airport", 
-     "latitude": 18.4608, "longitude": 94.3001, "description": "Gateway to Ngapali Beach."},
-]
 
-def populate_complete_destinations():
-    print("=== POPULATING COMPLETE MYANMAR DESTINATIONS ===")
-    created_count = 0
-    updated_count = 0
-    
-    for dest_data in MYANMAR_DESTINATIONS:
-        dest, created = Destination.objects.update_or_create(
-            name=dest_data["name"],
-            defaults={
-                "region": dest_data["region"],
-                "type": dest_data["type"],
-                "latitude": Decimal(str(dest_data["latitude"])),
-                "longitude": Decimal(str(dest_data["longitude"])),
-                "description": dest_data["description"],
-                "is_active": True
-            }
-        )
+class Command(BaseCommand):
+    help = 'Populate complete destination data with correct folder names'
+
+    def handle(self, *args, **kwargs):
+        # First, get all actual folder names
+        base_dir = os.path.join(settings.MEDIA_ROOT, 'destinations')
+        actual_folders = []
         
-        if created:
-            created_count += 1
-            print(f"✓ Created: {dest.name} ({dest.type}) - {dest.region}")
-        else:
-            updated_count += 1
-            print(f"↻ Updated: {dest.name}")
-    
-    print(f"\n=== SUMMARY ===")
-    print(f"Total destinations in database: {Destination.objects.count()}")
-    print(f"Newly created: {created_count}")
-    print(f"Updated: {updated_count}")
-    
-    # Print breakdown by type
-    print("\nBreakdown by type:")
-    types = Destination.objects.values_list('type', flat=True).distinct()
-    for type_val in types:
-        count = Destination.objects.filter(type=type_val).count()
-        print(f"  {type_val.title()}: {count}")
-    
-    # Print some sample destinations
-    print("\nSample destinations:")
-    samples = Destination.objects.order_by('?')[:5]
-    for sample in samples:
-        print(f"  • {sample.name} ({sample.region}) - {sample.type}")
+        if os.path.exists(base_dir):
+            actual_folders = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
+            self.stdout.write(f'📂 Actual folders found: {actual_folders}')
+        
+        destination_data = {
+            # 1. Yangon
+            'Yangon': {
+                'latitude': 16.8409,
+                'longitude': 96.1735,
+                'history': 'Former capital of Myanmar until 2005...',
+                'attractions': '• Shwedagon Pagoda (2,500 years old, covered in gold)...',
+                'activities': '• Visit golden pagodas at sunrise or sunset...',
+                'cultural_info': 'Mix of British colonial architecture and traditional Burmese culture...',
+                'best_time_to_visit': 'November to February (cool and dry season)',
+                'local_cuisine': '• Mohinga (national dish - fish noodle soup)...',
+                'tips': '• Visit Shwedagon Pagoda at sunset for magical lighting...',
+                'folder_name': 'Yangon'  # This should match your actual folder
+            },
+            # 2. Mandalay
+            'Mandalay': {
+                'latitude': 21.9588,
+                'longitude': 96.0891,
+                'history': 'Last royal capital of the Burmese monarchy...',
+                'folder_name': 'Mandalay'
+            },
+            # 3. Bagan
+            'Bagan': {
+                'latitude': 21.1717,
+                'longitude': 94.8585,
+                'history': 'Ancient capital of the Pagan Kingdom...',
+                'folder_name': 'Bagan'
+            },
+            # 4. Inle Lake
+            'Inle Lake': {
+                'latitude': 20.5860,
+                'longitude': 96.9100,
+                'history': 'Freshwater lake at 880m altitude...',
+                'folder_name': 'InleLake'  # ADJUST THIS based on actual folder
+            },
+            # ... continue with all destinations
+        }
 
-if __name__ == "__main__":
-    populate_complete_destinations()
+        # Map destination names to actual folder names
+        folder_mapping = {}
+        for folder in actual_folders:
+            # Try to match folder names with destination names
+            folder_lower = folder.lower().replace(' ', '').replace('_', '').replace('-', '')
+            
+            for dest_name in destination_data.keys():
+                dest_lower = dest_name.lower().replace(' ', '').replace('_', '').replace('-', '')
+                if folder_lower == dest_lower:
+                    folder_mapping[dest_name] = folder
+                    break
+        
+        self.stdout.write(f'📋 Folder mapping: {folder_mapping}')
+
+        for dest_name, data in destination_data.items():
+            try:
+                destination = Destination.objects.get(name=dest_name)
+                self.stdout.write(f'\n🔍 Processing {dest_name}...')
+
+                # Text fields
+                for field in [
+                    'history', 'attractions', 'activities',
+                    'cultural_info', 'best_time_to_visit',
+                    'local_cuisine', 'tips'
+                ]:
+                    if field in data:
+                        setattr(destination, field, data[field])
+
+                # Coordinates
+                destination.latitude = data.get('latitude')
+                destination.longitude = data.get('longitude')
+
+                # Images - use actual folder name
+                folder_name = folder_mapping.get(dest_name, data.get('folder_name'))
+                
+                if folder_name:
+                    folder_path = os.path.join(base_dir, folder_name)
+                    
+                    if os.path.exists(folder_path):
+                        # Clear existing images first
+                        if destination.main_image:
+                            destination.main_image.delete(save=False)
+                        if destination.image:
+                            destination.image.delete(save=False)
+                        for i in range(1, 5):
+                            field_name = f'gallery_image{i}'
+                            if hasattr(destination, field_name):
+                                img = getattr(destination, field_name)
+                                if img:
+                                    img.delete(save=False)
+                        
+                        # Main image
+                        main_image = os.path.join(folder_path, 'main.jpg')
+                        if os.path.exists(main_image):
+                            with open(main_image, 'rb') as f:
+                                destination.main_image.save(
+                                    'main.jpg',  # Just the filename
+                                    File(f),
+                                    save=False
+                                )
+                        
+                        # Gallery images
+                        for i in range(1, 5):
+                            gallery_image = os.path.join(folder_path, f'gallery{i}.jpg')
+                            field_name = f'gallery_image{i}'
+                            
+                            if os.path.exists(gallery_image) and hasattr(destination, field_name):
+                                with open(gallery_image, 'rb') as f:
+                                    getattr(destination, field_name).save(
+                                        f'gallery{i}.jpg',
+                                        File(f),
+                                        save=False
+                                    )
+
+                destination.save()
+                self.stdout.write(self.style.SUCCESS(f'✅ Updated {dest_name}'))
+
+            except Destination.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f'❌ Destination {dest_name} not found'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'❌ Error updating {dest_name}: {str(e)}'))
+
+        self.stdout.write(self.style.SUCCESS('\n🎉 DESTINATIONS UPDATED!'))

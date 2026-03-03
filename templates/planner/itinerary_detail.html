@@ -2,7 +2,8 @@
 {% load static %}
 {% load custom_filters %}
 {% load weather_filters %}
-{% load humanize %}  <!-- Add this line --><!-- Add this line! -->
+{% load humanize %}
+
 {% block title %}Your Itinerary - GoMyanmar{% endblock %}
 
 {% block content %}
@@ -73,8 +74,8 @@
                         <div class="card stat-card h-100">
                             <div class="card-body text-center py-4">
                                 <div class="stat-icon mb-3">
-    <i class="fas fa-coins fa-2x"></i> <!-- Changed from dollar-sign to coins -->
-</div>
+                                    <i class="fas fa-coins fa-2x"></i>
+                                </div>
                                 <h3 class="stat-number">{{ cost_estimate.total|intcomma }} MMK</h3>
                                 <p class="stat-label">Estimated Cost</p>
                             </div>
@@ -214,7 +215,6 @@
                                                                     data-index="{{ forloop.counter0 }}">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
-                                                           
                                                         </div>
                                                     </div>
                                                 </div>
@@ -279,49 +279,51 @@
                     </div>
                 </div>
                 
-              <!-- REPLACE THE COST BREAKDOWN SECTION WITH THIS: -->
-
-<!-- Cost Breakdown -->
-<div class="card-glass p-4 mb-4">
-    <h5 class="fw-bold mb-4">
-        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown (MMK)
-    </h5>
-    <div class="cost-breakdown">
-        <div class="mb-3">
-            <div class="d-flex justify-content-between mb-2">
-                <span>Destination Activities & Food</span>
-                <span class="fw-bold">{{ cost_estimate.breakdown.destination|intcomma }} MMK</span>
-            </div>
-            {% if cost_estimate.breakdown.hotel > 0 %}
-            <div class="d-flex justify-content-between mb-2">
-                <span>Hotel ({{ nights }} nights)</span>
-                <span class="fw-bold">{{ cost_estimate.breakdown.hotel|intcomma }} MMK</span>
-            </div>
-            {% endif %}
-            {% if cost_estimate.breakdown.transport > 0 %}
-            <div class="d-flex justify-content-between mb-2">
-                <span>Transport</span>
-                <span class="fw-bold">{{ cost_estimate.breakdown.transport|intcomma }} MMK</span>
-            </div>
-            {% endif %}
-            {% if cost_estimate.breakdown.additional_travelers > 0 %}
-            <div class="d-flex justify-content-between mb-2">
-                <span>Additional Travelers</span>
-                <span class="fw-bold">{{ cost_estimate.breakdown.additional_travelers|intcomma }} MMK</span>
-            </div>
-            {% endif %}
-            <hr>
-            <div class="d-flex justify-content-between">
-                <span class="fw-bold">Total Estimated Cost</span>
-                <span class="fw-bold fs-5 text-primary">{{ cost_estimate.total|intcomma }} MMK</span>
-            </div>
-            <div class="mt-2 xsmall text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                All prices in Myanmar Kyats (MMK)
-            </div>
-        </div>
-    </div>
-</div>
+                <!-- Cost Breakdown -->
+                <div class="card-glass p-4 mb-4">
+                    <h5 class="fw-bold mb-4">
+                        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown (MMK)
+                    </h5>
+                    <div class="cost-breakdown">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Destination Activities & Food</span>
+                                <span class="fw-bold">{{ cost_estimate.breakdown.destination|intcomma }} MMK</span>
+                            </div>
+                            
+                            <!-- Hotel Cost -->
+                            {% if cost_estimate.breakdown.hotel > 0 %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Hotel ({{ nights }} nights)</span>
+                                <span class="fw-bold">{{ cost_estimate.breakdown.hotel|intcomma }} MMK</span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Transport Cost -->
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Transport</span>
+                                <span class="fw-bold">{{ cost_estimate.breakdown.transport|intcomma }} MMK</span>
+                            </div>
+                            
+                            <hr>
+                            
+                            <!-- Total -->
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold">Total Estimated Cost</span>
+                                <span class="fw-bold fs-5 text-primary">{{ cost_estimate.total|intcomma }} MMK</span>
+                            </div>
+                            
+                            <!-- Debug info (remove in production) -->
+                            <div class="mt-2 xsmall text-muted" style="display: none;">
+                                <i class="fas fa-bug me-1"></i>
+                                Hotel: {{ cost_estimate.breakdown.hotel }} | 
+                                Transport: {{ cost_estimate.breakdown.transport }} | 
+                                Activities: {{ cost_estimate.breakdown.destination }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Hotel & Transport Info -->
                 <div class="card-glass p-4">
                     <h5 class="fw-bold mb-4">
@@ -337,7 +339,7 @@
                             <div class="xsmall text-muted mb-2">{{ hotel.address }}</div>
                             <div class="badge bg-light text-dark">{{ hotel.get_category_display }}</div>
                             <div class="mt-2">
-                                <span class="badge bg-primary">mmk{{ hotel.price_per_night }} per night</span>
+                                <span class="badge bg-primary">{{ hotel.price_in_mmk }} per night</span>
                             </div>
                         </div>
                     </div>
@@ -352,7 +354,15 @@
                             <div class="fw-bold">{{ transport.name }}</div>
                             {% if transport.booking_details %}
                             <div class="xsmall text-muted mb-2">
-                                Booking Ref: {{ transport.booking_details.booking_id }}
+                                {% if transport.booking_details.total_price %}
+                                Cost: {{ transport.booking_details.total_price|intcomma }} MMK
+                                {% elif transport.price %}
+                                Cost: {{ transport.price|intcomma }} MMK
+                                {% endif %}
+                            </div>
+                            {% elif transport.price %}
+                            <div class="xsmall text-muted mb-2">
+                                Cost: {{ transport.price|intcomma }} MMK
                             </div>
                             {% endif %}
                         </div>

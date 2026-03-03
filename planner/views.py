@@ -1500,6 +1500,7 @@ class PlanTripView(LoginRequiredMixin, View):
                 return redirect('planner:plan')
 
 # ========== DESTINATION SEARCH (AUTO-COMPLETE) ==========
+# ========== DESTINATION SEARCH (AUTO-COMPLETE) - FIXED ==========
 class DestinationSearchView(View):
     def get(self, request):
         query = request.GET.get('q', '').strip().lower()
@@ -1508,16 +1509,19 @@ class DestinationSearchView(View):
             return JsonResponse({'results': []})
         
         try:
+            # IMPORTANT: Filter to ONLY cities and towns (NO attractions, NO regions)
             if len(query) == 1:
                 destinations = Destination.objects.filter(
-                    Q(name__istartswith=query) | Q(region__istartswith=query)
+                    Q(name__istartswith=query) | Q(region__istartswith=query),
+                    type__in=['city', 'town'],  # ← ONLY cities and towns
+                    is_active=True
                 ).order_by('name')[:20]
             else:
                 destinations = Destination.objects.filter(
                     Q(name__icontains=query) | 
-                    Q(region__icontains=query) |
-                    Q(name__istartswith=query[:2]) |
-                    Q(region__istartswith=query[:2])
+                    Q(region__icontains=query),
+                    type__in=['city', 'town'],  # ← ONLY cities and towns
+                    is_active=True
                 ).order_by('name')[:15]
             
             results = []
@@ -1531,10 +1535,14 @@ class DestinationSearchView(View):
                     'has_coordinates': bool(dest.latitude and dest.longitude)
                 })
             
+            # If no results, show popular cities as fallback
             if not results and len(query) >= 1:
-                popular_destinations = ['Yangon', 'Mandalay', 'Bagan', 'Inle Lake', 'Naypyidaw']
+                popular_cities = ['Yangon', 'Mandalay', 'Bagan', 'Taunggyi', 'Naypyidaw', 
+                                 'Mawlamyine', 'Pathein', 'Pyin Oo Lwin']
                 destinations = Destination.objects.filter(
-                    name__in=popular_destinations
+                    name__in=popular_cities,
+                    type__in=['city', 'town'],  # ← ONLY cities and towns
+                    is_active=True
                 ).order_by('name')[:5]
                 
                 for dest in destinations:
@@ -1552,7 +1560,6 @@ class DestinationSearchView(View):
         except Exception as e:
             print(f"Error searching destinations: {e}")
             return JsonResponse({'results': [], 'error': str(e)})
-
 
 # ========== HOTEL SELECTION WITH MAP ==========
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
@@ -2129,6 +2136,7 @@ class SaveTransportView(LoginRequiredMixin, View):
 
 # ========== SELECT TRANSPORT VIEW ==========
 # ========== SELECT TRANSPORT VIEW ==========
+# ========== SELECT TRANSPORT VIEW ==========
 class SelectTransportView(LoginRequiredMixin, View):
     template_name = 'planner/transport_list.html'
     
@@ -2210,6 +2218,7 @@ class SelectTransportView(LoginRequiredMixin, View):
         }
         
         return render(request, self.template_name, context)
+    
     def post(self, request, trip_id):
         """Handle transport selection directly (for cars and simple booking)"""
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -2226,14 +2235,14 @@ class SelectTransportView(LoginRequiredMixin, View):
                 
                 if schedule_id:
                     schedule = get_object_or_404(TransportSchedule, id=schedule_id)
-                    price = float(schedule.price)
+                    price_per_day = float(schedule.price)
                 else:
-                    price = float(car.price_per_day)
+                    price_per_day = float(car.price_per_day)
                 
                 # Calculate total price based on trip duration
                 nights = trip.calculate_nights()
                 days = nights + 1 if nights > 0 else 1
-                total_price = price * days
+                total_price = price_per_day * days
                 
                 trip.transportation_preference = 'car'
                 trip.selected_transport = {
@@ -2250,17 +2259,17 @@ class SelectTransportView(LoginRequiredMixin, View):
                         'pickup_location': trip.origin.name if trip.origin else 'Not specified',
                         'travel_date': trip.start_date.strftime('%Y-%m-%d'),
                         'duration_days': days,
-                        'price_per_day': price,
+                        'price_per_day': price_per_day,
                         'total_price': total_price,
-                        'status': 'CONFIRMED',  # Car rental is confirmed immediately
+                        'status': 'CONFIRMED',
                         'confirmed_at': timezone.now().isoformat(),
                     },
-                    'is_temporary': False,  # CRITICAL: Car rental doesn't need seat confirmation
-                    'needs_confirmation': False,  # Doesn't need seat confirmation
+                    'is_temporary': False,
+                    'needs_confirmation': False,
                 }
                 trip.save()
                 
-                print(f"DEBUG: Car rental saved. is_temporary={trip.selected_transport.get('is_temporary')}")
+                print(f"DEBUG: Car rental saved. Price: {total_price}")
                 
                 messages.success(request, f'🚗 Car selected: {car.company} - {car.car_model}')
                 
@@ -2268,13 +2277,51 @@ class SelectTransportView(LoginRequiredMixin, View):
                 return redirect('planner:plan_selection', trip_id=trip.id)
                 
             elif transport_type in ['flight', 'bus']:
+                # Get the transport object
+                if transport_type == 'flight':
+                    transport = get_object_or_404(Flight, id=transport_id)
+                    price = float(transport.price)
+                    transport_name = f"{transport.airline} Flight {transport.flight_number}"
+                else:  # bus
+                    transport = get_object_or_404(BusService, id=transport_id)
+                    price = float(transport.price)
+                    transport_name = f"{transport.company} Bus"
+                
+                # Calculate total price for all travelers
+                total_price = price * trip.travelers
+                
+                # Save transport data with price
+                trip.transportation_preference = transport_type
+                trip.selected_transport = {
+                    'type': transport_type,
+                    'id': transport_id,
+                    'schedule_id': schedule_id,
+                    'name': transport_name,
+                    'price': total_price,
+                    'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                    'booking_details': {
+                        'transport_name': transport_name,
+                        'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                        'travelers': trip.travelers,
+                        'price_per_seat': price,
+                        'total_price': total_price,
+                        'status': 'SELECTED',
+                        'selected_at': timezone.now().isoformat(),
+                    },
+                    'is_temporary': True,
+                    'needs_confirmation': True,
+                }
+                trip.save()
+                
+                print(f"DEBUG: {transport_type} saved. Total price: {total_price}")
+                
                 # Redirect to seat selection
                 print(f"DEBUG: Redirecting to seat selection for {transport_type}")
                 return redirect('planner:select_seats', 
                               trip_id=trip.id, 
                               transport_id=transport_id,
                               type=transport_type)
-            
+                
         except Exception as e:
             print(f"ERROR in SelectTransportView.post: {str(e)}")
             import traceback
@@ -2282,6 +2329,7 @@ class SelectTransportView(LoginRequiredMixin, View):
             messages.error(request, f'Error selecting transport: {str(e)}')
             return redirect('planner:select_transport', trip_id=trip.id, 
                           type=transport_type, transport_class='all')
+    
     def check_has_airport(self, destination):
         """Check if a destination has an airport using the model method"""
         return destination.has_airport() if destination else False
@@ -2293,7 +2341,7 @@ class SelectTransportView(LoginRequiredMixin, View):
             transport_type='flight',
             travel_date=travel_date,
             is_active=True,
-            available_seats__gte=trip.travelers  # Enough seats for all travelers
+            available_seats__gte=trip.travelers
         )
         
         print(f"DEBUG: Found {flight_schedules.count()} flight schedules for {travel_date}")
@@ -2419,52 +2467,87 @@ class SelectTransportView(LoginRequiredMixin, View):
                 print(f"DEBUG: Added car {car.company} {car.car_model} with {schedule.available_seats} seats")
         
         return transport_items
-    
-    def post(self, request, trip_id):
-        """Handle transport selection directly (for cars and simple booking)"""
-        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        transport_type = request.POST.get('transport_type')
-        transport_id = request.POST.get('transport_id')
-        schedule_id = request.POST.get('schedule_id')
+class DestinationListView(View):
+    """Browse destinations - SHOW ONLY CITIES AND TOWNS (NO REGIONS, NO ATTRACTIONS)"""
+    template_name = 'planner/destinations.html'
+
+    def get(self, request):
+        # Get filter parameters
+        region_filter = request.GET.get('region', 'all')
+        type_filter = request.GET.get('type', 'all')
+        search_query = request.GET.get('search', '')
+
+        # IMPORTANT: Get ONLY cities and towns (NO regions, NO attractions)
+        destinations = Destination.objects.filter(
+            is_active=True,
+            type__in=['city', 'town']  # ← ONLY cities and towns, NO regions!
+        )
         
-        try:
-            if transport_type == 'car':
-                # Car rental - no seat selection needed
-                car = get_object_or_404(CarRental, id=transport_id)
-                
-                if schedule_id:
-                    schedule = get_object_or_404(TransportSchedule, id=schedule_id)
-                    price = schedule.price
-                else:
-                    price = car.price_per_day
-                
-                trip.transportation_preference = 'car'
-                trip.selected_transport = {
-                    'type': 'car',
-                    'id': transport_id,
-                    'schedule_id': schedule_id,
-                    'name': f"{car.company} - {car.car_model}",
-                    'price': price,
-                    'travel_date': trip.start_date.strftime('%Y-%m-%d')
-                }
-                trip.save()
-                
-                messages.success(request, f'Car selected: {car.company} - {car.car_model}')
-                return redirect('planner:plan_selection', trip_id=trip.id)
-                
-            elif transport_type in ['flight', 'bus']:
-                # Redirect to seat selection
-                return redirect('planner:select_seats', 
-                              trip_id=trip.id, 
-                              transport_id=transport_id,
-                              type=transport_type)
-            
-        except Exception as e:
-            messages.error(request, f'Error selecting transport: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            return redirect('planner:select_transport', trip_id=trip.id, 
-                          type=transport_type, transport_class='all')
+        # Also exclude anything that has a parent (attractions have parents)
+        destinations = destinations.filter(parent__isnull=True)
+        
+        # Explicitly exclude attraction type (just to be safe)
+        destinations = destinations.exclude(type='attraction')
+        
+        # Explicitly exclude region type (double safety)
+        destinations = destinations.exclude(type='region')
+        
+        # Exclude by name patterns (backup for any misclassified attractions)
+        exclude_keywords = ['Pagoda', 'Temple', 'Monastery', 'Market', 'Lake', 'Beach', 
+                           'Falls', 'Cave', 'Bridge', 'Palace', 'Village', 'Island',
+                           'Factory', 'Garden', 'Museum']
+        
+        for keyword in exclude_keywords:
+            destinations = destinations.exclude(name__icontains=keyword)
+
+        # Apply region filter
+        if region_filter != 'all':
+            destinations = destinations.filter(region__iexact=region_filter)
+
+        # Apply type filter
+        if type_filter != 'all':
+            if type_filter in ['city', 'town']:  # ← Only city and town in filter dropdown
+                destinations = destinations.filter(type=type_filter)
+
+        # Apply search filter
+        if search_query:
+            destinations = destinations.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(region__icontains=search_query)
+            )
+
+        # Debug: Print what we're showing
+        print(f"\n🔍 DESTINATIONS PAGE - Showing ONLY cities/towns:")
+        for d in destinations:
+            print(f"  - {d.name} (Type: {d.type}, Region: {d.region})")
+        print(f"  Total: {destinations.count()}\n")
+
+        # Group by region
+        destinations_by_region = {}
+        for destination in destinations.order_by('region', 'name'):
+            destinations_by_region.setdefault(destination.region, []).append(destination)
+
+        # Get all unique regions from filtered destinations
+        all_regions = (
+            destinations
+            .values_list('region', flat=True)
+            .distinct()
+            .order_by('region')
+        )
+
+        context = {
+            'destinations_by_region': destinations_by_region,
+            'all_regions': all_regions,
+            'all_types': ['city', 'town'],  # ← Only city and town in filter dropdown
+            'selected_region': region_filter,
+            'selected_type': type_filter,
+            'search_query': search_query,
+            'destinations_count': destinations.count(),
+            'user': request.user,
+        }
+
+        return render(request, self.template_name, context)
 # ========== SEARCH REAL HOTELS VIEW ==========
 class SearchRealHotelsView(LoginRequiredMixin, View):
     def get(self, request, destination_id):
@@ -3502,19 +3585,25 @@ class SelectPlanView(LoginRequiredMixin, View):
             
             messages.error(request, f'Error selecting plan: {str(e)}')
             return redirect('planner:plan_selection', trip_id=trip_id)
+from django.shortcuts import render, get_object_or_404
+from django.views import View
+from django.contrib.auth.mixins import LoginRequiredMixin
+from datetime import timedelta
+
+from .models import TripPlan
+from .views import PlanSelectionView
+
 
 class ItineraryDetailView(LoginRequiredMixin, View):
     """Display detailed itinerary with weather and activity management"""
+
     template_name = 'planner/itinerary_detail.html'
-    
+
     def get(self, request, trip_id, plan_id):
+
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        
-        # DEBUG: Check what plan_id we received
-        print(f"🔍 ItineraryDetailView: Received plan_id = '{plan_id}' (type: {type(plan_id)})")
-        
-        # FIX: Convert numeric plan_id to string format
-        # If plan_id is 1, 2, 3, convert to 'cultural', 'adventure', 'relaxed'
+
+        # Convert numeric plan_id to name
         plan_map = {
             '1': 'cultural',
             '2': 'adventure',
@@ -3523,251 +3612,168 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             2: 'adventure',
             3: 'relaxed',
         }
-        
-        # Clean the plan_id
+
         if plan_id in plan_map:
-            original_plan_id = plan_id
             plan_id = plan_map.get(plan_id)
-            print(f"🔍 Converted {original_plan_id} to '{plan_id}'")
-        
-        # Also check if it's already a string but with spaces or different case
+
         elif isinstance(plan_id, str):
             plan_id = plan_id.lower().strip()
-            print(f"🔍 Cleaned plan_id to '{plan_id}'")
-        
-        # Get itinerary based on plan
+
+        # Generate itinerary
         days = trip.calculate_nights() + 1
         itinerary_generator = PlanSelectionView()
-        
+
         if plan_id == 'cultural':
             days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
             plan_title = 'Cultural Explorer'
+
         elif plan_id == 'adventure':
             days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
             plan_title = 'Adventure Seeker'
+
         elif plan_id == 'relaxed':
             days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
             plan_title = 'Relaxed Wanderer'
+
         else:
-            # If still not recognized, default to cultural
-            print(f"🔍 WARNING: Unknown plan_id '{plan_id}', defaulting to 'cultural'")
             days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
             plan_title = 'Cultural Explorer'
-            plan_id = 'cultural'  # Force to cultural
-        
-        # Get weather forecast (LIMITED TO 5 DAYS)
+            plan_id = 'cultural'
+
+        # Weather
         weather_forecast = self.get_weather_forecast_for_trip(trip)
-        
-        # Get trip cost estimate
+
+        # Cost
         cost_estimate = self.calculate_cost_estimate(trip, plan_id)
-        
-        # Get selected hotel and transport
-        hotel = trip.selected_hotel
-        transport = trip.selected_transport
-        
-        # Calculate nights
-        nights = trip.calculate_nights()
-        
+
         context = {
             'trip': trip,
-            'plan_id': plan_id,  # Use the fixed plan_id
+            'plan_id': plan_id,
             'plan_title': plan_title,
             'days_data': days_data,
             'weather_forecast': weather_forecast,
             'cost_estimate': cost_estimate,
-            'hotel': hotel,
-            'transport': transport,
+            'hotel': trip.selected_hotel,
+            'transport': trip.selected_transport,
             'total_days': days,
             'total_activities': sum(len(day['activities']) for day in days_data) if days_data else 0,
             'destination_name': trip.destination.name,
             'start_date': trip.start_date.strftime('%Y-%m-%d'),
             'end_date': trip.end_date.strftime('%Y-%m-%d'),
             'travelers': trip.travelers,
-            'nights': nights,
+            'nights': trip.calculate_nights(),
         }
-        
-        # DEBUG: Check what we're sending to template
-        print(f"🔍 Sending to template: plan_id='{plan_id}', days_data={len(days_data) if days_data else 0} days")
-        
+
         return render(request, self.template_name, context)
+
+    # --------------------------------------------------
+    # WEATHER
+    # --------------------------------------------------
+
     def get_weather_forecast_for_trip(self, trip):
-        """Get weather forecast for the trip destination and dates (MAX 5 DAYS)"""
+
         try:
             from .weather_service import weather_service
-            
-            # Use the destination name
+
             destination_name = trip.destination.name
-            
-            # LIMIT TO 5 DAYS MAX - Calculate end date (max 5 days from start)
+
             start_date = trip.start_date
-            max_end_date = start_date + timedelta(days=4)  # 5 days total (including start day)
+            max_end_date = start_date + timedelta(days=4)
             actual_end_date = min(trip.end_date, max_end_date)
-            
-            print(f"Fetching weather for {destination_name} from {start_date} to {actual_end_date} (MAX 5 DAYS)")
-            
-            # Get forecast using the weather service (limited to 5 days)
+
             forecast = weather_service.get_weather_forecast(
                 destination_name,
                 start_date.strftime('%Y-%m-%d'),
                 actual_end_date.strftime('%Y-%m-%d')
             )
-            
+
             if forecast:
-                print(f"Successfully got weather forecast with {len(forecast)} days (limited to 5)")
-                
-                # LIMIT TO 5 DAYS if we got more
-                if len(forecast) > 5:
-                    # Take only first 5 days
-                    forecast_keys = list(forecast.keys())[:5]
-                    forecast = {key: forecast[key] for key in forecast_keys}
-                    print(f"Limited forecast from {len(forecast_keys) + (len(forecast) - 5)} to 5 days")
-                
-                # Check if we got real data or mock data
-                first_date = list(forecast.keys())[0] if forecast else None
-                if first_date and forecast[first_date].get('is_mock', True):
-                    print("Using mock weather data (API may be unavailable)")
-                else:
-                    print("Using real weather data from API")
-                
-                return forecast
-            else:
-                print("No forecast data received, using mock data (5 days max)")
-                return self.generate_mock_weather_forecast(start_date, actual_end_date)
-                
-        except Exception as e:
-            print(f"Error getting weather forecast: {e}")
-            import traceback
-            traceback.print_exc()
-            return self.generate_mock_weather_forecast(start_date, start_date + timedelta(days=4))
-    
+                return dict(list(forecast.items())[:5])
+
+            return self.generate_mock_weather_forecast(start_date, actual_end_date)
+
+        except Exception:
+            return self.generate_mock_weather_forecast(
+                trip.start_date,
+                trip.start_date + timedelta(days=4)
+            )
+
     def generate_mock_weather_forecast(self, start_date, end_date):
-        """Generate realistic mock weather data for Myanmar (MAX 5 DAYS)"""
-        from datetime import timedelta
+
         import random
-        
-        # LIMIT TO 5 DAYS MAX
-        max_end_date = start_date + timedelta(days=4)  # 5 days total
-        actual_end_date = min(end_date, max_end_date)
-        
+
         forecasts = {}
-        current_date = start_date
-        days = (actual_end_date - start_date).days + 1
-        
-        # Ensure we don't generate more than 5 days
-        if days > 5:
-            days = 5
-            print(f"Warning: Generating mock weather limited to 5 days instead of {days}")
-        
-        # Typical Myanmar weather conditions
-        myanmar_weather = [
-            {'description': 'Sunny', 'icon': '01d', 'temp_range': (28, 35), 'probability': 0.4},
-            {'description': 'Partly Cloudy', 'icon': '02d', 'temp_range': (26, 32), 'probability': 0.3},
-            {'description': 'Cloudy', 'icon': '03d', 'temp_range': (24, 30), 'probability': 0.2},
-            {'description': 'Light Rain', 'icon': '10d', 'temp_range': (23, 28), 'probability': 0.1},
-        ]
-        
-        # Weighted random selection based on probability
-        for i in range(days):
-            date_str = current_date.strftime('%Y-%m-%d')
-            day_name = current_date.strftime('%A')
-            
-            # Select weather condition based on probability
-            rand_val = random.random()
-            cumulative = 0
-            condition = None
-            
-            for weather in myanmar_weather:
-                cumulative += weather['probability']
-                if rand_val <= cumulative:
-                    condition = weather
-                    break
-            
-            if not condition:
-                condition = myanmar_weather[0]  # Default to sunny
-            
-            # Generate temperature
-            temp = random.randint(condition['temp_range'][0], condition['temp_range'][1])
-            
-            # Generate hourly forecasts (4 key times of day)
-            hourly_forecasts = []
-            time_slots = [
-                {'hour': 8, 'name': 'Morning', 'temp_adjust': -2},
-                {'hour': 12, 'name': 'Noon', 'temp_adjust': 0},
-                {'hour': 16, 'name': 'Afternoon', 'temp_adjust': 1},
-                {'hour': 20, 'name': 'Evening', 'temp_adjust': -1},
-            ]
-            
-            for slot in time_slots:
-                hour_temp = temp + slot['temp_adjust'] + random.randint(-1, 1)
-                hourly_forecasts.append({
-                    'time': f"{slot['hour']:02d}:00",
-                    'temperature': hour_temp,
-                    'description': condition['description'],
-                    'icon': condition['icon'],
-                    'feels_like': hour_temp + random.randint(-1, 1),
-                    'humidity': random.randint(50, 80),
-                    'wind_speed': round(random.uniform(1.0, 5.0), 1),
-                })
-            
-            # Determine min and max temps
-            hourly_temps = [h['temperature'] for h in hourly_forecasts]
-            min_temp = min(hourly_temps)
-            max_temp = max(hourly_temps)
-            
-            # Noon forecast is usually used as daily summary
-            noon_forecast = hourly_forecasts[1]  # 12:00
-            
+        current = start_date
+
+        for _ in range(5):
+
+            date_str = current.strftime('%Y-%m-%d')
+
+            temp = random.randint(25, 35)
+
             forecasts[date_str] = {
                 'date': date_str,
-                'day_name': day_name,
+                'day_name': current.strftime('%A'),
                 'daily_summary': {
-                    'temperature': noon_forecast['temperature'],
-                    'description': noon_forecast['description'],
-                    'icon': noon_forecast['icon'],
+                    'temperature': temp,
+                    'description': 'Sunny',
+                    'icon': '01d'
                 },
-                'hourly_forecasts': hourly_forecasts,
-                'min_temp': min_temp,
-                'max_temp': max_temp,
+                'min_temp': temp - 3,
+                'max_temp': temp + 2,
                 'is_mock': True,
             }
-            
-            current_date += timedelta(days=1)
-        
+
+            current += timedelta(days=1)
+
         return forecasts
-    
+
+    # --------------------------------------------------
+    # COST (FIXED)
+    # --------------------------------------------------
+
     def calculate_cost_estimate(self, trip, plan_id):
-        """Calculate cost estimate based on plan IN MMK"""
-        nights = trip.calculate_nights()
-        days = nights + 1 if nights > 0 else 3
-        
-        # Get cost breakdown from trip
+        """
+        Calculate cost estimate
+        Includes: Hotel + Transport + Activities
+        NO additional travelers
+        """
+
         breakdown = trip.get_cost_breakdown()
-        
-        # Adjust based on plan type
+
         plan_multipliers = {
             'cultural': 1.0,
-            'adventure': 1.15,  # 15% more for adventure
-            'relaxed': 0.9,     # 10% less for relaxed
-        }
-        
+            'adventure': 1.15,
+            'relaxed': 0.9,
+       }
+
         multiplier = plan_multipliers.get(plan_id, 1.0)
-        
-        # Apply plan multiplier to destination activities cost
-        if 'destination' in breakdown:
-            breakdown['destination'] = int(breakdown['destination'] * multiplier)
-        
-        # Recalculate total
-        breakdown['total'] = sum([
-            breakdown.get('hotel', 0),
-            breakdown.get('transport', 0),
-            breakdown.get('destination', 0),
-            breakdown.get('additional_travelers', 0)
-        ])
-        
+
+    # Apply multiplier ONLY to destination
+        destination_cost = int(
+            breakdown.get('destination', 0) * multiplier
+        )
+
+        hotel_cost = int(breakdown.get('hotel', 0))
+        transport_cost = int(breakdown.get('transport', 0))
+
+    # ✅ FINAL TOTAL (WITH TRANSPORT)
+        total = (
+            hotel_cost +
+            transport_cost +
+            destination_cost
+        )
+
         return {
-            'total': breakdown['total'],
-            'breakdown': breakdown
-        } 
+            'total': total,
+            'breakdown': {
+                'hotel': hotel_cost,
+                'transport': transport_cost,
+                'destination': destination_cost,
+            }
+        }
+
+
 
 class AddActivityView(LoginRequiredMixin, View):
     """Add a new activity to itinerary"""
@@ -3887,68 +3893,177 @@ from django.db.models import Q
 from planner.models import Destination, Hotel
 
 
-class DestinationListView(View):
-    """Browse destinations by region / type / search"""
-    template_name = 'planner/destinations.html'
 
-    def get(self, request):
-        # Get filter parameters
-        region_filter = request.GET.get('region', 'all')
-        type_filter = request.GET.get('type', 'all')
-        search_query = request.GET.get('search', '')
-
-        # Base queryset
-        destinations = Destination.objects.filter(is_active=True)
-
-        # Apply filters
-        if region_filter != 'all':
-            destinations = destinations.filter(region__iexact=region_filter)
-
-        if type_filter != 'all':
-            destinations = destinations.filter(type=type_filter)
-
-        if search_query:
-            destinations = destinations.filter(
-                Q(name__icontains=search_query) |
-                Q(description__icontains=search_query) |
-                Q(region__icontains=search_query)
-            )
-
-        # Group by region
-        destinations_by_region = {}
-        for destination in destinations.order_by('region', 'name'):
-            destinations_by_region.setdefault(destination.region, []).append(destination)
-
-        # Filter dropdown data
-        all_regions = (
-            Destination.objects
-            .filter(is_active=True)
-            .values_list('region', flat=True)
-            .distinct()
-            .order_by('region')
-        )
-
-        all_types = (
-            Destination.objects
-            .filter(is_active=True)
-            .values_list('type', flat=True)
-            .distinct()
-            .order_by('type')
-        )
-
-        context = {
-            'destinations_by_region': destinations_by_region,
-            'all_regions': all_regions,
-            'all_types': all_types,
-            'selected_region': region_filter,
-            'selected_type': type_filter,
-            'search_query': search_query,
-            'destinations_count': destinations.count(),
-        }
-
-        return render(request, self.template_name, context)
-
+class RegionPlacesView(View):
+    """Show all places/attractions in a region/city (ONLY attractions, not other cities)"""
+    template_name = 'planner/region_places.html'
     
+    def get(self, request, region_id):
+        from .models import Destination, Hotel
+        from .weather_service import WeatherService
+        import re
+        
+        region = get_object_or_404(Destination, id=region_id, is_active=True)
+        
+        # IMPORTANT: Get ONLY places that have this region as parent AND are attractions
+        places = Destination.objects.filter(
+            parent=region,  # Must have this city as parent
+            type='attraction',  # Must be attraction type
+            is_active=True
+        ).order_by('name')
+        
+        # Also include activities if they exist
+        activities = Destination.objects.filter(
+            parent=region,
+            type='activity',
+            is_active=True
+        ).order_by('name')
+        
+        # Combine both
+        all_places = list(places) + list(activities)
+        
+        # Debug print
+        print(f"\n🔍 REGION PLACES PAGE - {region.name}:")
+        for p in all_places:
+            print(f"  - {p.name} (Type: {p.type})")
+        print(f"  Total: {len(all_places)}\n")
+        
+        # Apply type filter if specified
+        type_filter = request.GET.get('type')
+        if type_filter and type_filter != 'all':
+            if type_filter == 'attraction':
+                all_places = [p for p in all_places if p.type == 'attraction']
+            elif type_filter == 'activity':
+                all_places = [p for p in all_places if p.type == 'activity']
+        
+        # Parse extra data from description for each place
+        places_data = []
+        for place in all_places:
+            # Extract rating, reviews, features from description
+            rating = None
+            review_count = None
+            entry_fee = "Free entry"
+            distance = None
+            features = []
+            
+            if place.description:
+                # Try to extract rating
+                rating_match = re.search(r'Rating:\s*([\d.]+)/5', place.description)
+                if rating_match:
+                    rating = float(rating_match.group(1))
+                
+                # Extract review count
+                reviews_match = re.search(r'Reviews:\s*(\d+)', place.description)
+                if reviews_match:
+                    review_count = int(reviews_match.group(1))
+                
+                # Extract entry fee
+                fee_match = re.search(r'Entry Fee:\s*(.+?)(?:\n|$)', place.description)
+                if fee_match:
+                    entry_fee = fee_match.group(1).strip()
+                
+                # Extract distance
+                distance_match = re.search(r'Distance:\s*(.+?)(?:\n|$)', place.description)
+                if distance_match:
+                    distance = distance_match.group(1).strip()
+                
+                # Extract features
+                features_match = re.search(r'Features:\s*(.+?)(?:\n|$)', place.description)
+                if features_match:
+                    features = [f.strip() for f in features_match.group(1).split(',')]
+            
+            places_data.append({
+                'id': place.id,
+                'name': place.name,
+                'type': place.get_type_display(),
+                'type_code': place.type,
+                'description': place.description.split('\n\n')[0] if place.description else '',
+                'rating': rating,
+                'review_count': review_count,
+                'entry_fee': entry_fee,
+                'distance': distance,
+                'features': features,
+                'image': place.image,
+                'has_image': bool(place.image),
+                'region_name': region.name,
+                'is_active': place.is_active
+            })
+        
+        # Get hotels in this region
+        hotels = Hotel.objects.filter(
+            destination=region,
+            is_active=True
+        ).order_by('price_per_night')[:5]
+        
+        # Get weather for the region
+        weather_service = WeatherService()
+        if region.latitude and region.longitude:
+            weather_data = weather_service.get_weather_by_coords(
+                region.latitude,
+                region.longitude,
+                region.name
+            )
+        else:
+            weather_data = weather_service.get_weather_by_city(region.name)
+        
+        context = {
+            'region': region,
+            'places': places_data,
+            'places_count': len(places_data),
+            'hotels': hotels,
+            'weather_data': weather_data,
+            'type_filter': type_filter,
+            'all_types': ['attraction', 'activity'],
+        }
+        
+        return render(request, self.template_name, context)
+class PlaceDetailView(View):
+    """Show detailed information about a specific place/attraction"""
+    template_name = 'planner/place_detail.html'
+    
+    def get(self, request, place_id):
+        from .models import Destination, Hotel
+        from .weather_service import weather_service
+        
+        place = get_object_or_404(Destination, id=place_id, is_active=True)
+        
+        # Get weather
+        if place.latitude and place.longitude:
+            weather_data = weather_service.get_weather_by_coords(
+                place.latitude,
+                place.longitude,
+                place.name
+            )
+        else:
+            weather_data = weather_service.get_weather_by_city(place.name)
+        
+        # Get hotels in this area (if place has parent, use parent, otherwise use place itself)
+        location = place.parent if place.parent else place
+        hotels = Hotel.objects.filter(
+            destination=location,
+            is_active=True
+        ).order_by('price_per_night')[:3]
+        
+        # Get similar places in the same region
+        if place.parent:
+            similar_places = Destination.objects.filter(
+                parent=place.parent,
+                is_active=True
+            ).exclude(id=place.id)[:4]
+        else:
+            similar_places = Destination.objects.filter(
+                region=place.region,
+                is_active=True
+            ).exclude(id=place.id)[:4]
+        
+        context = {
+            'place': place,
+            'weather_data': weather_data,
+            'hotels': hotels,
+            'similar_places': similar_places,
+        }
+        
+        return render(request, self.template_name, context)
 class DestinationDetailView(View):
     """Detailed view of a destination"""
     template_name = 'planner/destination_detail.html'
@@ -3996,9 +4111,8 @@ class DestinationDetailView(View):
         }
 
         return render(request, self.template_name, context)
-
 class DestinationAutocompleteView(View):
-    """AJAX endpoint for destination autocomplete"""
+    """AJAX endpoint for destination autocomplete - ONLY CITIES AND TOWNS"""
     def get(self, request):
         query = request.GET.get('q', '').strip().lower()
         
@@ -4008,6 +4122,7 @@ class DestinationAutocompleteView(View):
         destinations = Destination.objects.filter(
             Q(name__icontains=query) | 
             Q(region__icontains=query),
+            type__in=['city', 'town'],  # ← ADD THIS LINE
             is_active=True
         ).order_by('name')[:10]
         
@@ -4023,8 +4138,6 @@ class DestinationAutocompleteView(View):
             })
         
         return JsonResponse({'results': results})
-# ========== NEW VIEWS FOR CARD CLICKS ==========
-
 class TripListView(LoginRequiredMixin, TemplateView):
     """View for showing all trips when clicking 'Total Trips' card"""
     template_name = 'planner/trip_list.html'
@@ -4119,62 +4232,82 @@ class UpcomingTripsView(LoginRequiredMixin, TemplateView):
         return context
 
 
+from django.views.generic import TemplateView
+
+
 class TripCostAnalysisView(LoginRequiredMixin, TemplateView):
-    """View for showing detailed cost analysis when clicking 'Total Spent' card"""
+    """View for showing detailed cost analysis"""
+
     template_name = 'planner/trip_cost_analysis.html'
-    
+
     def get_context_data(self, **kwargs):
+
         context = super().get_context_data(**kwargs)
+
         user = self.request.user
-        
-        # Get all trips
+
         trips = TripPlan.objects.filter(user=user).order_by('-created_at')
-        
-        # Calculate cost breakdown by category and trip
+
         cost_breakdowns = []
+
         total_spent = 0
         total_estimated = 0
-        
+
         for trip in trips:
+
             breakdown = trip.get_cost_breakdown()
+
+            total = (
+                breakdown.get('hotel', 0) +
+                breakdown.get('transport', 0) +
+                breakdown.get('destination', 0)
+            )
+
             cost_data = {
                 'trip': trip,
                 'destination': trip.destination.name if trip.destination else 'Unknown',
                 'dates': f"{trip.start_date.strftime('%b %d')} - {trip.end_date.strftime('%b %d, %Y')}",
                 'total_days': trip.calculate_nights() + 1,
                 'status': trip.status,
-                'cost_breakdown': breakdown,
-                'total_cost': breakdown['total'],
+
+                'total_cost': total,
+
                 'hotel_cost': breakdown.get('hotel', 0),
                 'transport_cost': breakdown.get('transport', 0),
                 'destination_cost': breakdown.get('destination', 0),
-                'additional_travelers_cost': breakdown.get('additional_travelers', 0),
             }
+
             cost_breakdowns.append(cost_data)
-            
+
             if trip.status in ['booked', 'completed']:
-                total_spent += breakdown['total']
-            total_estimated += breakdown['total']
-        
-        # Calculate category totals
+                total_spent += total
+
+            total_estimated += total
+
+        # Category totals
         hotel_total = sum(item['hotel_cost'] for item in cost_breakdowns)
         transport_total = sum(item['transport_cost'] for item in cost_breakdowns)
         destination_total = sum(item['destination_cost'] for item in cost_breakdowns)
-        additional_total = sum(item['additional_travelers_cost'] for item in cost_breakdowns)
-        
+
         context.update({
+
             'cost_breakdowns': cost_breakdowns,
+
             'total_spent_mmk': total_spent,
             'total_estimated_mmk': total_estimated,
+
             'hotel_total_mmk': hotel_total,
             'transport_total_mmk': transport_total,
             'destination_total_mmk': destination_total,
-            'additional_total_mmk': additional_total,
+
             'total_trips': trips.count(),
-            'booked_completed_trips': trips.filter(status__in=['booked', 'completed']).count(),
+            'booked_completed_trips': trips.filter(
+                status__in=['booked', 'completed']
+            ).count(),
         })
-        
+
         return context
+
 
 
 class VisitedDestinationsView(LoginRequiredMixin, TemplateView):

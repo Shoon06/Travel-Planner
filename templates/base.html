@@ -163,6 +163,7 @@
             
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
+                    <!-- 1. HOME -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{% url 'home' %}">
                             <i class="fas fa-home me-1"></i>Home
@@ -171,33 +172,44 @@
                     
                     {% if user.is_authenticated %}
                         {% if user.is_admin_user %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'admin' in request.path %}active{% endif %}" href="{% url 'users:admin_dashboard' %}">
-                                <i class="fas fa-crown me-1"></i>Admin Dashboard
-                            </a>
-                        </li>
+                            <!-- ADMIN DASHBOARD -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'admin' in request.path %}active{% endif %}" href="{% url 'users:admin_dashboard' %}">
+                                    <i class="fas fa-crown me-1"></i>Admin Dashboard
+                                </a>
+                            </li>
                         {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'dashboard' in request.path %}active{% endif %}" href="{% url 'planner:dashboard' %}">
-                                <i class="fas fa-tachometer-alt me-1"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'plan' in request.path %}active{% endif %}" href="{% url 'planner:plan' %}">
-                                <i class="fas fa-map-marked-alt me-1"></i>Plan Trip
-                            </a>
-                        </li>
+                            <!-- 2. USER DASHBOARD (for regular users) -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'dashboard' in request.path %}active{% endif %}" href="{% url 'planner:dashboard' %}">
+                                    <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                                </a>
+                            </li>
+                            
+                            <!-- 3. PLAN TRIP (for regular users) -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'plan' in request.path %}active{% endif %}" href="{% url 'planner:plan' %}">
+                                    <i class="fas fa-map-marked-alt me-1"></i>Plan Trip
+                                </a>
+                            </li>
                         {% endif %}
                     {% endif %}
                     
-                    <!-- COMMUNITY LINK -->
+                    <!-- 4. DESTINATIONS (for all users) -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'destinations' in request.path %}active{% endif %}" href="{% url 'planner:destinations' %}">
+                            <i class="fas fa-map-marker-alt me-1"></i>Destinations
+                        </a>
+                    </li>
+                    
+                    <!-- 5. COMMUNITY LINK (for all users) -->
                     <li class="nav-item">
                         <a class="nav-link {% if 'posts' in request.path %}active{% endif %}" href="{% url 'posts:post_list' %}">
                             <i class="fas fa-comments me-1"></i>Community
                         </a>
                     </li>
                     
-                    <!-- NOTIFICATIONS LINK -->
+                    <!-- 6. NOTIFICATIONS LINK (only for authenticated users) -->
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link position-relative {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'posts:notifications' %}">
@@ -212,20 +224,26 @@
                     </li>
                     {% endif %}
                     
+                    <!-- 7. HOW IT WORKS -->
                     <li class="nav-item">
-                       <a class="nav-link {% if 'destinations' in request.path %}active{% endif %}" href="{% url 'planner:destinations' %}">
-                             <i class="fas fa-compass me-1"></i>Destinations
-                       </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'planner:how_it_works' %}">How It Works</a>
-                            
-                        </a>
-                    </li>
+                        {% if user.is_authenticated and user.is_admin_user %}
+                            <!-- Admin users see admin version -->
+                            <a class="nav-link {% if 'admin/how-it-works' in request.path %}active{% endif %}" 
+                               href="{% url 'users:admin_how_it_works' %}">
+                               <i class="fas fa-question-circle me-1"></i>How It Works
+                            </a>
+                        {% else %}
+                            <!-- Regular users see regular version -->
+                           <a class="nav-link {% if 'how-it-works' in request.path %}active{% endif %}" 
+                              href="{% url 'planner:how_it_works' %}">
+                               <i class="fas fa-question-circle me-1"></i>How It Works
+                           </a>
+                       {% endif %}
+                   </li>
                 </ul>
                 
+                <!-- User dropdown / Login/Signup -->
                 <ul class="navbar-nav">
-                   
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-bs-toggle="dropdown">
@@ -334,11 +352,15 @@
                     <h5 class="mb-3">Quick Links</h5>
                     <ul class="list-unstyled">
                         <li class="mb-2"><a href="{% url 'home' %}" class="text-decoration-none text-gray">Home</a></li>
+                        {% if user.is_authenticated and not user.is_admin_user %}
+                        <li class="mb-2"><a href="{% url 'planner:dashboard' %}" class="text-decoration-none text-gray">Dashboard</a></li>
+                        <li class="mb-2"><a href="{% url 'planner:plan' %}" class="text-decoration-none text-gray">Plan Trip</a></li>
+                        {% elif user.is_authenticated and user.is_admin_user %}
+                        <li class="mb-2"><a href="{% url 'users:admin_dashboard' %}" class="text-decoration-none text-gray">Admin Dashboard</a></li>
+                        {% endif %}
+                        <li class="mb-2"><a href="{% url 'planner:destinations' %}" class="text-decoration-none text-gray">Destinations</a></li>
                         <li class="mb-2"><a href="{% url 'posts:post_list' %}" class="text-decoration-none text-gray">Community</a></li>
-                        <li class="mb-2"><a href="{% url 'posts:notifications' %}" class="text-decoration-none text-gray">Notifications</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Destinations</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-gray">How It Works</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-gray">Contact Us</a></li>
+                        <li class="mb-2"><a href="{% url 'planner:how_it_works' %}" class="text-decoration-none text-gray">How It Works</a></li>
                     </ul>
                 </div>
                 

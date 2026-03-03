@@ -43,74 +43,170 @@
             {% endif %}
             
             <div class="row">
-                {% for field in form %}
+                <!-- Username -->
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold" style="color: #2c3e50;">
-                        {% if field.name == 'username' %}
-                            <i class="fas fa-user me-1"></i>
-                        {% elif field.name == 'email' %}
-                            <i class="fas fa-envelope me-1"></i>
-                        {% elif field.name == 'password1' or field.name == 'password2' %}
-                            <i class="fas fa-lock me-1"></i>
-                        {% elif field.name == 'user_type' %}
-                            <i class="fas fa-user-tag me-1"></i>
-                        {% elif field.name == 'first_name' or field.name == 'last_name' %}
-                            <i class="fas fa-user me-1"></i>
-                        {% elif field.name == 'phone_number' %}
-                            <i class="fas fa-phone me-1"></i>
-                        {% elif field.name == 'is_active' %}
-                            <i class="fas fa-user-check me-1"></i>
-                        {% endif %}
-                        {{ field.label }}
+                        <i class="fas fa-user me-1"></i>Username
                     </label>
-                    
-                    {% if field.name == 'is_active' %}
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.username.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.username.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.username.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Email -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-envelope me-1"></i>Email
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.email.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.email.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.email.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- First Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>First Name
+                    </label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.first_name.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.first_name.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.first_name.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Last Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>Last Name
+                    </label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.last_name.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.last_name.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.last_name.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Password 1 -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Password
+                    </label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password1.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.password1.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.password1.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Password 2 (Confirmation) -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Confirm Password
+                    </label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password2.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.password2.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.password2.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- User Type -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user-tag me-1"></i>User Type
+                    </label>
+                    {{ form.user_type }}
+                    {% if form.user_type.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.user_type.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.user_type.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.user_type.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Phone Number -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-phone me-1"></i>Phone Number
+                    </label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.phone_number.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.phone_number.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.phone_number.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Active Status -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
+                        <i class="fas fa-user-check me-1"></i>Account Status
+                    </label>
                     <div class="form-check form-switch">
-                        {{ field }}
-                        <label class="form-check-label ms-2" for="{{ field.id_for_label }}" style="color: #7f8c8d;">
+                        {{ form.is_active }}
+                        <label class="form-check-label ms-2" for="{{ form.is_active.id_for_label }}" style="color: #7f8c8d;">
                             Active Account
                         </label>
                     </div>
-                    {% else %}
-                        {{ field }}
-                    {% endif %}
-                    
-                    {% if field.errors %}
+                    {% if form.is_active.errors %}
                     <div class="text-danger small mt-1">
-                        <i class="fas fa-exclamation-circle me-1"></i>{{ field.errors.0 }}
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.is_active.errors.0 }}
                     </div>
                     {% endif %}
-                    
-                    {% if field.help_text and field.name != 'is_active' %}
-                    <div class="form-text">
-                        <small>{{ field.help_text }}</small>
-                    </div>
-                    {% elif field.name == 'is_active' %}
                     <div class="form-text">
                         <small>Designates whether this user can log in.</small>
                     </div>
-                    {% endif %}
                 </div>
-                {% endfor %}
-                
-                <!-- Staff Status (for superusers) -->
-                {% if request.user.is_superuser %}
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
-                        <i class="fas fa-shield-alt me-1"></i>Staff Status
-                    </label>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="is_staff" 
-                               id="is_staff" style="width: 3em; height: 1.5em;">
-                        <label class="form-check-label ms-2" for="is_staff" style="color: #7f8c8d;">
-                            Staff Member
-                        </label>
-                    </div>
-                    <div class="form-text">
-                        <small>Designates whether this user can access the admin site.</small>
-                    </div>
-                </div>
-                {% endif %}
             </div>
             
             <!-- Action Buttons -->
@@ -209,4 +305,42 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add Bootstrap styling to form elements
+        const inputs = document.querySelectorAll('input.form-control, select.form-select');
+        inputs.forEach(input => {
+            input.classList.add('form-control');
+        });
+        
+        // Make password fields show/hide toggle
+        const passwordFields = document.querySelectorAll('input[type="password"]');
+        passwordFields.forEach(field => {
+            const parentDiv = field.parentElement;
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-outline-secondary btn-sm position-absolute end-0 top-50 translate-middle-y me-3';
+            toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            toggleBtn.style.zIndex = '5';
+            
+            parentDiv.style.position = 'relative';
+            field.style.paddingRight = '50px';
+            
+            toggleBtn.addEventListener('click', function() {
+                const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+                field.setAttribute('type', type);
+                this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+            });
+            
+            parentDiv.appendChild(toggleBtn);
+        });
+        
+        // Set placeholder for phone number
+        const phoneField = document.querySelector('input[name="phone_number"]');
+        if (phoneField) {
+            phoneField.placeholder = 'e.g., 09xxxxxxxx';
+        }
+    });
+</script>
 {% endblock %}

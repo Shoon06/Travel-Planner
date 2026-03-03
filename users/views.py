@@ -1,5 +1,6 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\users\views.py
-
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, TemplateView
 from django.contrib.auth.views import LoginView
@@ -308,6 +309,7 @@ class AdminRequiredMixin(UserPassesTestMixin):
 class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
     template_name = 'users/admin_dashboard.html'
     
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
@@ -420,3 +422,12 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('home')
+@login_required
+def admin_how_it_works(request):
+    """Admin-specific How It Works page"""
+    # Check if user is admin
+    if not hasattr(request.user, 'is_admin_user') or not request.user.is_admin_user:
+        # Redirect non-admin users to regular how it works
+        return redirect('planner:how_it_works')
+    
+    return render(request, 'users/admin_how_it_works.html')

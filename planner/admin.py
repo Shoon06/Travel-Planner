@@ -65,6 +65,7 @@ class BookedSeatAdmin(admin.ModelAdmin):
     list_per_page = 20
 
 # ==================== DESTINATION ADMIN ====================
+# ==================== DESTINATION ADMIN ====================
 @admin.register(Destination)
 class DestinationAdmin(admin.ModelAdmin):
     form = DestinationForm
@@ -77,14 +78,39 @@ class DestinationAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'region', 'type', 'description')
+            'fields': ('name', 'region', 'type', 'parent', 'description')
         }),
-        ('Image', {
+        ('Location Coordinates', {
+            'fields': ('latitude', 'longitude'),
+            'classes': ('wide',),
+            'description': 'Enter accurate coordinates for map display. For Yangon: 16.8409, 96.1735'
+        }),
+        ('Detailed Information', {
+            'fields': ('history', 'attractions', 'activities', 'cultural_info',
+                      'best_time_to_visit', 'local_cuisine', 'tips'),
+            'classes': ('collapse',),
+        }),
+        ('Main Image', {
             'fields': ('image', 'image_preview'),
-            'classes': ('wide',)
+            'classes': ('wide',),
+            'description': 'Main profile image for the destination'
+        }),
+        ('Gallery Images with Captions', {
+            'fields': (
+                ('image_1', 'caption_1'),
+                ('image_2', 'caption_2'),
+                ('image_3', 'caption_3'),
+                ('image_4', 'caption_4'),
+                ('image_5', 'caption_5'),
+                ('image_6', 'caption_6'),
+                ('image_7', 'caption_7'),
+                ('image_8', 'caption_8'),
+            ),
+            'classes': ('wide', 'collapse',),
+            'description': 'Upload up to 8 photos with descriptions. Each photo will be displayed with its caption.'
         }),
         ('Status', {
-            'fields': ('is_active',)
+            'fields': ('is_active', 'is_region')
         }),
     )
     
@@ -112,7 +138,7 @@ class DestinationAdmin(admin.ModelAdmin):
         return format_html(
             '<div class="btn-group" role="group">'
             '<a href="{}" class="btn btn-sm btn-outline-primary">Edit</a>'
-            '<a href="/destination/{}/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
+            '<a href="/planner/place/{}/" class="btn btn-sm btn-outline-success" style="margin-left: 5px;" target="_blank">View</a>'
             '</div>',
             reverse('admin:planner_destination_change', args=[obj.id]),
             obj.id
@@ -227,7 +253,20 @@ class DestinationAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} destinations deactivated successfully.', level=messages.SUCCESS)
     deactivate_destinations.short_description = "Deactivate selected"
-
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # If editing an existing object, populate caption fields from gallery_images JSON
+        if obj and obj.gallery_images:
+            try:
+                gallery_data = obj.gallery_images if isinstance(obj.gallery_images, dict) else {}
+                for i in range(1, 9):
+                    caption_key = f'caption_{i}'
+                    if caption_key in gallery_data:
+                        form.base_fields[caption_key].initial = gallery_data[caption_key]
+            except:
+                pass
+        return form
 # ==================== HOTEL ADMIN ====================
 @admin.register(Hotel)
 class HotelAdmin(admin.ModelAdmin):

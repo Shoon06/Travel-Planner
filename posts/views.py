@@ -8,11 +8,31 @@ from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.db import models
+from django.contrib.auth.decorators import login_required, user_passes_test 
 from django.db.models import Q
 from django.utils import timezone
 from .models import Post, Comment, Notification
 from planner.models import Destination, TripPlan
 from users.models import CustomUser as User
+# C:\Users\ASUS\MyanmarTravelPlanner\posts\views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView, CreateView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.db import models
+from django.db.models import Q
+from django.utils import timezone
+from .models import Post, Comment, Notification
+from planner.models import Destination, TripPlan
+from users.models import CustomUser as User
+
+# Function to check if user is admin - KEEP THIS ONCE
+def is_admin_user(user):
+    return user.is_staff or user.is_superuser or getattr(user, 'user_type', None) == 'admin'
 
 class PostListView(ListView):
     model = Post
@@ -67,7 +87,44 @@ class PostListView(ListView):
             ).count()
             context['unread_notifications'] = unread_count
         
+        # ADD THIS: Check if user is admin
+        if self.request.user.is_authenticated:
+            context['is_admin'] = is_admin_user(self.request.user)
+        else:
+            context['is_admin'] = False
+        
         return context
+
+# REMOVE THIS DUPLICATE admin_delete_post function (lines 74-85)
+# REMOVE THIS DUPLICATE is_admin_user function (lines 87-88)
+# REMOVE THIS DUPLICATE PostListView class (lines 90-147)
+
+# Admin delete post function - KEEP THIS ONE
+@login_required
+@user_passes_test(is_admin_user)
+def admin_delete_post(request, post_id):
+    """Admin view to delete any post"""
+    if request.method == 'POST':
+        post = get_object_or_404(Post, id=post_id)
+        post_title = post.title
+        post.delete()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f'Post "{post_title}" deleted successfully'
+            })
+        
+        messages.success(request, f'Post "{post_title}" deleted successfully')
+        return redirect('posts:post_list')
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+# Keep all other existing functions below...
+# (PostCreateView, PostDetailView, like_post, love_post, etc.)
+
+# Add this view at the end of the file (after the existing views)
+# ADD THIS FUNCTION TO posts/views.py
 
 class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post
@@ -420,3 +477,13 @@ def get_notification_count(request):
     ).count()
     
     return JsonResponse({'count': count})
+# Add this import at the top
+from django.contrib.auth.decorators import user_passes_test
+
+# Add this function to check if user is admin
+def is_admin_user(user):
+    return user.is_staff or user.is_superuser or getattr(user, 'user_type', None) == 'admin'
+
+# Add this view at the end of the file (after the existing views)
+
+# Update the PostListView to pass admin context

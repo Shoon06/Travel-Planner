@@ -816,46 +816,31 @@ class SelectTransportCategoryView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
 # In the SaveTransportView class, update the transport_name generation:
-
+# ========== SAVE TRANSPORT VIEW ==========
 class SaveTransportView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         transport_type = request.POST.get('transport_type')
         transport_id = request.POST.get('transport_id')
+        schedule_id = request.POST.get('schedule_id', '')
+        
+        print(f"DEBUG SaveTransportView: trip_id={trip_id}, transport_type={transport_type}, transport_id={transport_id}")
         
         try:
             trip.transportation_preference = transport_type
             
             if transport_type == 'flight':
                 transport = Flight.objects.get(id=transport_id)
-                # Simplified naming - just show class
-                if transport.category == 'low':
-                    transport_name = "Economy Flight"
-                elif transport.category == 'medium':
-                    transport_name = "Business Flight"
-                else:
-                    transport_name = "Luxury Flight"
-                    
+                transport_name = f"{transport.airline} Flight {transport.flight_number}"
+                price = transport.price_in_mmk()
             elif transport_type == 'bus':
                 transport = BusService.objects.get(id=transport_id)
-                # Simplified naming - just show class
-                if transport.bus_type == 'standard':
-                    transport_name = "Standard Bus"
-                elif transport.bus_type == 'vip':
-                    transport_name = "VIP Bus"
-                else:
-                    transport_name = "Luxury Bus"
-                    
+                transport_name = f"{transport.company} Bus"
+                price = transport.price_in_mmk()
             elif transport_type == 'car':
                 transport = CarRental.objects.get(id=transport_id)
-                # Simplified naming - just show class
-                if transport.car_type == 'economy':
-                    transport_name = "Economy Car"
-                elif transport.car_type == 'suv':
-                    transport_name = "SUV"
-                else:
-                    transport_name = "Luxury Car"
-                    
+                transport_name = f"{transport.company} - {transport.car_model}"
+                price = transport.price_in_mmk() if hasattr(transport, 'price_in_mmk') else transport.price_per_day
             else:
                 messages.error(request, 'Invalid transport type.')
                 return redirect('planner:select_transport_category', trip_id=trip.id)
@@ -863,33 +848,34 @@ class SaveTransportView(LoginRequiredMixin, View):
             trip.selected_transport = {
                 'type': transport_type,
                 'id': transport_id,
+                'schedule_id': schedule_id,
                 'name': transport_name,
-                'price': transport.price_in_mmk() if hasattr(transport, 'price_in_mmk') else transport.price_per_day
+                'price': price
             }
             trip.save()
             
-            # Build redirect URL with all parameters
+            # Build redirect URL to MAIN PLAN PAGE (not plan selection)
             redirect_url = reverse('planner:plan')
             params = []
             
-            # Add all trip parameters
+            # CRITICAL: Always include origin and destination
             if trip.origin:
                 params.append(f'origin_id={trip.origin.id}')
-                params.append(f'origin_name={trip.origin.name}')
+                params.append(f'origin_name={urllib.parse.quote(trip.origin.name)}')
             
             if trip.destination:
                 params.append(f'destination_id={trip.destination.id}')
-                params.append(f'destination_name={trip.destination.name}')
+                params.append(f'destination_name={urllib.parse.quote(trip.destination.name)}')
             
-            # Add hotel if exists
+            # IMPORTANT: Check if hotel already exists and include it
             if trip.selected_hotel:
                 params.append(f'hotel_id={trip.selected_hotel.id}')
-                params.append(f'hotel_name={trip.selected_hotel.name}')
+                params.append(f'hotel_name={urllib.parse.quote(trip.selected_hotel.name)}')
             
             # Add transport
             params.append(f'transport_id={transport_id}')
             params.append(f'transport_type={transport_type}')
-            params.append(f'transport_name={transport_name}')
+            params.append(f'transport_name={urllib.parse.quote(transport_name)}')
             
             # Add dates
             if trip.start_date:
@@ -904,12 +890,36 @@ class SaveTransportView(LoginRequiredMixin, View):
             if params:
                 redirect_url += '?' + '&'.join(params)
             
-            return redirect(redirect_url)
+            print(f"DEBUG SaveTransportView: Redirecting to {redirect_url}")
+            
+            # Return JSON response for AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Transport {transport_name} selected successfully!',
+                    'transport_name': transport_name,
+                    'redirect_url': redirect_url
+                })
+            else:
+                messages.success(request, f'✅ {transport_name} selected! Review your trip below.')
+                return redirect(redirect_url)  # Redirect to main plan page
             
         except Exception as e:
-            messages.error(request, f'Error saving transport: {str(e)}')
-            return redirect('planner:select_transport_category', trip_id=trip.id)
+            print(f"ERROR in SaveTransportView: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                })
+            else:
+                messages.error(request, f'Error saving transport: {str(e)}')
+                return redirect('planner:select_transport_category', trip_id=trip.id)
 
+
+# ========== SELECT TRANSPORT VIEW ==========
 # ========== SELECT TRANSPORT VIEW ==========
 class SelectTransportView(LoginRequiredMixin, View):
     template_name = 'planner/transport_list.html'
@@ -917,126 +927,659 @@ class SelectTransportView(LoginRequiredMixin, View):
     def get(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         transport_type = request.GET.get('type', 'flight')
-        budget_filter = request.GET.get('budget', 'all')
+        transport_class = request.GET.get('transport_class', 'all')
+        
+        # Check if trip has dates
+        if not trip.start_date:
+            messages.error(request, 'Please select travel dates first.')
+            return redirect('planner:plan')
+        
+        travel_date = trip.start_date
         
         transport_items = []
+        error_message = None
         
         if transport_type == 'flight':
-            items = Flight.objects.filter(
-                departure=trip.origin,
-                arrival=trip.destination,
-                is_active=True
-            )
-            
-            if budget_filter == 'low':
-                items = items.filter(price__lt=50000)
-            elif budget_filter == 'medium':
-                items = items.filter(price__gte=50000, price__lt=120000)
-            elif budget_filter == 'high':
-                items = items.filter(price__gte=120000)
+            # Check if origin and destination exist
+            if not trip.origin or not trip.destination:
+                error_message = "Please select both origin and destination."
+            # Check if both have airports
+            elif not self.check_has_airport(trip.origin) or not self.check_has_airport(trip.destination):
+                error_message = f"✈️ Air travel not available between these locations. Please check if both {trip.origin.name} and {trip.destination.name} have airports."
+            else:
+                # Get flights for this specific date
+                transport_items = self.get_flights_for_date(trip, travel_date, transport_class)
                 
-            transport_items = items.order_by('price')
+                if not transport_items:
+                    error_message = f"⚠️ No flights available on {travel_date.strftime('%B %d, %Y')}. Try a different date or check back later."
             
         elif transport_type == 'bus':
-            items = BusService.objects.filter(
-                departure=trip.origin,
-                arrival=trip.destination,
-                is_active=True
-            )
-            
-            if budget_filter == 'low':
-                items = items.filter(price__lt=30000)
-            elif budget_filter == 'medium':
-                items = items.filter(price__gte=30000, price__lt=60000)
-            elif budget_filter == 'high':
-                items = items.filter(price__gte=60000)
+            if not trip.origin or not trip.destination:
+                error_message = "Please select both origin and destination."
+            else:
+                # Get buses for this specific date
+                transport_items = self.get_buses_for_date(trip, travel_date, transport_class)
                 
-            transport_items = items.order_by('price')
+                if not transport_items:
+                    # Check if route exists but no schedules
+                    route_exists = BusService.objects.filter(
+                        departure=trip.origin,
+                        arrival=trip.destination,
+                        is_active=True
+                    ).exists()
+                    
+                    if route_exists:
+                        error_message = f"🚌 No bus schedules available for {travel_date.strftime('%B %d')}. Schedules might be sold out or not yet loaded."
+                    else:
+                        error_message = f"🚌 No direct bus route found from {trip.origin.name} to {trip.destination.name}."
             
         elif transport_type == 'car':
-            items = CarRental.objects.filter(
-                location=trip.origin,
-                is_available=True
-            )
-            
-            if budget_filter == 'low':
-                items = items.filter(price_per_day__lt=50000)
-            elif budget_filter == 'medium':
-                items = items.filter(price_per_day__gte=50000, price_per_day__lt=100000)
-            elif budget_filter == 'high':
-                items = items.filter(price_per_day__gte=100000)
+            if not trip.origin:
+                error_message = "Please select an origin city."
+            else:
+                # Get cars available on this date
+                transport_items = self.get_cars_for_date(trip, travel_date, transport_class)
                 
-            transport_items = items.order_by('price_per_day')
+                if not transport_items:
+                    error_message = f"🚗 No cars available for rent in {trip.origin.name} on {travel_date.strftime('%B %d')}. Try a different date or city."
+        
+        # If no transport available and no error message yet, set generic message
+        if not transport_items and not error_message:
+            error_message = f"No {transport_type} options available for {travel_date.strftime('%B %d, %Y')}. Please try a different date or transport type."
+        
+        # DEBUG: Show what we found
+        print(f"DEBUG: Transport Type: {transport_type}")
+        print(f"DEBUG: Found {len(transport_items)} items")
+        print(f"DEBUG: Error Message: {error_message}")
         
         context = {
             'trip': trip,
             'transport_type': transport_type,
             'transport_items': transport_items,
-            'budget_filter': budget_filter,
+            'transport_class': transport_class,
+            'travel_date': travel_date,
+            'error_message': error_message,
         }
+        
         return render(request, self.template_name, context)
-
+    
+    def post(self, request, trip_id):
+        """Handle transport selection directly (for cars and simple booking)"""
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        transport_type = request.POST.get('transport_type')
+        transport_id = request.POST.get('transport_id')
+        schedule_id = request.POST.get('schedule_id')
+        
+        print(f"DEBUG SelectTransportView.post: transport_type={transport_type}, transport_id={transport_id}")
+        
+        try:
+            if transport_type == 'car':
+                # Car rental - no seat selection needed
+                car = get_object_or_404(CarRental, id=transport_id)
+                
+                if schedule_id:
+                    schedule = get_object_or_404(TransportSchedule, id=schedule_id)
+                    price_per_day = float(schedule.price)
+                else:
+                    price_per_day = float(car.price_per_day)
+                
+                # Calculate total price based on trip duration
+                nights = trip.calculate_nights()
+                days = nights + 1 if nights > 0 else 1
+                total_price = price_per_day * days
+                
+                trip.transportation_preference = 'car'
+                trip.selected_transport = {
+                    'type': 'car',
+                    'id': transport_id,
+                    'schedule_id': schedule_id,
+                    'name': f"{car.company} - {car.car_model}",
+                    'price': total_price,
+                    'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                    'booking_details': {
+                        'company': car.company,
+                        'car_model': car.car_model,
+                        'car_type': car.get_car_type_display(),
+                        'pickup_location': trip.origin.name if trip.origin else 'Not specified',
+                        'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                        'duration_days': days,
+                        'price_per_day': price_per_day,
+                        'total_price': total_price,
+                        'status': 'CONFIRMED',
+                        'confirmed_at': timezone.now().isoformat(),
+                    },
+                    'is_temporary': False,
+                    'needs_confirmation': False,
+                }
+                trip.save()
+                
+                print(f"DEBUG: Car rental saved. Price: {total_price}")
+                
+                messages.success(request, f'🚗 Car selected: {car.company} - {car.car_model}')
+                
+                # For car rental, redirect directly to main plan page
+                return redirect('planner:plan')
+                
+            elif transport_type in ['flight', 'bus']:
+                # Get the transport object
+                if transport_type == 'flight':
+                    transport = get_object_or_404(Flight, id=transport_id)
+                    price = float(transport.price)
+                    transport_name = f"{transport.airline} Flight {transport.flight_number}"
+                else:  # bus
+                    transport = get_object_or_404(BusService, id=transport_id)
+                    price = float(transport.price)
+                    transport_name = f"{transport.company} Bus"
+                
+                # Calculate total price for all travelers
+                total_price = price * trip.travelers
+                
+                # Save transport data with price
+                trip.transportation_preference = transport_type
+                trip.selected_transport = {
+                    'type': transport_type,
+                    'id': transport_id,
+                    'schedule_id': schedule_id,
+                    'name': transport_name,
+                    'price': total_price,
+                    'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                    'booking_details': {
+                        'transport_name': transport_name,
+                        'travel_date': trip.start_date.strftime('%Y-%m-%d'),
+                        'travelers': trip.travelers,
+                        'price_per_seat': price,
+                        'total_price': total_price,
+                        'status': 'SELECTED',
+                        'selected_at': timezone.now().isoformat(),
+                    },
+                    'is_temporary': True,
+                    'needs_confirmation': True,
+                }
+                trip.save()
+                
+                print(f"DEBUG: {transport_type} saved. Total price: {total_price}")
+                
+                # Redirect to seat selection
+                print(f"DEBUG: Redirecting to seat selection for {transport_type}")
+                return redirect('planner:select_seats', 
+                              trip_id=trip.id, 
+                              transport_id=transport_id,
+                              type=transport_type)
+                
+        except Exception as e:
+            print(f"ERROR in SelectTransportView.post: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            messages.error(request, f'Error selecting transport: {str(e)}')
+            return redirect('planner:select_transport', trip_id=trip.id, 
+                          type=transport_type, transport_class='all')
+    
+    def check_has_airport(self, destination):
+        """Check if a destination has an airport using the model method"""
+        return destination.has_airport() if destination else False
+    
+    def get_flights_for_date(self, trip, travel_date, transport_class):
+        """Get flights available for specific date"""
+        # Get schedules for this date
+        flight_schedules = TransportSchedule.objects.filter(
+            transport_type='flight',
+            travel_date=travel_date,
+            is_active=True,
+            available_seats__gte=trip.travelers
+        )
+        
+        print(f"DEBUG: Found {flight_schedules.count()} flight schedules for {travel_date}")
+        
+        # Get actual flight objects
+        flight_ids = flight_schedules.values_list('transport_id', flat=True)
+        flights = Flight.objects.filter(
+            id__in=flight_ids,
+            departure=trip.origin,
+            arrival=trip.destination,
+            is_active=True
+        )
+        
+        print(f"DEBUG: Found {flights.count()} flights for route {trip.origin.name} → {trip.destination.name}")
+        
+        # Filter by class if specified
+        if transport_class != 'all':
+            flights = flights.filter(category=transport_class)
+        
+        # Add schedule info to each flight
+        transport_items = []
+        for flight in flights:
+            schedule = flight_schedules.filter(transport_id=flight.id).first()
+            if schedule:
+                # Create flight item with schedule data
+                flight_item = flight
+                flight_item.schedule_price = schedule.price
+                flight_item.schedule_available_seats = schedule.available_seats
+                flight_item.schedule_date = schedule.travel_date
+                flight_item.schedule_id = schedule.id
+                transport_items.append(flight_item)
+                print(f"DEBUG: Added flight {flight.airline.name} {flight.flight_number} with {schedule.available_seats} seats")
+        
+        return transport_items
+    
+    def get_buses_for_date(self, trip, travel_date, transport_class):
+        """Get buses available for specific date"""
+        # Get schedules for this date
+        bus_schedules = TransportSchedule.objects.filter(
+            transport_type='bus',
+            travel_date=travel_date,
+            is_active=True,
+            available_seats__gte=trip.travelers
+        )
+        
+        print(f"DEBUG: Found {bus_schedules.count()} bus schedules for {travel_date}")
+        
+        # Get actual bus objects
+        bus_ids = bus_schedules.values_list('transport_id', flat=True)
+        buses = BusService.objects.filter(
+            id__in=bus_ids,
+            departure=trip.origin,
+            arrival=trip.destination,
+            is_active=True
+        )
+        
+        print(f"DEBUG: Found {buses.count()} buses for route {trip.origin.name} → {trip.destination.name}")
+        
+        # Filter by class if specified
+        if transport_class != 'all':
+            if transport_class == 'low':
+                buses = buses.filter(bus_type='standard')
+            elif transport_class == 'medium':
+                buses = buses.filter(bus_type='vip')
+            elif transport_class == 'high':
+                buses = buses.filter(bus_type='luxury')
+        
+        # Add schedule info to each bus
+        transport_items = []
+        for bus in buses:
+            schedule = bus_schedules.filter(transport_id=bus.id).first()
+            if schedule:
+                bus.schedule_price = schedule.price
+                bus.schedule_available_seats = schedule.available_seats
+                bus.schedule_date = schedule.travel_date
+                bus.schedule_id = schedule.id
+                transport_items.append(bus)
+                print(f"DEBUG: Added bus {bus.company} with {schedule.available_seats} seats")
+        
+        return transport_items
+    
+    def get_cars_for_date(self, trip, travel_date, transport_class):
+        """Get cars available for specific date"""
+        # Get schedules for this date
+        car_schedules = TransportSchedule.objects.filter(
+            transport_type='car',
+            travel_date=travel_date,
+            is_active=True,
+            available_seats__gte=trip.travelers
+        )
+        
+        print(f"DEBUG: Found {car_schedules.count()} car schedules for {travel_date}")
+        
+        # Get actual car objects
+        car_ids = car_schedules.values_list('transport_id', flat=True)
+        cars = CarRental.objects.filter(
+            id__in=car_ids,
+            location=trip.origin,
+            is_available=True
+        )
+        
+        print(f"DEBUG: Found {cars.count()} cars in {trip.origin.name}")
+        
+        # Filter by class if specified
+        if transport_class != 'all':
+            if transport_class == 'low':
+                cars = cars.filter(car_type='economy')
+            elif transport_class == 'medium':
+                cars = cars.filter(car_type='suv')
+            elif transport_class == 'high':
+                cars = cars.filter(car_type='luxury')
+        
+        # Add schedule info to each car
+        transport_items = []
+        for car in cars:
+            schedule = car_schedules.filter(transport_id=car.id).first()
+            if schedule:
+                car.schedule_price = schedule.price
+                car.schedule_available_seats = schedule.available_seats
+                car.schedule_date = schedule.travel_date
+                car.schedule_id = schedule.id
+                transport_items.append(car)
+                print(f"DEBUG: Added car {car.company} {car.car_model} with {schedule.available_seats} seats")
+        
+        return transport_items
 # ========== SELECT SEATS VIEW ==========
 class SelectSeatsView(LoginRequiredMixin, View):
-    template_name = 'planner/select_seats.html'
-    
-    def get(self, request, trip_id, transport_id):
-        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        transport_type = request.GET.get('type', 'flight')
-        
-        if transport_type == 'flight':
-            transport = get_object_or_404(Flight, id=transport_id)
-        elif transport_type == 'bus':
-            transport = get_object_or_404(BusService, id=transport_id)
-        else:
-            transport = get_object_or_404(CarRental, id=transport_id)
-            trip.transportation_preference = 'car'
-            trip.selected_transport = {
-                'type': 'car',
-                'id': transport_id,
-                'name': f"{transport.company} - {transport.car_model}",
-            }
-            trip.save()
-            
-            # Redirect with all parameters
-            redirect_url = reverse('planner:plan')
-            params = []
-            
-            if trip.origin:
-                params.append(f'origin_id={trip.origin.id}')
-                params.append(f'origin_name={trip.origin.name}')
-            
-            if trip.destination:
-                params.append(f'destination_id={trip.destination.id}')
-                params.append(f'destination_name={trip.destination.name}')
-            
-            if trip.selected_hotel:
-                params.append(f'hotel_id={trip.selected_hotel.id}')
-                params.append(f'hotel_name={trip.selected_hotel.name}')
-            
-            params.append(f'transport_id={transport_id}')
-            params.append(f'transport_type=car')
-            params.append(f'transport_name={trip.selected_transport["name"]}')
-            
-            if trip.start_date:
-                params.append(f'start_date={trip.start_date.strftime("%Y-%m-%d")}')
-            if trip.end_date:
-                params.append(f'end_date={trip.end_date.strftime("%Y-%m-%d")}')
-            
-            params.append(f'travelers={trip.travelers}')
-            
-            if params:
-                redirect_url += '?' + '&'.join(params)
-            
-            return redirect(redirect_url)
-        
-        context = {
-            'trip': trip,
-            'transport': transport,
-            'transport_type': transport_type,
-        }
-        return render(request, self.template_name, context)
+    template_name = "planner/select_seats.html"
 
+    # =====================================================
+    # GET → SHOW SEAT MAP
+    # =====================================================
+    def get(self, request, trip_id, transport_id):
+        trip = get_object_or_404(
+            TripPlan,
+            id=trip_id,
+            user=request.user
+        )
+
+        transport_type = request.GET.get("type", "flight")
+        travel_date = trip.start_date
+
+        # Get schedule
+        schedule = get_object_or_404(
+            TransportSchedule,
+            transport_type=transport_type,
+            transport_id=transport_id,
+            travel_date=travel_date,
+            is_active=True
+        )
+
+        # Check available seats
+        if schedule.available_seats < trip.travelers:
+            messages.error(
+                request,
+                f"Only {schedule.available_seats} seats left."
+            )
+            return redirect(
+                "planner:select_transport",
+                trip_id=trip.id
+            )
+
+        # Route by transport type
+        if transport_type == "flight":
+            return self.flight_seats(request, trip, transport_id, schedule)
+        elif transport_type == "bus":
+            return self.bus_seats(request, trip, transport_id, schedule)
+        elif transport_type == "car":
+            return self.car_rental(request, trip, transport_id, schedule)
+
+        messages.error(request, "Invalid transport type")
+        return redirect(
+            "planner:select_transport",
+            trip_id=trip.id
+        )
+
+    # =====================================================
+    # POST → SAVE SELECTED SEATS AND REDIRECT TO MAIN PLAN PAGE
+    # =====================================================
+    def post(self, request, trip_id, transport_id):
+        trip = get_object_or_404(
+            TripPlan,
+            id=trip_id,
+            user=request.user
+        )
+
+        transport_type = request.POST.get("transport_type")
+        travel_date = trip.start_date
+
+        # Get selected seats
+        try:
+            selected_seats = json.loads(
+                request.POST.get("selected_seats", "[]")
+            )
+        except:
+            selected_seats = []
+
+        if not selected_seats and transport_type != "car":
+            messages.error(request, "Please select seats first.")
+            return redirect(
+                "planner:select_seats",
+                trip_id=trip.id,
+                transport_id=transport_id
+            )
+
+        # Get schedule
+        schedule = get_object_or_404(
+            TransportSchedule,
+            transport_type=transport_type,
+            transport_id=transport_id,
+            travel_date=travel_date,
+            is_active=True
+        )
+
+        # Already booked seats
+        booked_seats = list(
+            BookedSeat.objects.filter(
+                transport_type=transport_type,
+                transport_id=transport_id,
+                schedule_date=travel_date,
+                is_cancelled=False
+            ).values_list("seat_number", flat=True)
+        )
+
+        # Validate seats
+        for seat in selected_seats:
+            if seat in booked_seats:
+                messages.error(
+                    request,
+                    f"Seat {seat} is already booked."
+                )
+                return redirect(
+                    "planner:select_seats",
+                    trip_id=trip.id,
+                    transport_id=transport_id
+                )
+
+        # Booking reference
+        booking_ref = f"TEMP{random.randint(10000, 99999)}"
+
+        total_price = float(
+            request.POST.get("total_price", 0)
+        )
+
+        # Save in trip JSON field
+        trip.selected_transport = {
+            "type": transport_type,
+            "id": transport_id,
+            "schedule_id": schedule.id,
+            "seats": selected_seats,
+            "booking_details": {
+                "total_price": total_price,
+                "price_per_seat": (
+                    total_price / len(selected_seats)
+                    if selected_seats else 0
+                ),
+            },
+            "booking_id": booking_ref,
+            "is_temporary": True,
+            "needs_confirmation": True,
+        }
+
+        trip.status = "planning"
+        trip.save()
+
+        messages.success(
+            request,
+            "Transport selected! Review your trip and click 'Continue to Plan Selection' when ready."
+        )
+
+        # *** FIXED: Redirect to MAIN PLAN PAGE, not plan selection ***
+        return redirect('planner:plan')
+
+    # =====================================================
+    # FLIGHT VIEW
+    # =====================================================
+    def flight_seats(self, request, trip, transport_id, schedule):
+        transport = get_object_or_404(
+            Flight,
+            id=transport_id
+        )
+
+        occupied = self.get_occupied(
+            "flight",
+            transport_id,
+            trip.start_date
+        )
+
+        seat_layout = self.build_flight_layout(occupied)
+
+        context = {
+            "trip": trip,
+            "transport": transport,
+            "schedule": schedule,
+            "occupied": occupied,
+            "seat_layout": seat_layout,
+            "transport_type": "flight",
+            "travel_date": trip.start_date,
+            "available_seats": schedule.available_seats,
+        }
+
+        return render(
+            request,
+            self.template_name,
+            context
+        )
+
+    # =====================================================
+    # BUS VIEW
+    # =====================================================
+    def bus_seats(self, request, trip, transport_id, schedule):
+        transport = get_object_or_404(
+            BusService,
+            id=transport_id
+        )
+
+        occupied = self.get_occupied(
+            "bus",
+            transport_id,
+            trip.start_date
+        )
+
+        seat_layout = self.build_bus_layout(occupied)
+
+        context = {
+            "trip": trip,
+            "transport": transport,
+            "schedule": schedule,
+            "occupied": occupied,
+            "seat_layout": seat_layout,
+            "transport_type": "bus",
+            "travel_date": trip.start_date,
+            "available_seats": schedule.available_seats,
+        }
+
+        return render(
+            request,
+            self.template_name,
+            context
+        )
+
+    # =====================================================
+    # CAR RENTAL
+    # =====================================================
+    def car_rental(self, request, trip, transport_id, schedule):
+        transport = get_object_or_404(
+            CarRental,
+            id=transport_id
+        )
+
+        trip.selected_transport = {
+            "type": "car",
+            "id": transport_id,
+            "schedule_id": schedule.id,
+            "is_temporary": False,
+            "needs_confirmation": False,
+        }
+
+        trip.status = "planning"
+        trip.save()
+
+        messages.success(
+            request,
+            "Car selected! Review your trip and click 'Continue to Plan Selection' when ready."
+        )
+
+        # *** FIXED: Redirect to MAIN PLAN PAGE, not plan selection ***
+        return redirect('planner:plan')
+
+    # =====================================================
+    # GET OCCUPIED SEATS
+    # =====================================================
+    def get_occupied(self, t_type, t_id, date):
+        return list(
+            BookedSeat.objects.filter(
+                transport_type=t_type,
+                transport_id=t_id,
+                schedule_date=date,
+                is_cancelled=False
+            ).values_list("seat_number", flat=True)
+        )
+
+    # =====================================================
+    # BUILD BUS LAYOUT
+    # =====================================================
+    def build_bus_layout(self, occupied):
+        layout = []
+
+        rows = 10   # 10 rows
+        cols = ["A", "B", "C", "D"]
+
+        for r in range(1, rows + 1):
+            row = {
+                "row_number": r,
+                "seats": []
+            }
+
+            for c in cols:
+                seat_no = f"{r}{c}"
+
+                row["seats"].append({
+                    "number": seat_no,
+                    "occupied": seat_no in occupied,
+                    "type": "normal",
+                    "price_multiplier": 1,
+                    "is_window": c in ["A", "D"]
+                })
+
+            layout.append(row)
+
+        return layout
+
+    # =====================================================
+    # BUILD FLIGHT LAYOUT
+    # =====================================================
+    def build_flight_layout(self, occupied):
+        layout = []
+
+        rows = 20
+        cols = ["A", "B", "C", "D", "E", "F"]
+
+        for r in range(1, rows + 1):
+            row_data = {
+                "row_number": r,
+                "is_first_class": r <= 2,
+                "is_business_class": False,
+                "seats": []
+            }
+
+            for c in cols:
+                seat_no = f"{r}{c}"
+
+                # Seat type
+                if r <= 2:
+                    seat_type = "first"
+                    multiplier = 2.0
+                elif r <= 5:
+                    seat_type = "premium"
+                    multiplier = 1.5
+                else:
+                    seat_type = "economy"
+                    multiplier = 1
+
+                row_data["seats"].append({
+                    "number": seat_no,
+                    "occupied": seat_no in occupied,
+                    "type": seat_type,
+                    "price_multiplier": multiplier,
+                    "is_window": c in ["A", "F"]
+                })
+
+            layout.append(row_data)
+
+        return layout
 # ========== SEARCH REAL HOTELS VIEW ==========
 class SearchRealHotelsView(LoginRequiredMixin, View):
     def get(self, request, destination_id):
@@ -1323,3 +1866,95 @@ class DownloadItineraryPDFView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Error generating PDF: {str(e)}')
             return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id=plan_id)
+class RegionPlacesView(View):
+    """Show all places/attractions in a region (like Taunggyi)"""
+    template_name = 'planner/region_places.html'
+    
+    def get(self, request, region_id):
+        from .models import Destination, Hotel
+        from .weather_service import weather_service
+        
+        # Get the region (like Taunggyi)
+        region = get_object_or_404(Destination, id=region_id, is_active=True)
+        
+        # Get all places that have this region as parent
+        places = Destination.objects.filter(
+            parent=region,
+            is_active=True
+        ).order_by('name')
+        
+        # Get weather for the region
+        if region.latitude and region.longitude:
+            weather_data = weather_service.get_weather_by_coords(
+                region.latitude,
+                region.longitude,
+                region.name
+            )
+        else:
+            weather_data = weather_service.get_weather_by_city(region.name)
+        
+        # Get hotels in this region
+        hotels = Hotel.objects.filter(
+            destination=region,
+            is_active=True
+        ).order_by('price_per_night')[:3]
+        
+        context = {
+            'region': region,
+            'places': places,
+            'places_count': places.count(),
+            'weather_data': weather_data,
+            'hotels': hotels,
+        }
+        
+        return render(request, self.template_name, context)
+
+
+class PlaceDetailView(View):
+    """Show detailed information about a specific place/attraction"""
+    template_name = 'planner/place_detail.html'
+    
+    def get(self, request, place_id):
+        from .models import Destination, Hotel
+        from .weather_service import weather_service
+        
+        # Get the place (like Kakku Pagodas)
+        place = get_object_or_404(Destination, id=place_id, is_active=True)
+        
+        # Get weather
+        if place.latitude and place.longitude:
+            weather_data = weather_service.get_weather_by_coords(
+                place.latitude,
+                place.longitude,
+                place.name
+            )
+        else:
+            weather_data = weather_service.get_weather_by_city(place.name)
+        
+        # Get hotels in this area (use parent if exists, otherwise use place itself)
+        location = place.parent if place.parent else place
+        hotels = Hotel.objects.filter(
+            destination=location,
+            is_active=True
+        ).order_by('price_per_night')[:3]
+        
+        # Get similar places in the same region
+        if place.parent:
+            similar_places = Destination.objects.filter(
+                parent=place.parent,
+                is_active=True
+            ).exclude(id=place.id)[:4]
+        else:
+            similar_places = Destination.objects.filter(
+                region=place.region,
+                is_active=True
+            ).exclude(id=place.id)[:4]
+        
+        context = {
+            'place': place,
+            'weather_data': weather_data,
+            'hotels': hotels,
+            'similar_places': similar_places,
+        }
+        
+        return render(request, self.template_name, context)

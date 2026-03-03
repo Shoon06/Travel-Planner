@@ -16,23 +16,23 @@
             </a>
         </div>
         
-        <!-- Statistics -->
+        <!-- Statistics - NOW DYNAMIC -->
         <div class="row g-3 mb-3">
             <div class="col-md-4">
-                <div class="card-glass p-3 text-center">
+                <div class="card-glass p-3 text-center" id="total-buses-stat">
                     <h4 class="mb-1" style="color: #2c3e50;">{{ total_buses }}</h4>
                     <p class="mb-0" style="color: #7f8c8d;">Total Buses</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card-glass p-3 text-center">
+                <div class="card-glass p-3 text-center" id="active-buses-stat">
                     <h4 class="mb-1" style="color: #2c3e50;">{{ active_buses }}</h4>
                     <p class="mb-0" style="color: #7f8c8d;">Active</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card-glass p-3 text-center">
-                    <h4 class="mb-1" style="color: #2c3e50;">3</h4>
+                <div class="card-glass p-3 text-center" id="bus-type-count-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ bus_type_count }}</h4>
                     <p class="mb-0" style="color: #7f8c8d;">Bus Types</p>
                 </div>
             </div>
@@ -67,9 +67,9 @@
                         <th style="color: #2c3e50;">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="buses-table-body">
                     {% for bus in buses %}
-                    <tr>
+                    <tr id="bus-row-{{ bus.id }}">
                         <td style="color: #34495e; font-weight: 500;">
                             {{ bus.bus_number|default:bus.company|slice:":15" }}
                         </td>
@@ -108,14 +108,15 @@
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 <button class="btn btn-sm btn-outline-danger delete-bus-btn" 
-                                        data-bus-id="{{ bus.id }}">
+                                        data-bus-id="{{ bus.id }}"
+                                        data-bus-name="{{ bus.company }} {{ bus.bus_number }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
+                    <tr id="empty-buses-row">
                         <td colspan="9" class="text-center py-4">
                             <i class="fas fa-bus fa-3x text-gray mb-3"></i>
                             <h5 style="color: #2c3e50;">No bus services found</h5>
@@ -211,26 +212,164 @@
     </div>
 </div>
 
+<!-- Success/Error Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Notification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageContent">
+                <!-- Message will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Function to show modal message
+        function showMessage(message, isSuccess = true) {
+            const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+            const content = document.getElementById('messageContent');
+            
+            if (isSuccess) {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-circle text-danger fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+            
+            modal.show();
+        }
+
+        // Function to update bus statistics
+        function updateBusStatistics() {
+            // Send AJAX request to update statistics
+            fetch('{% url "users:admin_buses" %}?ajax_stats=1', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Parse the HTML to extract statistics
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find statistics elements in the parsed HTML
+                const totalElem = doc.querySelector('#total-buses-stat h4');
+                const activeElem = doc.querySelector('#active-buses-stat h4');
+                const typeElem = doc.querySelector('#bus-type-count-stat h4');
+                
+                // Update the statistics on current page
+                if (totalElem) {
+                    document.querySelector('#total-buses-stat h4').textContent = totalElem.textContent;
+                }
+                if (activeElem) {
+                    document.querySelector('#active-buses-stat h4').textContent = activeElem.textContent;
+                }
+                if (typeElem) {
+                    document.querySelector('#bus-type-count-stat h4').textContent = typeElem.textContent;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating statistics:', error);
+            });
+        }
+
         // Delete bus
         document.querySelectorAll('.delete-bus-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const busId = this.getAttribute('data-bus-id');
-                if (confirm('Are you sure you want to delete this bus service?')) {
-                    fetch(`/admin/planner/busservice/${busId}/delete/`, {
+                const busName = this.getAttribute('data-bus-name');
+                
+                if (confirm(`Are you sure you want to delete bus service ${busName}?`)) {
+                    // Show loading state
+                    const originalHTML = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    this.disabled = true;
+                    
+                    // Using Django URL template tag
+                    fetch(`{% url 'users:admin_delete_content' 'bus' 0 %}`.replace('0', busId), {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': '{{ csrf_token }}',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({})
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        
+                        if (data.success) {
+                            showMessage(data.message, true);
+                            
+                            // Remove the row from table with animation
+                            const row = document.getElementById(`bus-row-${busId}`);
+                            if (row) {
+                                row.style.opacity = '0.5';
+                                row.style.transition = 'opacity 0.3s';
+                                
+                                setTimeout(() => {
+                                    row.remove();
+                                    
+                                    // Update statistics
+                                    updateBusStatistics();
+                                    
+                                    // Check if table is empty
+                                    const tbody = document.getElementById('buses-table-body');
+                                    const emptyRow = document.getElementById('empty-buses-row');
+                                    
+                                    if (tbody.children.length === 0 || 
+                                        (tbody.children.length === 1 && emptyRow)) {
+                                        // Show empty state
+                                        tbody.innerHTML = `
+                                            <tr id="empty-buses-row">
+                                                <td colspan="9" class="text-center py-4">
+                                                    <i class="fas fa-bus fa-3x text-gray mb-3"></i>
+                                                    <h5 style="color: #2c3e50;">No bus services found</h5>
+                                                    <p style="color: #7f8c8d;">Add your first bus service to get started</p>
+                                                    <a href="{% url 'users:admin_add_bus' %}" class="btn btn-primary">
+                                                        <i class="fas fa-plus me-2"></i>Add Bus
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }
+                                }, 300);
+                            }
+                        } else {
+                            showMessage('Error: ' + data.error, false);
                         }
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert('Error: ' + data.error);
-                        }
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        showMessage('Error deleting bus service. Please try again.', false);
                     });
                 }
             });

@@ -4,6 +4,8 @@ from .views import how_it_works
 from .views import (
     PlanTripView,
     DashboardView,
+    RegionPlacesView,
+    PlaceDetailView,
     DestinationSearchView,
     SelectHotelView,
     SelectHotelWithMapView,
@@ -85,12 +87,14 @@ urlpatterns = [
     
     # Weather testing
     path('test-weather/', TestWeatherAPIView.as_view(), name='test_weather'),
+    path('place/<int:place_id>/', PlaceDetailView.as_view(), name='place_detail'),
     
     # Destination browsing
     path('destinations/', DestinationListView.as_view(), name='destinations'),
     path('destinations/<int:destination_id>/', DestinationDetailView.as_view(), name='destination_detail'),
     path('destinations-autocomplete/', DestinationAutocompleteView.as_view(), name='destinations_autocomplete'),
-    
+    path('region/<int:region_id>/places/', RegionPlacesView.as_view(), name='region_places'),
+    path('place/<int:place_id>/', PlaceDetailView.as_view(), name='place_detail'),
     # Dashboard analytics
     path('dashboard/trips/', TripListView.as_view(), name='trip_list'),
     path('dashboard/trips/upcoming/', UpcomingTripsView.as_view(), name='upcoming_trips'),

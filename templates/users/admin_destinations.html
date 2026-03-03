@@ -1,4 +1,3 @@
-<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_destinations.html -->
 {% extends 'base.html' %}
 {% block title %}Destinations - Admin - GoMyanmar{% endblock %}
 
@@ -11,9 +10,14 @@
                 <h2 class="mb-2" style="color: #2c3e50;">Manage Destinations</h2>
                 <p class="mb-0" style="color: #7f8c8d;">Add, edit, or remove travel destinations</p>
             </div>
-            <a href="{% url 'users:admin_add_destination' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>Add Destination
-            </a>
+            <div>
+                <a href="{% url 'users:admin_add_city' %}" class="btn btn-success me-2">
+                    <i class="fas fa-city me-2"></i>Add City/Town
+                </a>
+                <a href="{% url 'users:admin_add_attraction' %}" class="btn btn-primary">
+                    <i class="fas fa-camera me-2"></i>Add Attraction/Place
+                </a>
+            </div>
         </div>
         
         <!-- Statistics -->
@@ -32,7 +36,7 @@
             </div>
             <div class="col-md-4">
                 <div class="card-glass p-3 text-center">
-                    <h4 class="mb-1" style="color: #2c3e50;">5</h4>
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ regions_count|default:"5" }}</h4>
                     <p class="mb-0" style="color: #7f8c8d;">Regions</p>
                 </div>
             </div>
@@ -59,6 +63,7 @@
                         <th style="color: #2c3e50;">Name</th>
                         <th style="color: #2c3e50;">Location</th>
                         <th style="color: #2c3e50;">Region</th>
+                        <th style="color: #2c3e50;">Type</th>
                         <th style="color: #2c3e50;">Popularity</th>
                         <th style="color: #2c3e50;">Status</th>
                         <th style="color: #2c3e50;">Actions</th>
@@ -87,6 +92,13 @@
                         <td style="color: #34495e;">{{ dest.name }}</td>
                         <td style="color: #34495e;">{{ dest.region }}</td>
                         <td>
+                            {% if dest.type == 'city' or dest.type == 'town' %}
+                                <span class="badge bg-info">{{ dest.type|title }}</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ dest.type|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if dest.trip_count %}
                             <span class="badge bg-primary">{{ dest.trip_count }} trips</span>
                             {% else %}
@@ -102,12 +114,19 @@
                         </td>
                         <td>
                             <div class="btn-group" role="group">
-                                <!-- CHANGED: Using custom edit URL instead of Django admin -->
-                                <a href="{% url 'users:admin_edit_destination' dest.id %}" 
+                                <!-- Conditional edit link based on destination type -->
+                                {% if dest.type == 'city' or dest.type == 'town' %}
+                                <a href="{% url 'users:admin_edit_city' dest.id %}" 
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                               <a href="{% url 'users:admin_trip_list' %}?destination={{ dest.id }}"  
+                                {% else %}
+                                <a href="{% url 'users:admin_edit_attraction' dest.id %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'users:admin_trip_list' %}?destination={{ dest.id }}"  
                                    class="btn btn-sm btn-outline-info">
                                     <i class="fas fa-eye"></i>
                                 </a>
@@ -120,13 +139,18 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-4">
+                        <td colspan="7" class="text-center py-4">
                             <i class="fas fa-map-marked-alt fa-3x text-gray mb-3"></i>
                             <h5 style="color: #2c3e50;">No destinations found</h5>
                             <p style="color: #7f8c8d;">Add your first destination to get started</p>
-                            <a href="{% url 'users:admin_add_destination' %}" class="btn btn-primary">
-                                <i class="fas fa-plus me-2"></i>Add Destination
-                            </a>
+                            <div>
+                                <a href="{% url 'users:admin_add_city' %}" class="btn btn-success me-2">
+                                    <i class="fas fa-city me-2"></i>Add City/Town
+                                </a>
+                                <a href="{% url 'users:admin_add_attraction' %}" class="btn btn-primary">
+                                    <i class="fas fa-camera me-2"></i>Add Attraction
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -192,10 +216,16 @@
                         <p class="card-text text-gray">{{ dest.destination.region }}</p>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="badge bg-primary">{{ dest.trip_count }} trips</span>
-                            <!-- CHANGED: Using custom edit URL for popular destinations too -->
-                            <a href="{% url 'users:admin_edit_destination' dest.destination.id %}" class="btn btn-sm btn-outline-primary">
+                            <!-- Conditional manage link based on destination type -->
+                            {% if dest.destination.type == 'city' or dest.destination.type == 'town' %}
+                            <a href="{% url 'users:admin_edit_city' dest.destination.id %}" class="btn btn-sm btn-outline-primary">
                                 Manage
                             </a>
+                            {% else %}
+                            <a href="{% url 'users:admin_edit_attraction' dest.destination.id %}" class="btn btn-sm btn-outline-primary">
+                                Manage
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -212,12 +242,12 @@
         document.querySelectorAll('.delete-destination-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const destId = this.getAttribute('data-dest-id');
-                if (confirm('Are you sure you want to delete this destination? This will also delete related trips.')) {
-                    // CHANGED: Using the custom delete URL
-                    fetch(`{% url 'users:admin_delete_destination' 0 %}`.replace('0', destId), {
+                if (confirm('Are you sure you want to delete this destination? This action cannot be undone.')) {
+                    fetch(`/users/admin/destinations/${destId}/delete-ajax/`, {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': '{{ csrf_token }}',
+                            'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
                     .then(response => response.json())
@@ -227,6 +257,9 @@
                         } else {
                             alert('Error: ' + data.error);
                         }
+                    })
+                    .catch(error => {
+                        alert('Error deleting destination: ' + error);
                     });
                 }
             });

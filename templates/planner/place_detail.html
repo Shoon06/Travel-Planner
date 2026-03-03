@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+{% block title %}{{ place.name }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="javascript:history.back()" class="btn btn-outline-primary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>
+            Back to {{ place.get_region_name }}
+        </a>
+    </div>
+
+    <!-- ================= HEADER SECTION ================= -->
+    <div class="row mb-5 g-4">
+
+        <!-- Main Image -->
+        <div class="col-lg-8">
+            <div class="position-relative">
+
+                {% if place.main_image %}
+                    <img src="{{ place.main_image.url }}"
+                         class="img-fluid rounded-4 shadow-lg main-image"
+                         alt="{{ place.name }}">
+                {% elif place.image %}
+                    <img src="{{ place.image.url }}"
+                         class="img-fluid rounded-4 shadow-lg main-image"
+                         alt="{{ place.name }}">
+                {% endif %}
+
+                <!-- Type Badge -->
+                <span class="badge bg-primary type-badge">
+                    {{ place.get_type_display }}
+                </span>
+
+            </div>
+        </div>
+
+        <!-- Info Card -->
+        <div class="col-lg-4">
+            <div class="info-card p-4 rounded-4 shadow-sm h-100">
+
+                <h1 class="fw-bold mb-3">{{ place.name }}</h1>
+
+                <p class="text-muted mb-3">
+                    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                    {{ place.get_region_name }}, Myanmar
+                </p>
+
+                {% if place.rating %}
+                <div class="mb-3">
+                    <strong>{{ place.rating }}/5</strong>
+                    {% for i in "12345"|make_list %}
+                        {% if forloop.counter <= place.rating|floatformat:0 %}
+                            <i class="fas fa-star text-warning"></i>
+                        {% else %}
+                            <i class="far fa-star text-warning"></i>
+                        {% endif %}
+                    {% endfor %}
+                    <span class="text-muted ms-2">
+                        ({{ place.review_count|default:0 }} reviews)
+                    </span>
+                </div>
+                {% endif %}
+
+                <hr>
+
+                {% if place.best_time_to_visit %}
+                    <p><strong>Best Time:</strong> {{ place.best_time_to_visit }}</p>
+                {% endif %}
+
+                <p><strong>Entry Fee:</strong>
+                    {% if place.entry_fee %}
+                        {{ place.entry_fee }}
+                    {% else %}
+                        Free Entry
+                    {% endif %}
+                </p>
+
+                {% if place.distance %}
+                    <p><strong>Distance:</strong> {{ place.distance }}</p>
+                {% endif %}
+
+                <!-- Weather -->
+                {% if weather_data %}
+                <div class="weather-widget p-3 rounded-3 text-white mt-3">
+                    <h5 class="mb-1">{{ weather_data.temperature }}°C</h5>
+                    <small>{{ weather_data.description }}</small>
+                </div>
+                {% endif %}
+
+                <a href="{% url 'planner:plan' %}?destination_id={{ place.id }}"
+                   class="btn btn-primary w-100 rounded-pill mt-4">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    Plan a Trip
+                </a>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= DESCRIPTION ================= -->
+    <div class="description-box p-4 mb-5 rounded-4 shadow-sm">
+        <h3 class="mb-3">About {{ place.name }}</h3>
+        <p class="fs-5 text-muted">
+            {{ place.description|linebreaks }}
+        </p>
+    </div>
+
+    <!-- ================= PHOTO GALLERY (ONE PER ROW) ================= -->
+    {% if place.gallery_image1 or place.gallery_image2 or place.gallery_image3 or place.gallery_image4 or place.gallery_image5 or place.gallery_image6 or place.gallery_image7 or place.gallery_image8 %}
+    <div class="mb-5">
+        <h3 class="mb-4">
+            <i class="fas fa-images me-2 text-primary"></i>
+            Photo Gallery
+        </h3>
+
+        <div class="gallery-container">
+
+            {% if place.gallery_image1 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image1.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_1|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_1|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image2 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image2.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_2|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_2|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image3 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image3.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_3|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_3|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image4 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image4.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_4|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_4|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image5 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image5.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_5|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_5|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image6 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image6.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_6|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_6|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image7 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image7.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_7|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_7|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if place.gallery_image8 %}
+            <div class="gallery-item">
+                <img src="{{ place.gallery_image8.url }}"
+                     class="gallery-img"
+                     onclick="openGalleryModal(this.src, '{{ place.gallery_captions.caption_8|default:place.name }}')">
+                <div class="gallery-caption">
+                    {{ place.gallery_captions.caption_8|default:place.name }}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================= HOTELS ================= -->
+    {% if hotels %}
+    <div class="mb-5">
+        <h3 class="fw-bold mb-4">Hotels Nearby</h3>
+        <div class="row g-4">
+            {% for hotel in hotels %}
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm border-0 rounded-4">
+                    {% if hotel.image %}
+                    <img src="{{ hotel.image.url }}"
+                         class="card-img-top hotel-img"
+                         alt="{{ hotel.name }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="fw-bold">{{ hotel.name }}</h5>
+                        <p class="text-muted small">
+                            {{ hotel.address|truncatechars:40 }}
+                        </p>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-warning">
+                                <i class="fas fa-star"></i> {{ hotel.rating }}
+                            </span>
+                            <span class="fw-bold text-primary">
+                                {{ hotel.price_in_mmk }}/night
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ================= IMAGE MODAL ================= -->
+<div class="modal fade" id="galleryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-body text-center">
+                <img id="modalImage" class="img-fluid rounded" style="max-height: 85vh; width: auto;">
+                <p id="modalCaption" class="text-white mt-3 fs-5"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openGalleryModal(src, caption) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('modalCaption').innerText = caption;
+    new bootstrap.Modal(document.getElementById('galleryModal')).show();
+}
+</script>
+
+<style>
+.main-image {
+    height: 600px;
+    width: 100%;
+    object-fit: cover;
+}
+
+.type-badge {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    padding: 10px 18px;
+    border-radius: 50px;
+}
+
+.info-card {
+    background: #ffffff;
+}
+
+.description-box {
+    background: #ffffff;
+}
+
+.gallery-container {
+    display: flex;
+    flex-direction: column;
+    gap: 60px;
+}
+
+.gallery-img {
+    width: 100%;
+    height: 700px;
+    object-fit: cover;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.4s ease;
+}
+
+.gallery-img:hover {
+    transform: scale(1.02);
+}
+
+.gallery-caption {
+    margin-top: 20px;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #2c3e50;
+    line-height: 1.6;
+    text-align: left;
+    padding: 0 20px;
+    max-width: 1200px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.hotel-img {
+    height: 240px;
+    object-fit: cover;
+}
+
+.weather-widget {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+@media (max-width: 768px) {
+    .main-image {
+        height: 400px;
+    }
+    .gallery-img {
+        height: 450px;
+    }
+    .gallery-caption {
+        font-size: 1.1rem;
+        padding: 0 15px;
+        text-align: left;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 992px) {
+    .main-image {
+        height: 500px;
+    }
+    .gallery-img {
+        height: 550px;
+    }
+}
+
+@media (min-width: 992px) {
+    .gallery-caption {
+        padding: 0 40px;
+    }
+}
+
+@media (min-width: 1400px) {
+    .main-image {
+        height: 650px;
+    }
+    .gallery-img {
+        height: 800px;
+    }
+}
+</style>
+{% endblock %}

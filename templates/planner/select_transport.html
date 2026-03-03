@@ -12,7 +12,7 @@
                         <p class="text-gray mb-0">Choose how you want to travel</p>
                     </div>
                     <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back
+                        <i class="fas fa-arrow-left me-2"></i>Back to Plan
                     </a>
                 </div>
                 
@@ -22,18 +22,21 @@
                         <div class="card-glass p-3 text-center transport-type" data-type="flight">
                             <i class="fas fa-plane fa-3x text-primary mb-3"></i>
                             <h5>Flight</h5>
+                            <p class="small text-gray">Fastest option</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="card-glass p-3 text-center transport-type" data-type="car">
                             <i class="fas fa-car fa-3x text-primary mb-3"></i>
                             <h5>Car Rental</h5>
+                            <p class="small text-gray">Flexible travel</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="card-glass p-3 text-center transport-type" data-type="bus">
                             <i class="fas fa-bus fa-3x text-primary mb-3"></i>
                             <h5>Bus</h5>
+                            <p class="small text-gray">Economical choice</p>
                         </div>
                     </div>
                 </div>
@@ -56,11 +59,13 @@
     .transport-type {
         cursor: pointer;
         transition: all 0.3s ease;
+        border: 2px solid transparent;
     }
     
     .transport-type:hover {
         transform: translateY(-5px);
         border-color: var(--primary-blue);
+        background: rgba(52, 152, 219, 0.1);
     }
     
     .transport-type.active {
@@ -70,44 +75,27 @@
     
     .transport-option-card {
         transition: all 0.3s ease;
+        border: 2px solid transparent;
     }
     
     .transport-option-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 10px 20px rgba(52, 152, 219, 0.2);
+        border-color: var(--primary-blue);
     }
     
-    .seat-legend {
-        font-size: 0.8rem;
+    .price-tag {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary-blue);
+        margin-bottom: 5px;
     }
     
-    .seat {
-        width: 30px;
-        height: 30px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin: 2px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.8rem;
-    }
-    
-    .seat.available {
-        background: white;
-        border: 1px solid #ddd;
-    }
-    
-    .seat.selected {
-        background: var(--primary-blue);
-        color: white;
-        border: 1px solid var(--primary-blue);
-    }
-    
-    .seat.occupied {
-        background: #e0e0e0;
-        color: #999;
-        cursor: not-allowed;
+    .card-glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
 </style>
 
@@ -162,7 +150,8 @@
                     seats: 4,
                     price: 35000,
                     departure: "6:00 AM",
-                    arrival: "7:30 AM"
+                    arrival: "7:30 AM",
+                    duration: "1h 30m"
                 },
                 {
                     id: 2,
@@ -171,7 +160,8 @@
                     seats: 7,
                     price: 65000,
                     departure: "10:00 AM",
-                    arrival: "11:30 AM"
+                    arrival: "11:30 AM",
+                    duration: "1h 30m"
                 },
                 {
                     id: 3,
@@ -180,7 +170,8 @@
                     seats: 4,
                     price: 120000,
                     departure: "2:00 PM",
-                    arrival: "3:30 PM"
+                    arrival: "3:30 PM",
+                    duration: "1h 30m"
                 }
             ];
             
@@ -191,21 +182,25 @@
                             <i class="fas fa-plane fa-2x text-primary"></i>
                         </div>
                         <h5 class="text-center">${flight.name}</h5>
-                        <p class="text-center text-gray">${flight.type}</p>
+                        <p class="text-center text-gray">${flight.type} Class</p>
                         <div class="text-center mb-3">
-                            <i class="fas fa-users me-1"></i>${flight.seats} Seats
+                            <i class="fas fa-clock me-1"></i>${flight.departure} - ${flight.arrival}
                         </div>
                         <div class="text-center mb-3">
-                            <div class="price-tag">${flight.price.toLocaleString()}</div>
-                            <p class="text-gray small mb-0">per seat</p>
+                            <i class="fas fa-users me-1"></i>${flight.seats} Seats Available
                         </div>
                         <div class="text-center mb-3">
-                            <p class="mb-1">${flight.departure} - ${flight.arrival}</p>
+                            <i class="fas fa-hourglass-half me-1"></i>${flight.duration}
+                        </div>
+                        <div class="text-center mb-3">
+                            <div class="price-tag">${flight.price.toLocaleString()} MMK</div>
+                            <p class="text-gray small mb-0">per person</p>
                         </div>
                         <button class="btn btn-primary w-100 select-transport-btn" 
                                 data-id="${flight.id}" 
-                                data-type="flight">
-                            <i class="fas fa-check me-2"></i>Select
+                                data-type="flight"
+                                data-name="${flight.name}">
+                            <i class="fas fa-check me-2"></i>Select This Flight
                         </button>
                     </div>
                 </div>
@@ -254,14 +249,15 @@
                             <i class="fas fa-users me-1"></i>${car.seats} Seats
                         </div>
                         <div class="text-center mb-3">
-                            <div class="price-tag">${car.price.toLocaleString()}</div>
+                            <div class="price-tag">${car.price.toLocaleString()} MMK</div>
                             <p class="text-gray small mb-0">per day</p>
                         </div>
                         <p class="text-center text-gray small">${car.company}</p>
                         <button class="btn btn-primary w-100 select-transport-btn" 
                                 data-id="${car.id}" 
-                                data-type="car">
-                            <i class="fas fa-check me-2"></i>Select
+                                data-type="car"
+                                data-name="${car.company} - ${car.model}">
+                            <i class="fas fa-check me-2"></i>Select This Car
                         </button>
                     </div>
                 </div>
@@ -278,7 +274,8 @@
                     type: "Standard",
                     seats: 40,
                     price: 15000,
-                    departure: "8:00 PM"
+                    departure: "8:00 PM",
+                    duration: "8 hours"
                 },
                 {
                     id: 2,
@@ -286,7 +283,8 @@
                     type: "VIP",
                     seats: 30,
                     price: 25000,
-                    departure: "9:00 PM"
+                    departure: "9:00 PM",
+                    duration: "8 hours"
                 },
                 {
                     id: 3,
@@ -294,7 +292,8 @@
                     type: "Luxury",
                     seats: 20,
                     price: 40000,
-                    departure: "10:00 PM"
+                    departure: "10:00 PM",
+                    duration: "8 hours"
                 }
             ];
             
@@ -305,21 +304,25 @@
                             <i class="fas fa-bus fa-2x text-primary"></i>
                         </div>
                         <h5 class="text-center">${bus.company}</h5>
-                        <p class="text-center text-gray">${bus.type}</p>
+                        <p class="text-center text-gray">${bus.type} Class</p>
                         <div class="text-center mb-3">
-                            <i class="fas fa-users me-1"></i>${bus.seats} Seats
+                            <i class="fas fa-clock me-1"></i>Departure: ${bus.departure}
                         </div>
                         <div class="text-center mb-3">
-                            <div class="price-tag">${bus.price.toLocaleString()}</div>
+                            <i class="fas fa-users me-1"></i>${bus.seats} Seats Available
+                        </div>
+                        <div class="text-center mb-3">
+                            <i class="fas fa-hourglass-half me-1"></i>${bus.duration}
+                        </div>
+                        <div class="text-center mb-3">
+                            <div class="price-tag">${bus.price.toLocaleString()} MMK</div>
                             <p class="text-gray small mb-0">per seat</p>
-                        </div>
-                        <div class="text-center mb-3">
-                            <p class="mb-1">Departure: ${bus.departure}</p>
                         </div>
                         <button class="btn btn-primary w-100 select-transport-btn" 
                                 data-id="${bus.id}" 
-                                data-type="bus">
-                            <i class="fas fa-check me-2"></i>Select
+                                data-type="bus"
+                                data-name="${bus.company} Bus">
+                            <i class="fas fa-check me-2"></i>Select This Bus
                         </button>
                     </div>
                 </div>
@@ -333,19 +336,17 @@
                 btn.addEventListener('click', function() {
                     const transportId = this.getAttribute('data-id');
                     const transportType = this.getAttribute('data-type');
+                    const transportName = this.getAttribute('data-name');
                     
-                    // Show seat selection for flights and buses
-                    if (transportType === 'flight' || transportType === 'bus') {
-                        window.location.href = `/planner/plan/{{ trip.id }}/transport/${transportId}/seats/?type=${transportType}`;
-                    } else {
-                        // For cars, save directly
-                        saveTransportSelection(transportId, transportType);
+                    // Show confirmation message
+                    if (confirm(`Select ${transportName}? You'll be redirected back to review your trip details.`)) {
+                        saveTransportSelection(transportId, transportType, transportName);
                     }
                 });
             });
         }
         
-        function saveTransportSelection(transportId, transportType) {
+        function saveTransportSelection(transportId, transportType, transportName) {
             const formData = new FormData();
             formData.append('transport_id', transportId);
             formData.append('transport_type', transportType);
@@ -358,13 +359,25 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Redirect back to plan page
-                    window.location.href = "{% url 'planner:plan' %}?transport_id=" + transportId + "&transport_type=" + transportType;
+                    // Show success message
+                    alert('✅ Transport selected successfully!\n\nYou will now be redirected back to review your complete trip details.');
+                    
+                    // If we have a redirect URL from server, use it
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        // Otherwise build our own redirect to plan page
+                        window.location.href = "{% url 'planner:plan' %}?transport_id=" + transportId + 
+                                              "&transport_type=" + transportType + 
+                                              "&transport_name=" + encodeURIComponent(transportName);
+                    }
+                } else {
+                    alert('❌ Error: ' + (data.error || 'Failed to save transport selection.'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error saving selection. Please try again.');
+                alert('❌ Network error. Please check your connection and try again.');
             });
         }
     });

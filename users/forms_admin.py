@@ -5,7 +5,7 @@ from .models import CustomUser
 from planner.models import Destination, Hotel, Flight, BusService, CarRental, Airline
 import json
 from .models import CustomUser, SystemSettings
-
+from django.db.models import Q  # ← Add this line
 # ========== SIMPLE HOTEL FORM FOR MAP ==========
 # C:\Users\ASUS\MyanmarTravelPlanner\users\forms_admin.py
 
@@ -507,18 +507,58 @@ class AdminAddHotelForm(forms.ModelForm):
 
 
 # ========== DESTINATION FORMS ==========
+# ========== DESTINATION FORMS ==========
+# ========== DESTINATION FORMS ==========
+# ========== DESTINATION FORMS ==========
+# ========== DESTINATION FORMS ==========
+# ========== DESTINATION FORMS ==========
 class AdminAddDestinationForm(forms.ModelForm):
+    """Enhanced form for adding destinations with 8 gallery images and captions"""
+    
+    # Add fields for 8 gallery images
+    gallery_image1 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image2 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image3 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image4 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image5 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image6 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image7 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image8 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    
+    # Add fields for captions (to be stored in gallery_captions JSON)
+    caption_1 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 1'}))
+    caption_2 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 2'}))
+    caption_3 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 3'}))
+    caption_4 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 4'}))
+    caption_5 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 5'}))
+    caption_6 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 6'}))
+    caption_7 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 7'}))
+    caption_8 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 8'}))
+    
+    # Add parent as a CharField for text input
+    parent = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g., Bagan, Mandalay, Taunggyi'
+        }),
+        help_text='Enter the name of the city/town where this attraction is located (for attractions only)'
+    )
+    
     class Meta:
         model = Destination
-        fields = ['name', 'region', 'type', 'latitude', 'longitude', 'description', 'image', 'is_active']
+        fields = [
+            'name', 'region', 'type', 'latitude', 'longitude', 
+            'description', 'is_active', 'is_region'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'e.g., Yangon'
+                'placeholder': 'e.g., Yangon, Shwedagon Pagoda'
             }),
             'region': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'e.g., Yangon Region'
+                'placeholder': 'e.g., Yangon Region, Shan State'
             }),
             'type': forms.Select(attrs={'class': 'form-select'}),
             'latitude': forms.NumberInput(attrs={
@@ -531,15 +571,241 @@ class AdminAddDestinationForm(forms.ModelForm):
                 'step': '0.000001',
                 'placeholder': '96.1735 (Yangon longitude)'
             }),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'image': forms.FileInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description of the destination'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_region': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make type field have the right choices
+        self.fields['type'].choices = Destination._meta.get_field('type').choices
+        
+        # Make latitude and longitude not required at form level (HTML5 will handle it)
+        self.fields['latitude'].required = False
+        self.fields['longitude'].required = False
+        
+        # Add a hidden field to store the active tab
+        self.fields['active_tab'] = forms.CharField(
+            required=False,
+            widget=forms.HiddenInput(),
+            initial='city'  # Default to city tab
+        )
+    
+    def clean_parent(self):
+        """Clean and validate parent field - only used for attractions"""
+        # Get the destination type from the data
+        dest_type = self.data.get('type', '')
+        
+        # If this is a city or town, return None immediately
+        if dest_type in ['city', 'town']:
+            return None
+        
+        parent_name = self.data.get('parent', '').strip()
+        if not parent_name:
+            return None
+        
+        # Try to find existing parent
+        try:
+            parent = Destination.objects.get(
+                Q(name__iexact=parent_name) | 
+                Q(name__icontains=parent_name),
+                type__in=['city', 'town']
+            )
+            return parent
+        except Destination.DoesNotExist:
+            # Return the name as a string - will be handled in the view
+            return parent_name
+        except Destination.MultipleObjectsReturned:
+            # If multiple found, return the first one
+            return Destination.objects.filter(
+                Q(name__iexact=parent_name) | 
+                Q(name__icontains=parent_name),
+                type__in=['city', 'town']
+            ).first()
+    
+    def clean_latitude(self):
+        """Clean and validate latitude field"""
+        latitude = self.cleaned_data.get('latitude')
+        
+        # If latitude is empty, return None
+        if not latitude:
+            return None
+        
+        try:
+            # Convert to float for validation
+            lat_value = float(latitude)
+            
+            # Basic validation for Myanmar coordinates
+            if not (9.0 <= lat_value <= 28.0):
+                raise forms.ValidationError("Latitude must be within Myanmar (9.0 – 28.0)")
+            
+            # Round to 6 decimal places to avoid decimal place errors
+            from decimal import Decimal, getcontext
+            getcontext().prec = 10
+            lat_value = Decimal(str(lat_value)).quantize(Decimal('0.000001'))
+            
+            return lat_value
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Please provide a valid numeric latitude")
+    
+    def clean_longitude(self):
+        """Clean and validate longitude field"""
+        longitude = self.cleaned_data.get('longitude')
+        
+        # If longitude is empty, return None
+        if not longitude:
+            return None
+        
+        try:
+            # Convert to float for validation
+            lng_value = float(longitude)
+            
+            # Basic validation for Myanmar coordinates
+            if not (92.0 <= lng_value <= 101.0):
+                raise forms.ValidationError("Longitude must be within Myanmar (92.0 – 101.0)")
+            
+            # Round to 6 decimal places to avoid decimal place errors
+            from decimal import Decimal, getcontext
+            getcontext().prec = 10
+            lng_value = Decimal(str(lng_value)).quantize(Decimal('0.000001'))
+            
+            return lng_value
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Please provide a valid numeric longitude")
+    
+    def clean(self):
+        """Additional validation"""
+        cleaned_data = super().clean()
+        
+        # Get the destination type
+        dest_type = cleaned_data.get('type')
+        
+        # For cities/towns, ensure parent is not processed
+        if dest_type in ['city', 'town']:
+            # Remove parent from cleaned_data if it exists
+            if 'parent' in cleaned_data:
+                del cleaned_data['parent']
+        
+        # Get latitude and longitude from cleaned_data (already validated in individual field clean methods)
+        latitude = cleaned_data.get('latitude')
+        longitude = cleaned_data.get('longitude')
+        
+        # Validate that both coordinates are provided together
+        if latitude and not longitude:
+            self.add_error('longitude', 'Longitude is required when latitude is provided')
+        elif longitude and not latitude:
+            self.add_error('latitude', 'Latitude is required when longitude is provided')
+        
+        # If both coordinates are provided, ensure they are Decimal objects with correct precision
+        if latitude and longitude:
+            try:
+                from decimal import Decimal
+                
+                # Ensure they are Decimal objects with proper precision
+                if not isinstance(latitude, Decimal):
+                    latitude = Decimal(str(latitude)).quantize(Decimal('0.000001'))
+                    cleaned_data['latitude'] = latitude
+                
+                if not isinstance(longitude, Decimal):
+                    longitude = Decimal(str(longitude)).quantize(Decimal('0.000001'))
+                    cleaned_data['longitude'] = longitude
+                    
+            except Exception as e:
+                self.add_error('latitude', f"Error processing coordinates: {str(e)}")
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Handle main image (profile photo) - this is the 'image' field
+        if 'image' in self.files:
+            instance.image = self.files['image']
+        
+        # Handle gallery images (8 photos)
+        caption_data = {}  # Store captions for gallery images
+        
+        # Process each gallery image (1-8)
+        for i in range(1, 9):
+            image_field = f'gallery_image{i}'
+            caption_field = f'caption_{i}'
+            
+            if image_field in self.files:
+                image_file = self.files[image_field]
+                
+                # Generate filename
+                filename = f"{instance.name.replace(' ', '_')}_gallery_{i}.jpg"
+                
+                # Save to the appropriate gallery image field
+                gallery_field = getattr(instance, f'gallery_image{i}')
+                gallery_field.save(filename, image_file, save=False)
+            
+            # Store caption
+            caption = self.cleaned_data.get(caption_field, '')
+            if caption:
+                caption_data[f'caption_{i}'] = caption
+        
+        # Store gallery captions as JSON - Use gallery_captions (not gallery_images)
+        if caption_data:
+            instance.gallery_captions = caption_data
+        
+        # Handle parent (only for attractions)
+        if instance.type == 'attraction':
+            parent_value = self.cleaned_data.get('parent') if 'parent' in self.cleaned_data else None
+            if isinstance(parent_value, Destination):
+                instance.parent = parent_value
+            elif isinstance(parent_value, str) and parent_value:
+                # Will be handled in the view to create new parent if needed
+                instance._temp_parent_name = parent_value
+        else:
+            # For cities/towns, ensure parent is None
+            instance.parent = None
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+        
+        return instance
 class AdminEditDestinationForm(forms.ModelForm):
+    """Enhanced form for editing destinations with 8 gallery images and captions"""
+    
+    # Add fields for 8 gallery images
+    gallery_image1 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image2 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image3 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image4 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image5 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image6 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image7 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    gallery_image8 = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    
+    # Add fields for captions (to be stored in gallery_captions JSON)
+    caption_1 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 1'}))
+    caption_2 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 2'}))
+    caption_3 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 3'}))
+    caption_4 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 4'}))
+    caption_5 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 5'}))
+    caption_6 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 6'}))
+    caption_7 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 7'}))
+    caption_8 = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Description for photo 8'}))
+    
+    # Add parent as a CharField for text input
+    parent = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g., Bagan, Mandalay, Taunggyi'
+        }),
+        help_text='Enter the name of the city/town where this attraction is located (for attractions only)'
+    )
+    
     class Meta:
         model = Destination
-        fields = ['name', 'region', 'type', 'latitude', 'longitude', 'description', 'image', 'is_active']
+        fields = [
+            'name', 'region', 'type', 'latitude', 'longitude', 
+            'description', 'is_active', 'is_region'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'region': forms.TextInput(attrs={'class': 'form-control'}),
@@ -547,11 +813,186 @@ class AdminEditDestinationForm(forms.ModelForm):
             'latitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
             'longitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'image': forms.FileInput(attrs={'class': 'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_region': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-
-# ========== USER FORMS ==========
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Make latitude and longitude not required at form level
+        self.fields['latitude'].required = False
+        self.fields['longitude'].required = False
+        
+        # If editing an existing instance, populate parent field
+        if self.instance and self.instance.pk:
+            if self.instance.parent:
+                self.initial['parent'] = self.instance.parent.name
+            
+            # Populate caption fields from gallery_captions JSON
+            if self.instance.gallery_captions:
+                try:
+                    if isinstance(self.instance.gallery_captions, dict):
+                        gallery = self.instance.gallery_captions
+                        for i in range(1, 9):
+                            caption_key = f'caption_{i}'
+                            if caption_key in gallery:
+                                self.initial[caption_key] = gallery[caption_key]
+                except:
+                    pass
+    
+    def clean_parent(self):
+        """Clean and validate parent field - only used for attractions"""
+        parent_name = self.data.get('parent', '').strip()
+        if not parent_name:
+            return None
+        
+        # Try to find existing parent
+        try:
+            parent = Destination.objects.get(
+                Q(name__iexact=parent_name) | 
+                Q(name__icontains=parent_name),
+                type__in=['city', 'town']
+            )
+            return parent
+        except Destination.DoesNotExist:
+            # Return the name as a string - will be handled in the view
+            return parent_name
+        except Destination.MultipleObjectsReturned:
+            # If multiple found, return the first one
+            return Destination.objects.filter(
+                Q(name__iexact=parent_name) | 
+                Q(name__icontains=parent_name),
+                type__in=['city', 'town']
+            ).first()
+    
+    def clean_latitude(self):
+        """Clean and validate latitude field"""
+        latitude = self.cleaned_data.get('latitude')
+        
+        # If latitude is empty, return None
+        if not latitude:
+            return None
+        
+        try:
+            # Convert to float for validation
+            lat_value = float(latitude)
+            
+            # Basic validation for Myanmar coordinates
+            if not (9.0 <= lat_value <= 28.0):
+                raise forms.ValidationError("Latitude must be within Myanmar (9.0 – 28.0)")
+            
+            # Round to 6 decimal places to avoid decimal place errors
+            from decimal import Decimal, getcontext
+            getcontext().prec = 10
+            lat_value = Decimal(str(lat_value)).quantize(Decimal('0.000001'))
+            
+            return lat_value
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Please provide a valid numeric latitude")
+    
+    def clean_longitude(self):
+        """Clean and validate longitude field"""
+        longitude = self.cleaned_data.get('longitude')
+        
+        # If longitude is empty, return None
+        if not longitude:
+            return None
+        
+        try:
+            # Convert to float for validation
+            lng_value = float(longitude)
+            
+            # Basic validation for Myanmar coordinates
+            if not (92.0 <= lng_value <= 101.0):
+                raise forms.ValidationError("Longitude must be within Myanmar (92.0 – 101.0)")
+            
+            # Round to 6 decimal places to avoid decimal place errors
+            from decimal import Decimal, getcontext
+            getcontext().prec = 10
+            lng_value = Decimal(str(lng_value)).quantize(Decimal('0.000001'))
+            
+            return lng_value
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Please provide a valid numeric longitude")
+    
+    def clean(self):
+        """Additional validation"""
+        cleaned_data = super().clean()
+        
+        # If type is city or town, ensure parent is not set
+        dest_type = cleaned_data.get('type')
+        if dest_type in ['city', 'town']:
+            # Remove any parent value for cities/towns
+            if 'parent' in cleaned_data:
+                del cleaned_data['parent']
+        
+        # Get latitude and longitude from cleaned_data
+        latitude = cleaned_data.get('latitude')
+        longitude = cleaned_data.get('longitude')
+        
+        # Validate that both coordinates are provided together
+        if latitude and not longitude:
+            self.add_error('longitude', 'Longitude is required when latitude is provided')
+        elif longitude and not latitude:
+            self.add_error('latitude', 'Latitude is required when longitude is provided')
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Handle main image (profile photo) - Check files, not just form data
+        if 'image' in self.files:
+            instance.image = self.files['image']
+        
+        # Handle gallery images (8 photos)
+        caption_data = {}
+        
+        # Process each gallery image (1-8)
+        for i in range(1, 9):
+            image_field = f'gallery_image{i}'
+            caption_field = f'caption_{i}'
+            
+            if image_field in self.files:
+                image_file = self.files[image_field]
+                
+                # Generate filename
+                filename = f"{instance.name.replace(' ', '_')}_gallery_{i}.jpg"
+                
+                # Save to the appropriate gallery image field
+                gallery_field = getattr(instance, f'gallery_image{i}')
+                gallery_field.save(filename, image_file, save=False)
+            
+            # Store caption
+            caption = self.cleaned_data.get(caption_field, '')
+            if caption:
+                caption_data[f'caption_{i}'] = caption
+        
+        # Store gallery captions as JSON in gallery_captions
+        if caption_data:
+            if instance.gallery_captions and isinstance(instance.gallery_captions, dict):
+                instance.gallery_captions.update(caption_data)
+            else:
+                instance.gallery_captions = caption_data
+        
+        # Handle parent (only for attractions)
+        if instance.type == 'attraction':
+            parent_value = self.cleaned_data.get('parent')
+            if isinstance(parent_value, Destination):
+                instance.parent = parent_value
+            elif isinstance(parent_value, str) and parent_value:
+                # Will be handled in the view to create new parent if needed
+                instance._temp_parent_name = parent_value
+        else:
+            # For cities/towns, ensure parent is None
+            instance.parent = None
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+        
+        return instance
 class CustomUserAdminForm(UserChangeForm):
     class Meta:
         model = CustomUser

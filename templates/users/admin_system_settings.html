@@ -1,361 +1,174 @@
 <!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_system_settings.html -->
 {% extends 'base.html' %}
-{% block title %}System Settings - Admin - GoMyanmar{% endblock %}
+{% block title %}Change Username & Password - Admin{% endblock %}
 
 {% block content %}
 <div class="container py-5 mt-5">
-    <!-- Header -->
-    <div class="card-glass p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="mb-2" style="color: #2c3e50;">System Settings</h2>
-                <p class="mb-0" style="color: #7f8c8d;">Configure system preferences and settings</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- System Statistics -->
-    <div class="card-glass p-4 mb-4">
-        <h4 style="color: #2c3e50;" class="mb-3">System Overview</h4>
-        <div class="row g-3">
-            <div class="col-md-3 col-sm-6">
-                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
-                    <i class="fas fa-users fa-2x mb-2" style="color: #3498db;"></i>
-                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_users }}</h5>
-                    <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
-                    <i class="fas fa-suitcase fa-2x mb-2" style="color: #6B47A4;"></i>
-                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_trips }}</h5>
-                    <p class="mb-0" style="color: #7f8c8d;">Total Trips</p>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
-                    <i class="fas fa-map-marked-alt fa-2x mb-2" style="color: #2ecc71;"></i>
-                    <h5 class="mb-1" style="color: #2c3e50;">{{ total_destinations }}</h5>
-                    <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="card p-3 text-center" style="background: rgba(255, 255, 255, 0.9);">
-                    <i class="fas fa-database fa-2x mb-2" style="color: #f39c12;"></i>
-                    <h5 class="mb-1" style="color: #2c3e50;">{{ db_size|default:"0 MB" }}</h5>
-                    <p class="mb-0" style="color: #7f8c8d;">Database Size</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Messages -->
-    {% if messages %}
-    <div class="mb-4">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    
-    <!-- Settings Sections -->
-    <form method="POST">
-        {% csrf_token %}
-        
-        <div class="row">
-            <!-- General Settings -->
-            <div class="col-lg-6 mb-4">
-                <div class="card-glass p-4 h-100">
-                    <h4 style="color: #2c3e50;" class="mb-3">
-                        <i class="fas fa-cog me-2"></i>General Settings
-                    </h4>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Site Name</label>
-                        <input type="text" 
-                               class="form-control {% if form.site_name.errors %}is-invalid{% endif %}" 
-                               name="site_name" 
-                               value="{{ form.site_name.value|default:settings.site_name }}">
-                        {% if form.site_name.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.site_name.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Site Description</label>
-                        <textarea class="form-control {% if form.site_description.errors %}is-invalid{% endif %}" 
-                                  name="site_description" 
-                                  rows="3">{{ form.site_description.value|default:settings.site_description }}</textarea>
-                        {% if form.site_description.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.site_description.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Default Currency</label>
-                        <select class="form-select {% if form.default_currency.errors %}is-invalid{% endif %}" 
-                                name="default_currency">
-                            <option value="MMK" {% if form.default_currency.value == "MMK" or settings.default_currency == "MMK" %}selected{% endif %}>MMK - Myanmar Kyat</option>
-                            <option value="USD" {% if form.default_currency.value == "USD" or settings.default_currency == "USD" %}selected{% endif %}>USD - US Dollar</option>
-                            <option value="EUR" {% if form.default_currency.value == "EUR" %}selected{% endif %}>EUR - Euro</option>
-                            <option value="SGD" {% if form.default_currency.value == "SGD" %}selected{% endif %}>SGD - Singapore Dollar</option>
-                            <option value="THB" {% if form.default_currency.value == "THB" %}selected{% endif %}>THB - Thai Baht</option>
-                        </select>
-                        {% if form.default_currency.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.default_currency.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" 
-                               type="checkbox" 
-                               name="maintenance_mode" 
-                               id="maintenance_mode"
-                               {% if form.maintenance_mode.value or settings.maintenance_mode %}checked{% endif %}>
-                        <label class="form-check-label text-gray" for="maintenance_mode">
-                            Enable Maintenance Mode
-                        </label>
-                    </div>
-                    
-                    <button class="btn btn-primary w-100" type="submit" name="save_settings">
-                        <i class="fas fa-save me-2"></i>Save General Settings
-                    </button>
-                </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <h2 class="mb-0" style="color: #2c3e50;">Change Username & Password</h2>
             </div>
             
-            <!-- Email Settings -->
-            <div class="col-lg-6 mb-4">
-                <div class="card-glass p-4 h-100">
-                    <h4 style="color: #2c3e50;" class="mb-3">
-                        <i class="fas fa-envelope me-2"></i>Email Settings
-                    </h4>
+            <!-- Messages -->
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Username Change Form -->
+            <div class="card-glass p-4 mb-4">
+                <h4 class="mb-3" style="color: #2c3e50;">
+                    <i class="fas fa-user-edit me-2"></i>Change Username
+                </h4>
+                
+                <form method="POST">
+                    {% csrf_token %}
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">SMTP Host</label>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Current Username</label>
                         <input type="text" 
-                               class="form-control {% if form.smtp_host.errors %}is-invalid{% endif %}" 
-                               name="smtp_host" 
-                               value="{{ form.smtp_host.value|default:settings.smtp_host|default:'smtp.gmail.com' }}"
-                               placeholder="smtp.gmail.com">
-                        {% if form.smtp_host.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.smtp_host.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                               class="form-control bg-light" 
+                               value="{{ request.user.username }}"
+                               readonly
+                               disabled>
+                        <div class="form-text">Your current username</div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">SMTP Port</label>
-                        <input type="number" 
-                               class="form-control {% if form.smtp_port.errors %}is-invalid{% endif %}" 
-                               name="smtp_port" 
-                               value="{{ form.smtp_port.value|default:settings.smtp_port|default:'587' }}"
-                               placeholder="587">
-                        {% if form.smtp_port.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.smtp_port.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">New Username</label>
+                        <input type="text" 
+                               class="form-control {% if username_error %}is-invalid{% endif %}" 
+                               name="new_username" 
+                               value="{{ new_username_value }}"
+                               placeholder="Enter new username"
+                               required>
+                        {% if username_error %}
+                            <div class="invalid-feedback">{{ username_error }}</div>
                         {% endif %}
+                        <div class="form-text">3-30 characters, must be unique</div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Email Address</label>
-                        <input type="email" 
-                               class="form-control {% if form.email_address.errors %}is-invalid{% endif %}" 
-                               name="email_address" 
-                               value="{{ form.email_address.value|default:settings.email_address|default:'noreply@gomyanmar.com' }}"
-                               placeholder="noreply@gomyanmar.com">
-                        {% if form.email_address.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.email_address.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Email Password</label>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Current Password</label>
                         <input type="password" 
-                               class="form-control {% if form.email_password.errors %}is-invalid{% endif %}" 
-                               name="email_password" 
-                               placeholder="••••••••">
-                        {% if form.email_password.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.email_password.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
+                               class="form-control {% if password_error %}is-invalid{% endif %}" 
+                               name="current_password" 
+                               placeholder="Enter your current password"
+                               required>
+                        {% if password_error %}
+                            <div class="invalid-feedback">{{ password_error }}</div>
                         {% endif %}
-                        <small class="form-text text-muted">Leave blank to keep current password</small>
+                        <div class="form-text">Required to confirm changes</div>
                     </div>
                     
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" 
-                               type="checkbox" 
-                               name="enable_email_notifications" 
-                               id="email_notifications"
-                               {% if form.enable_email_notifications.value or settings.enable_email_notifications %}checked{% endif %}>
-                        <label class="form-check-label text-gray" for="email_notifications">
-                            Enable Email Notifications
-                        </label>
-                    </div>
-                    
-                    <button class="btn btn-primary w-100" type="submit" name="save_settings">
-                        <i class="fas fa-save me-2"></i>Save Email Settings
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-user-check me-2"></i>Change Username
                     </button>
-                </div>
+                </form>
             </div>
             
-            <!-- Quick Actions -->
-            <div class="col-12 mb-4">
-                <div class="card-glass p-4">
-                    <h4 style="color: #2c3e50;" class="mb-3">
-                        <i class="fas fa-bolt me-2"></i>Quick Actions
-                    </h4>
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <a href="/admin/" class="btn btn-outline-primary w-100" target="_blank">
-                                <i class="fas fa-cogs me-2"></i>Django Admin
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{% url 'users:admin_database_backup' %}" class="btn btn-outline-success w-100">
-                                <i class="fas fa-database me-2"></i>Database Backup
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-outline-warning w-100" onclick="clearCache()">
-                                <i class="fas fa-broom me-2"></i>Clear Cache
-                            </button>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-outline-info w-100" onclick="runMaintenance()">
-                                <i class="fas fa-tools me-2"></i>Run Maintenance
-                            </button>
-                        </div>
+            <!-- Password Change Form -->
+            <div class="card-glass p-4">
+                <h4 class="mb-3" style="color: #2c3e50;">
+                    <i class="fas fa-key me-2"></i>Change Password
+                </h4>
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Current Password</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="current_password" 
+                               placeholder="Enter your current password"
+                               required>
                     </div>
-                </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">New Password</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="new_password" 
+                               placeholder="Enter new password"
+                               required>
+                        <div class="form-text">Minimum 8 characters</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Confirm New Password</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="confirm_password" 
+                               placeholder="Confirm new password"
+                               required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="fas fa-key me-2"></i>Change Password
+                    </button>
+                </form>
             </div>
             
-            <!-- System Information -->
-            <div class="col-12">
-                <div class="card-glass p-4">
-                    <h4 style="color: #2c3e50;" class="mb-3">
-                        <i class="fas fa-info-circle me-2"></i>System Information
-                    </h4>
-                    <div class="table-responsive">
-                        <table class="table table-borderless">
-                            <tbody>
-                                <tr>
-                                    <td style="color: #2c3e50; width: 30%;">System Version</td>
-                                    <td style="color: #7f8c8d;">GoMyanmar {{ settings.version|default:"v1.0.0" }}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Database Tables</td>
-                                    <td style="color: #7f8c8d;">{{ table_count|default:"N/A" }} tables</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Database Engine</td>
-                                    <td style="color: #7f8c8d;">SQLite</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Python Version</td>
-                                    <td style="color: #7f8c8d;">3.x</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Django Version</td>
-                                    <td style="color: #7f8c8d;">4.x</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Server Time</td>
-                                    <td style="color: #7f8c8d;">{% now "F d, Y H:i:s" %}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Last Backup</td>
-                                    <td style="color: #7f8c8d;">
-                                        {% if settings.last_backup %}
-                                            {{ settings.last_backup|date:"F d, Y H:i:s" }}
-                                        {% else %}
-                                            Never
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #2c3e50;">Last Maintenance</td>
-                                    <td style="color: #7f8c8d;">
-                                        {% if settings.last_maintenance %}
-                                            {{ settings.last_maintenance|date:"F d, Y H:i:s" }}
-                                        {% else %}
-                                            Never
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <!-- Current User Info -->
+            <div class="card-glass p-4 mt-4">
+                <h5 style="color: #2c3e50;">Current Account Information</h5>
+                <table class="table table-borderless">
+                    <tr>
+                        <td style="color: #2c3e50; width: 40%;">Username:</td>
+                        <td style="color: #7f8c8d;">{{ request.user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #2c3e50;">Email:</td>
+                        <td style="color: #7f8c8d;">{{ request.user.email }}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #2c3e50;">Account Type:</td>
+                        <td style="color: #7f8c8d;">{{ request.user.user_type|title }}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #2c3e50;">Last Login:</td>
+                        <td style="color: #7f8c8d;">{{ request.user.last_login|date:"F d, Y H:i" }}</td>
+                    </tr>
+                </table>
             </div>
         </div>
-    </form>
+    </div>
 </div>
 
 <script>
-    function clearCache() {
-        if (confirm('Are you sure you want to clear all cache?')) {
-            fetch('/admin/clear-cache/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Cache cleared successfully!');
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            });
-        }
-    }
-    
-    function runMaintenance() {
-        if (confirm('Run system maintenance tasks?')) {
-            fetch('/admin/run-maintenance/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Maintenance tasks completed successfully!');
-                } else {
-                    alert('Error: ' + data.error);
+    // Simple form validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const forms = document.querySelectorAll('form');
+        
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const passwordInputs = this.querySelectorAll('input[type="password"]');
+                let isValid = true;
+                
+                passwordInputs.forEach(input => {
+                    if (!input.value.trim()) {
+                        input.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        input.classList.remove('is-invalid');
+                    }
+                });
+                
+                if (!isValid) {
+                    e.preventDefault();
+                    alert('Please fill in all required fields');
                 }
             });
-        }
-    }
+        });
+    });
 </script>
 {% endblock %}

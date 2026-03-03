@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
+from django.http import JsonResponse
 from django import forms
 from datetime import datetime
 from .models import CustomUser, SystemSettings
@@ -42,8 +43,137 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from planner.models import TripPlan, Destination
 User = get_user_model()
+# Add these imports if not already present
+from django.http import JsonResponse
+import json
 
+@login_required
+@user_passes_test(lambda u: u.is_staff or u.is_superuser or u.user_type == 'admin')
+def admin_toggle_destination_active(request, destination_id):
+    """Toggle destination active status"""
+    if request.method == 'POST':
+        try:
+            destination = Destination.objects.get(id=destination_id)
+            destination.is_active = not destination.is_active
+            destination.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Destination "{destination.name}" is now {"active" if destination.is_active else "inactive"}',
+                'is_active': destination.is_active
+            })
+        except Destination.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Destination not found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+@user_passes_test(lambda u: u.is_staff or u.is_superuser or u.user_type == 'admin')
+def admin_delete_destination_ajax(request, destination_id):
+    """Delete destination via AJAX"""
+    if request.method == 'POST':
+        try:
+            destination = Destination.objects.get(id=destination_id)
+            destination_name = destination.name
+            
+            # Check if destination has hotels or trips
+            hotel_count = Hotel.objects.filter(destination=destination).count()
+            trip_count = TripPlan.objects.filter(destination=destination).count()
+            
+            if hotel_count > 0 or trip_count > 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot delete destination with {hotel_count} hotels and {trip_count} trips'
+                })
+            
+            destination.delete()
+            return JsonResponse({'success': True, 'message': f'Destination "{destination_name}" deleted successfully!'})
+        except Destination.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Destination not found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 # In users/views_admin.py, update the admin_trip_list function:
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_user_roles(request):
+    """User role management view - handles both GET and POST"""
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        user_type = request.POST.get('user_type')
+        action = request.POST.get('action')
+        
+        print(f"DEBUG: Received POST - user_id: {user_id}, user_type: {user_type}, action: {action}")
+        
+        if action == 'update_role' and user_id and user_type:
+            try:
+                user = CustomUser.objects.get(id=user_id)
+                
+                # Prevent modifying your own account
+                if user == request.user:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Cannot modify your own role'
+                        })
+                    messages.error(request, 'Cannot modify your own role')
+                else:
+                    # Update user role
+                    old_role = user.user_type
+                    user.user_type = user_type
+                    
+                    # Update staff status based on role
+                    if user_type == 'admin':
+                        user.is_staff = True
+                        user.is_superuser = True
+                    else:
+                        user.is_staff = False
+                        user.is_superuser = False
+                    
+                    user.save()
+                    
+                    success_message = f'User {user.username} role changed from {old_role} to {user_type}'
+                    print(f"DEBUG: {success_message}")
+                    
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'message': success_message
+                        })
+                    
+                    messages.success(request, success_message)
+                    
+            except CustomUser.DoesNotExist:
+                error_msg = 'User not found'
+                print(f"DEBUG: {error_msg}")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg})
+                messages.error(request, error_msg)
+            except Exception as e:
+                error_msg = f'Error updating role: {str(e)}'
+                print(f"DEBUG: {error_msg}")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg})
+                messages.error(request, error_msg)
+        
+        # If not AJAX, redirect back
+        if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return redirect('users:admin_user_roles')
+    
+    # GET request - show the page
+    users = CustomUser.objects.all().order_by('-date_joined')
+    
+    context = {
+        'users': users,
+        'user_types': CustomUser.USER_TYPE_CHOICES,
+        'admin_count': users.filter(user_type='admin').count(),
+        'user_count': users.filter(user_type='user').count(),
+    }
+    
+    return render(request, 'users/admin_user_roles.html', context)
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def admin_trip_list(request):
@@ -707,17 +837,75 @@ def admin_destinations(request):
     }
     
     return render(request, 'users/admin_destinations.html', context)
-
 @user_passes_test(is_admin)
 def admin_add_destination(request):
     """Add new destination with coordinates"""
     if request.method == 'POST':
+        # DEBUG: Print all POST data
+        print("\n" + "="*50)
+        print("FORM SUBMISSION DEBUG")
+        print("="*50)
+        print("POST data:")
+        for key, value in request.POST.items():
+            print(f"  {key}: {value} (type: {type(value).__name__})")
+        
+        print("\nFILES data:")
+        for key in request.FILES:
+            print(f"  {key}: {request.FILES[key].name}")
+        
         form = AdminAddDestinationForm(request.POST, request.FILES)
+        
+        # DEBUG: Check if form is valid
         if form.is_valid():
-            destination = form.save()
+            print("\n✓ FORM IS VALID")
+            print("Cleaned data:")
+            for key, value in form.cleaned_data.items():
+                print(f"  {key}: {value} (type: {type(value).__name__})")
+            
+            destination = form.save(commit=False)
+            print(f"\n✓ Destination before save: type={destination.type}, name={destination.name}")
+            
+            # Handle parent creation if it's a string (new parent city/town)
+            # Only for attractions - check the destination type
+            if destination.type == 'attraction' and hasattr(destination, '_temp_parent_name') and destination._temp_parent_name:
+                parent_name = destination._temp_parent_name
+                print(f"\n✓ Parent temp name: {parent_name}")
+                try:
+                    # Try to find existing parent
+                    parent = Destination.objects.get(
+                        Q(name__iexact=parent_name) | 
+                        Q(name__icontains=parent_name),
+                        type__in=['city', 'town']
+                    )
+                    destination.parent = parent
+                    print(f"✓ Found existing parent: {parent.name}")
+                except Destination.DoesNotExist:
+                    # Create new parent city/town
+                    parent = Destination.objects.create(
+                        name=parent_name.title(),
+                        region=form.cleaned_data.get('region', ''),
+                        type='town',
+                        description=f"{parent_name.title()} is a town/city in Myanmar.",
+                        is_active=True,
+                        is_region=False
+                    )
+                    destination.parent = parent
+                    print(f"✓ Created new parent: {parent.name}")
+                    messages.info(request, f'Created new parent city/town: "{parent_name}"')
+            
+            destination.save()
+            print(f"\n✓ Destination saved: {destination.name} (ID: {destination.id})")
             messages.success(request, f'Destination "{destination.name}" added successfully!')
             return redirect('users:admin_destinations')
         else:
+            print("\n✗ FORM IS INVALID")
+            print("Form errors:")
+            for field, errors in form.errors.items():
+                print(f"  {field}: {errors}")
+            print("\nForm data that caused errors:")
+            for field in form.fields:
+                if field in form.data:
+                    print(f"  {field}: {form.data.get(field)}")
             messages.error(request, 'Please correct the errors below.')
     else:
         form = AdminAddDestinationForm()
@@ -727,19 +915,65 @@ def admin_add_destination(request):
         'title': 'Add Destination'
     }
     return render(request, 'users/admin_add_destination.html', context)
-
 @user_passes_test(is_admin)
 def admin_edit_destination(request, destination_id):
-    """Edit destination view - CUSTOM VERSION"""
+    """Edit destination view"""
     destination = get_object_or_404(Destination, id=destination_id)
     
     if request.method == 'POST':
+        print("\n" + "="*50)
+        print("EDIT DESTINATION DEBUG")
+        print("="*50)
+        print("POST data:")
+        for key, value in request.POST.items():
+            print(f"  {key}: {value}")
+        
+        print("\nFILES data:")
+        for key in request.FILES:
+            print(f"  {key}: {request.FILES[key].name}")
+        
         form = AdminEditDestinationForm(request.POST, request.FILES, instance=destination)
+        
         if form.is_valid():
-            form.save()
+            print("\n✓ FORM IS VALID")
+            destination = form.save(commit=False)
+            
+            # Handle parent creation if it's a string (new parent city/town)
+            if hasattr(destination, '_temp_parent_name') and destination._temp_parent_name:
+                parent_name = destination._temp_parent_name
+                try:
+                    # Try to find existing parent
+                    parent = Destination.objects.get(
+                        Q(name__iexact=parent_name) | 
+                        Q(name__icontains=parent_name),
+                        type__in=['city', 'town']
+                    )
+                    destination.parent = parent
+                except Destination.DoesNotExist:
+                    # Create new parent city/town
+                    parent = Destination.objects.create(
+                        name=parent_name.title(),
+                        region=form.cleaned_data.get('region', destination.region),
+                        type='town',
+                        description=f"{parent_name.title()} is a town/city in Myanmar.",
+                        is_active=True,
+                        is_region=True
+                    )
+                    destination.parent = parent
+                    messages.info(request, f'Created new parent city/town: "{parent_name}"')
+            else:
+                # If parent field is empty, set parent to None
+                if not form.cleaned_data.get('parent'):
+                    destination.parent = None
+            
+            destination.save()
             messages.success(request, f'Destination "{destination.name}" updated successfully!')
             return redirect('users:admin_destinations')
         else:
+            print("\n✗ FORM IS INVALID")
+            print("Form errors:")
+            for field, errors in form.errors.items():
+                print(f"  {field}: {errors}")
             messages.error(request, 'Please correct the errors below.')
     else:
         form = AdminEditDestinationForm(instance=destination)
@@ -749,8 +983,120 @@ def admin_edit_destination(request, destination_id):
         'destination': destination,
         'title': f'Edit {destination.name}'
     }
-    # Change this line to use your custom template
     return render(request, 'users/admin_edit_destination.html', context)
+@user_passes_test(is_admin)
+def admin_edit_city(request, destination_id):
+    """Edit city/town destination"""
+    destination = get_object_or_404(Destination, id=destination_id)
+    
+    if request.method == 'POST':
+        print("\n" + "="*50)
+        print("EDIT CITY/TOWN DEBUG")
+        print("="*50)
+        print("POST data:")
+        for key, value in request.POST.items():
+            print(f"  {key}: {value}")
+        
+        print("\nFILES data:")
+        for key in request.FILES:
+            print(f"  {key}: {request.FILES[key].name}")
+        
+        form = AdminEditDestinationForm(request.POST, request.FILES, instance=destination)
+        
+        if form.is_valid():
+            print("\n✓ FORM IS VALID")
+            destination = form.save(commit=False)
+            destination.is_region = True  # Ensure cities/towns are regions
+            destination.save()
+            messages.success(request, f'City/Town "{destination.name}" updated successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            print("\n✗ FORM IS INVALID")
+            print("Form errors:")
+            for field, errors in form.errors.items():
+                print(f"  {field}: {errors}")
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditDestinationForm(instance=destination)
+    
+    context = {
+        'form': form,
+        'destination': destination,
+        'title': f'Edit City/Town: {destination.name}'
+    }
+    return render(request, 'users/admin_edit_city.html', context)
+
+@user_passes_test(is_admin)
+def admin_edit_attraction(request, destination_id):
+    """Edit attraction destination"""
+    destination = get_object_or_404(Destination, id=destination_id)
+    
+    if request.method == 'POST':
+        print("\n" + "="*50)
+        print("EDIT ATTRACTION DEBUG")
+        print("="*50)
+        print("POST data:")
+        for key, value in request.POST.items():
+            print(f"  {key}: {value}")
+        
+        print("\nFILES data:")
+        for key in request.FILES:
+            print(f"  {key}: {request.FILES[key].name}")
+        
+        form = AdminEditDestinationForm(request.POST, request.FILES, instance=destination)
+        
+        if form.is_valid():
+            print("\n✓ FORM IS VALID")
+            destination = form.save(commit=False)
+            destination.is_region = False  # Attractions are not regions
+            
+            # Handle parent creation if it's a string (new parent city/town)
+            if hasattr(destination, '_temp_parent_name') and destination._temp_parent_name:
+                parent_name = destination._temp_parent_name
+                try:
+                    # Try to find existing parent
+                    parent = Destination.objects.get(
+                        Q(name__iexact=parent_name) | 
+                        Q(name__icontains=parent_name),
+                        type__in=['city', 'town']
+                    )
+                    destination.parent = parent
+                except Destination.DoesNotExist:
+                    # Create new parent city/town
+                    parent = Destination.objects.create(
+                        name=parent_name.title(),
+                        region=form.cleaned_data.get('region', destination.region),
+                        type='town',
+                        description=f"{parent_name.title()} is a town/city in Myanmar.",
+                        is_active=True,
+                        is_region=True
+                    )
+                    destination.parent = parent
+                    messages.info(request, f'Created new parent city/town: "{parent_name}"')
+            else:
+                # If parent field is empty, set parent to None
+                if not form.cleaned_data.get('parent'):
+                    destination.parent = None
+            
+            destination.save()
+            messages.success(request, f'Attraction "{destination.name}" updated successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            print("\n✗ FORM IS INVALID")
+            print("Form errors:")
+            for field, errors in form.errors.items():
+                print(f"  {field}: {errors}")
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminEditDestinationForm(instance=destination)
+    
+    context = {
+        'form': form,
+        'destination': destination,
+        'title': f'Edit Attraction: {destination.name}'
+    }
+    return render(request, 'users/admin_edit_attraction.html', context)
+
 
 @user_passes_test(is_admin)
 def admin_delete_destination(request, destination_id):
@@ -905,14 +1251,28 @@ def admin_trip_details(request, trip_id):
 # ==================== FLIGHT MANAGEMENT ====================
 @user_passes_test(is_admin)
 def admin_flights(request):
-    """Admin flights view"""
-    flights = Flight.objects.select_related('departure', 'arrival').order_by('-created_at')
+    """Admin flights view with AJAX statistics support"""
+    # Check if it's an AJAX request for statistics only
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('ajax_stats'):
+        total_flights = Flight.objects.count()
+        active_flights = Flight.objects.filter(is_active=True).count()
+        # Count distinct airlines (not flight.airline but Flight objects with distinct airline codes)
+        airline_count = Flight.objects.values('airline__name').distinct().count()
+        
+        return JsonResponse({
+            'success': True,
+            'total_flights': total_flights,
+            'active_flights': active_flights,
+            'airline_count': airline_count,
+        })
+    
+    flights = Flight.objects.select_related('departure', 'arrival', 'airline').order_by('-created_at')
     
     # Search functionality
     search_query = request.GET.get('search', '')
     if search_query:
         flights = flights.filter(
-            Q(airline__icontains=search_query) |
+            Q(airline__name__icontains=search_query) |
             Q(flight_number__icontains=search_query) |
             Q(departure__name__icontains=search_query) |
             Q(arrival__name__icontains=search_query)
@@ -935,9 +1295,11 @@ def admin_flights(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Statistics
+    # Statistics - CALCULATE DYNAMICALLY
     total_flights = Flight.objects.count()
     active_flights = Flight.objects.filter(is_active=True).count()
+    # Count distinct airlines
+    airline_count = Flight.objects.values('airline__name').distinct().count()
     
     context = {
         'flights': page_obj,
@@ -945,11 +1307,12 @@ def admin_flights(request):
         'is_paginated': paginator.num_pages > 1,
         'total_flights': total_flights,
         'active_flights': active_flights,
+        'airline_count': airline_count,
         'flight_categories': Flight._meta.get_field('category').choices,
     }
     
     return render(request, 'users/admin_flights.html', context)
-
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
 @user_passes_test(is_admin)
 def admin_add_flight(request):
     """Add new flight"""
@@ -964,8 +1327,12 @@ def admin_add_flight(request):
     else:
         form = AdminAddFlightForm()
     
+    # Get all airlines for the dropdown
+    airlines = Airline.objects.filter(is_active=True).order_by('name')
+    
     context = {
         'form': form,
+        'airlines': airlines,  # Add this line
         'title': 'Add Flight'
     }
     return render(request, 'users/admin_add_flight.html', context)
@@ -1008,9 +1375,24 @@ def admin_delete_flight(request, flight_id):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
 @user_passes_test(is_admin)
 def admin_buses(request):
-    """Admin buses view"""
+    """Admin buses view with AJAX statistics support"""
+    # Check if it's an AJAX request for statistics only
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('ajax_stats'):
+        total_buses = BusService.objects.count()
+        active_buses = BusService.objects.filter(is_active=True).count()
+        # Count distinct bus types
+        bus_type_count = BusService.objects.values('bus_type').distinct().count()
+        
+        return JsonResponse({
+            'success': True,
+            'total_buses': total_buses,
+            'active_buses': active_buses,
+            'bus_type_count': bus_type_count,
+        })
+    
     buses = BusService.objects.select_related('departure', 'arrival').order_by('-created_at')
     
     # Search functionality
@@ -1040,9 +1422,11 @@ def admin_buses(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Statistics
+    # Statistics - CALCULATE DYNAMICALLY
     total_buses = BusService.objects.count()
     active_buses = BusService.objects.filter(is_active=True).count()
+    # Count distinct bus types
+    bus_type_count = BusService.objects.values('bus_type').distinct().count()
     
     context = {
         'buses': page_obj,
@@ -1050,14 +1434,53 @@ def admin_buses(request):
         'is_paginated': paginator.num_pages > 1,
         'total_buses': total_buses,
         'active_buses': active_buses,
+        'bus_type_count': bus_type_count,
         'bus_types': BusService._meta.get_field('bus_type').choices,
     }
     
     return render(request, 'users/admin_buses.html', context)
-
 # C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
 # Update the admin_add_bus function:
-
+@login_required
+@user_passes_test(is_admin)
+def admin_update_user_role_form(request):
+    """Handle user role update from form submission"""
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        user_type = request.POST.get('user_type')
+        
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            
+            # Prevent modifying your own account
+            if user == request.user:
+                messages.error(request, 'Cannot modify your own role')
+                return redirect('users:admin_user_roles')
+            
+            # Update user role
+            old_role = user.user_type
+            user.user_type = user_type
+            
+            # Update staff status based on role
+            if user_type == 'admin':
+                user.is_staff = True
+                user.is_superuser = True
+            else:
+                user.is_staff = False
+                user.is_superuser = False
+            
+            user.save()
+            
+            messages.success(request, 
+                f'User {user.username} role changed from {old_role} to {user_type}'
+            )
+            
+        except CustomUser.DoesNotExist:
+            messages.error(request, 'User not found')
+        except Exception as e:
+            messages.error(request, f'Error updating role: {str(e)}')
+    
+    return redirect('users:admin_user_roles')
 @user_passes_test(is_admin)
 def admin_add_bus(request):
     """Add new bus service with recurring schedules"""
@@ -1436,44 +1859,6 @@ def admin_content(request):
     return render(request, 'users/admin_content.html', context)
 
 # ==================== SYSTEM SETTINGS ====================
-@user_passes_test(is_admin)
-def admin_system_settings(request):
-    """System settings view"""
-    # System statistics
-    context = {
-        'total_users': CustomUser.objects.count(),
-        'total_trips': TripPlan.objects.count(),
-        'total_destinations': Destination.objects.count(),
-        'total_hotels': Hotel.objects.count(),
-        'total_flights': Flight.objects.count(),
-        'total_buses': BusService.objects.count(),
-        'total_cars': CarRental.objects.count(),
-        'total_airlines': Airline.objects.count(),
-        'total_schedules': TransportSchedule.objects.count(),
-        'total_posts': Post.objects.count(),
-    }
-    
-    # Database info
-    import sqlite3
-    import os
-    
-    db_path = settings.DATABASES['default']['NAME']
-    if os.path.exists(db_path):
-        db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
-        context['db_size'] = f"{db_size:.2f} MB"
-        
-        # Get table counts
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            context['table_count'] = len(tables)
-            conn.close()
-        except:
-            context['table_count'] = 'N/A'
-    
-    return render(request, 'users/admin_system_settings.html', context)
 
 @user_passes_test(is_admin)
 def admin_database_backup(request):
@@ -1507,65 +1892,161 @@ def admin_trip_content_view(request):
     """Redirect to Django admin for trip content management"""
     messages.info(request, 'Redirecting to Django admin for trip content management')
     return redirect('/admin/planner/tripplan/')
+
+# ==================== USERNAME CHANGE ====================
+@login_required
 @user_passes_test(is_admin)
 def admin_system_settings(request):
-    """System settings view with form"""
-    from .forms_admin import SystemSettingsForm
-    from .models import SystemSettings
+    """Simple username and password change for admin"""
     
-    # Load settings instance
-    settings_instance = SystemSettings.load()
-    
-    if request.method == 'POST':
-        form = SystemSettingsForm(request.POST, instance=settings_instance)
-        if form.is_valid():
-            # Handle password - only update if provided
-            if not request.POST.get('email_password'):
-                # Keep existing password if field is empty
-                form.cleaned_data['email_password'] = settings_instance.email_password
-            
-            form.save()
-            messages.success(request, 'System settings saved successfully!')
-            return redirect('users:admin_system_settings')
-        else:
-            messages.error(request, 'Please correct the errors below.')
-    else:
-        form = SystemSettingsForm(instance=settings_instance)
-    
-    # System statistics
+    # Get current user
+    user = request.user
     context = {
-        'form': form,
-        'settings': settings_instance,
-        'total_users': CustomUser.objects.count(),
-        'total_trips': TripPlan.objects.count(),
-        'total_destinations': Destination.objects.count(),
-        'total_hotels': Hotel.objects.count(),
-        'total_flights': Flight.objects.count(),
-        'total_buses': BusService.objects.count(),
-        'total_cars': CarRental.objects.count(),
-        'total_airlines': Airline.objects.count(),
-        'total_schedules': TransportSchedule.objects.count(),
-        'total_posts': Post.objects.count(),
+        'username_error': None,
+        'password_error': None,
+        'new_username_value': '',
     }
     
-    # Database info
-    import sqlite3
-    import os
-    
-    db_path = settings.DATABASES['default']['NAME']
-    if os.path.exists(db_path):
-        db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
-        context['db_size'] = f"{db_size:.2f} MB"
+    if request.method == 'POST':
+        # Get form data
+        new_username = request.POST.get('new_username', '').strip()
+        current_password = request.POST.get('current_password', '')
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
         
-        # Get table counts
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            context['table_count'] = len(tables)
-            conn.close()
-        except:
-            context['table_count'] = 'N/A'
+        # Handle username change
+        if new_username and current_password:
+            # Validate new username
+            if len(new_username) < 3:
+                context['username_error'] = 'Username must be at least 3 characters'
+            elif len(new_username) > 30:
+                context['username_error'] = 'Username cannot exceed 30 characters'
+            elif CustomUser.objects.filter(username=new_username).exclude(id=user.id).exists():
+                context['username_error'] = 'Username already taken'
+            # Verify current password
+            elif not user.check_password(current_password):
+                context['password_error'] = 'Current password is incorrect'
+            else:
+                # Update username
+                old_username = user.username
+                user.username = new_username
+                user.save()
+                messages.success(request, f'Username changed from "{old_username}" to "{new_username}"')
+                context['new_username_value'] = ''
+                return redirect('users:admin_system_settings')
+            
+            # Keep form value on error
+            context['new_username_value'] = new_username
+        
+        # Handle password change
+        elif new_password and current_password:
+            # Validate new password
+            if len(new_password) < 8:
+                messages.error(request, 'New password must be at least 8 characters')
+            elif new_password != confirm_password:
+                messages.error(request, 'New passwords do not match')
+            # Verify current password
+            elif not user.check_password(current_password):
+                messages.error(request, 'Current password is incorrect')
+            else:
+                # Update password
+                user.set_password(new_password)
+                user.save()
+                
+                # Re-authenticate user
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, user)
+                
+                messages.success(request, 'Password changed successfully')
+                return redirect('users:admin_system_settings')
     
     return render(request, 'users/admin_system_settings.html', context)
+@user_passes_test(is_admin)
+def admin_add_city(request):
+    """Add new city/town destination"""
+    if request.method == 'POST':
+        form = AdminAddDestinationForm(request.POST, request.FILES)
+        
+        if form.is_valid():
+            destination = form.save(commit=False)
+            destination.type = request.POST.get('type', 'city')  # Ensure type is city/town
+            destination.is_region = True  # Cities/towns are regions
+            destination.save()
+            
+            messages.success(request, f'City/Town "{destination.name}" added successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            # Debug output
+            print("Form errors:", form.errors)
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # Initialize form with default values for city/town
+        form = AdminAddDestinationForm(initial={
+            'type': 'city',
+            'is_region': True,
+            'is_active': True
+        })
+    
+    context = {
+        'form': form,
+        'title': 'Add City/Town',
+        'destination_type': 'city_town'  # Flag for template
+    }
+    return render(request, 'users/admin_add_destination.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_attraction(request):
+    """Add new attraction/place destination"""
+    if request.method == 'POST':
+        form = AdminAddDestinationForm(request.POST, request.FILES)
+        
+        if form.is_valid():
+            destination = form.save(commit=False)
+            destination.type = 'attraction'
+            destination.is_region = False  # Attractions are not regions
+            
+            # Handle parent creation if it's a string (new parent city/town)
+            if hasattr(destination, '_temp_parent_name') and destination._temp_parent_name:
+                parent_name = destination._temp_parent_name
+                try:
+                    # Try to find existing parent
+                    parent = Destination.objects.get(
+                        Q(name__iexact=parent_name) | 
+                        Q(name__icontains=parent_name),
+                        type__in=['city', 'town']
+                    )
+                    destination.parent = parent
+                except Destination.DoesNotExist:
+                    # Create new parent city/town
+                    parent = Destination.objects.create(
+                        name=parent_name.title(),
+                        region=form.cleaned_data.get('region', ''),
+                        type='town',
+                        description=f"{parent_name.title()} is a town/city in Myanmar.",
+                        is_active=True,
+                        is_region=True
+                    )
+                    destination.parent = parent
+                    messages.info(request, f'Created new parent city/town: "{parent_name}"')
+            
+            destination.save()
+            messages.success(request, f'Attraction "{destination.name}" added successfully!')
+            return redirect('users:admin_destinations')
+        else:
+            # Debug output
+            print("Form errors:", form.errors)
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # Initialize form with default values for attraction
+        form = AdminAddDestinationForm(initial={
+            'type': 'attraction',
+            'is_region': False,
+            'is_active': True
+        })
+    
+    context = {
+        'form': form,
+        'title': 'Add Attraction/Place',
+        'destination_type': 'attraction'  # Flag for template
+    }
+    return render(request, 'users/admin_add_destination.html', context)

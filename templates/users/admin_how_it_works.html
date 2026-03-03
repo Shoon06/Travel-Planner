@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Documentation - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">
+                    <i class="fas fa-user-shield text-primary me-2"></i>
+                    Admin Documentation
+                </h1>
+                <a href="{% url 'users:admin_dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                This documentation is for GoMyanmar administrators only.
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Start Guide -->
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h4 class="card-title mb-4">
+                        <i class="fas fa-rocket text-primary me-2"></i>
+                        Quick Start Guide
+                    </h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                                    <i class="fas fa-hotel text-primary fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h5>Manage Hotels</h5>
+                                    <p class="text-gray mb-2">Add, edit, or remove hotels from the system</p>
+                                    <a href="{% url 'users:admin_hotels' %}" class="btn btn-sm btn-outline-primary">Go to Hotels</a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-success bg-opacity-10 rounded-circle p-3 me-3">
+                                    <i class="fas fa-map-marker-alt text-success fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h5>Manage Destinations</h5>
+                                    <p class="text-gray mb-2">Control travel destinations and regions</p>
+                                    <a href="{% url 'users:admin_destinations' %}" class="btn btn-sm btn-outline-success">Go to Destinations</a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-info bg-opacity-10 rounded-circle p-3 me-3">
+                                    <i class="fas fa-plane text-info fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h5>Manage Transport</h5>
+                                    <p class="text-gray mb-2">Add flights, buses, and manage schedules</p>
+                                    <a href="{% url 'users:admin_flights' %}" class="btn btn-sm btn-outline-info">Go to Transport</a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-warning bg-opacity-10 rounded-circle p-3 me-3">
+                                    <i class="fas fa-users text-warning fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h5>Manage Users</h5>
+                                    <p class="text-gray mb-2">View and manage user accounts</p>
+                                    <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-sm btn-outline-warning">Go to Users</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-tasks text-success me-2"></i>
+                        Daily Tasks
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Review new user registrations
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Monitor trip bookings
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Update hotel information
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Check system performance
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Review community posts
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+           
+        </div>
+   
+
+<style>
+    .text-gray {
+        color: #6c757d;
+    }
+    .card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}

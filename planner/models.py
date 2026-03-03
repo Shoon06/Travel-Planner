@@ -26,6 +26,8 @@ class Airline(models.Model):
 
 
 # ========== DESTINATION MODEL ==========
+# ========== DESTINATION MODEL ==========
+# ========== DESTINATION MODEL ==========
 class Destination(models.Model):
     name = models.CharField(max_length=100)
     region = models.CharField(max_length=100)
@@ -40,7 +42,7 @@ class Destination(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     description = models.TextField(blank=True)
-    image = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    image = models.ImageField(upload_to='destinations/', blank=True, null=True, help_text="Main profile photo for city/town")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -51,19 +53,60 @@ class Destination(models.Model):
     best_time_to_visit = models.CharField(max_length=200, blank=True, null=True)
     local_cuisine = models.TextField(blank=True, null=True)
     tips = models.TextField(blank=True, null=True)
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='children',
+        help_text="Parent region/city that contains this place"
+    )
     
-    # Image fields
-    main_image = models.ImageField(upload_to='destinations/', blank=True, null=True)
-    gallery_image1 = models.ImageField(upload_to='destinations/', blank=True, null=True)
-    gallery_image2 = models.ImageField(upload_to='destinations/', blank=True, null=True)
-    gallery_image3 = models.ImageField(upload_to='destinations/', blank=True, null=True)
-    gallery_image4 = models.ImageField(upload_to='destinations/', blank=True, null=True)
+    # Add is_region flag to distinguish between regions and attractions
+    is_region = models.BooleanField(
+        default=False,
+        help_text="Is this a region/city (True) or a specific place/attraction (False)?")
     
-    default_airlines = models.ManyToManyField(Airline, blank=True, 
+    # Image fields - Main image (profile photo for cities/towns)
+    main_image = models.ImageField(upload_to='destinations/', blank=True, null=True, help_text="Alternative main image field")
+    
+    # Gallery images for attractions (8 photos)
+    gallery_image1 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 1 for attractions")
+    gallery_image2 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 2 for attractions")
+    gallery_image3 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 3 for attractions")
+    gallery_image4 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 4 for attractions")
+    gallery_image5 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 5 for attractions")
+    gallery_image6 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 6 for attractions")
+    gallery_image7 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 7 for attractions")
+    gallery_image8 = models.ImageField(upload_to='destinations/gallery/', blank=True, null=True, help_text="Gallery photo 8 for attractions")
+    
+    # JSON field to store captions for gallery images
+    gallery_captions = models.JSONField(default=dict, blank=True, help_text="JSON object storing captions for gallery images")
+    
+    default_airlines = models.ManyToManyField('Airline', blank=True, 
         help_text="Default airlines for this destination")
     
     def __str__(self):
         return f"{self.name}, {self.region}"
+    
+    def get_places_in_region(self):
+        """Get all places/attractions in this region"""
+        if self.is_region:
+            return Destination.objects.filter(parent=self, is_active=True)
+        return Destination.objects.none()
+    
+    def get_region_name(self):
+        """Get the name of the parent region"""
+        if self.parent:
+            return self.parent.name
+        return self.region
+    
+    def get_gallery_caption(self, image_number=None):
+        """Get caption for gallery images"""
+        if image_number and self.gallery_captions:
+            return self.gallery_captions.get(f'caption_{image_number}', '')
+        # If called without number, return a default or handle differently
+        return ''
     
     def has_airport(self):
         """Check if this destination has an airport"""
@@ -87,18 +130,26 @@ class Destination(models.Model):
         except ImportError:
             return {'has_airport': False, 'airport_name': 'Unknown'}
     
-    def get_airport_info(self):
-        """Get airport information for this destination"""
-        return get_airport_info(self.name)
-    
     def airport_available(self):
         """Alias for has_airport for template compatibility"""
         return self.has_airport()
     
+    def get_gallery_images(self):
+        """Return list of gallery images that exist"""
+        images = []
+        for i in range(1, 9):
+            img = getattr(self, f'gallery_image{i}')
+            if img:
+                caption = self.gallery_captions.get(f'caption_{i}', '') if self.gallery_captions else ''
+                images.append({
+                    'url': img.url,
+                    'caption': caption,
+                    'number': i
+                })
+        return images
+    
     class Meta:
         ordering = ['name']
-
-
 # ========== FLIGHT MODEL ==========
 class Flight(models.Model):
     airline = models.ForeignKey(Airline, on_delete=models.CASCADE, related_name='flights')
@@ -481,6 +532,7 @@ class CarRental(models.Model):
 
 
 # ========== TRIP PLAN MODEL ==========
+# ========== TRIP PLAN MODEL ==========
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
     origin = models.ForeignKey(
@@ -576,55 +628,92 @@ class TripPlan(models.Model):
         return int(base_rate * days * self.travelers)
     
     def get_cost_breakdown(self):
-        """Get detailed cost breakdown"""
+        """
+        Get detailed cost breakdown (MMK)
+        Total = Hotel + Transport + Destination
+        """
+
         nights = self.calculate_nights()
+
         breakdown = {
             'hotel': 0,
             'transport': 0,
             'destination': 0,
-            'additional_travelers': 0,
             'total': 0
         }
-        
-        # Hotel cost
+
+        # -----------------------
+        # HOTEL COST
+        # -----------------------
         if self.selected_hotel:
-            breakdown['hotel'] = int(float(self.selected_hotel.price_per_night) * nights)
-        
-        # Transport cost
-        if self.selected_transport and 'price' in self.selected_transport:
-            transport_price = self.selected_transport.get('price', 0)
+           breakdown['hotel'] = int(
+               float(self.selected_hotel.price_per_night) * max(nights, 1)
+           )
+
+        # -----------------------
+        # TRANSPORT COST (FIXED VERSION)
+        # -----------------------
+        if self.selected_transport:
             try:
-                if isinstance(transport_price, str):
-                    import re
-                    clean_price = re.sub(r'[^\d.]', '', transport_price)
-                    breakdown['transport'] = float(clean_price) if clean_price else 0
-                else:
-                    breakdown['transport'] = float(transport_price)
-            except:
+                transport_data = self.selected_transport
+                
+                # CASE 1: Transport is a model object
+                if hasattr(transport_data, 'price'):
+                    breakdown['transport'] = float(transport_data.price)
+                
+                # CASE 2: Transport is a dict (JSON)
+                elif isinstance(transport_data, dict):
+                    # Try multiple possible locations for the price
+                    price = 0
+                    
+                    # 1. Check direct 'price' key
+                    if 'price' in transport_data:
+                        price_val = transport_data['price']
+                        if isinstance(price_val, (int, float)):
+                            price = float(price_val)
+                        elif isinstance(price_val, str):
+                            import re
+                            clean_price = re.sub(r'[^\d.]', '', price_val)
+                            price = float(clean_price) if clean_price else 0
+                    
+                    # 2. Check booking_details.total_price
+                    elif transport_data.get('booking_details'):
+                        booking_details = transport_data['booking_details']
+                        if 'total_price' in booking_details:
+                            price_val = booking_details['total_price']
+                            if isinstance(price_val, (int, float)):
+                                price = float(price_val)
+                            elif isinstance(price_val, str):
+                                import re
+                                clean_price = re.sub(r'[^\d.]', '', price_val)
+                                price = float(clean_price) if clean_price else 0
+                        
+                        # 3. Check booking_details.price_per_seat * travelers
+                        elif 'price_per_seat' in booking_details and self.travelers:
+                            price_per_seat = booking_details['price_per_seat']
+                            if isinstance(price_per_seat, (int, float)):
+                                price = float(price_per_seat) * self.travelers
+                    
+                    breakdown['transport'] = price
+                    
+            except Exception as e:
+                print(f"Transport cost error for trip {self.id}: {e}")
                 breakdown['transport'] = 0
-        
-        # Destination base cost
-        breakdown['destination'] = self.calculate_destination_base_cost()
-        
-        # Additional travelers cost (70% of base for each additional traveler)
-        if self.travelers > 1:
-            base_cost_per_day = {
-                'low': 20000,
-                'medium': 40000,
-                'high': 70000,
-            }
-            base_rate = base_cost_per_day.get(self.budget_range, 40000)
-            days = nights + 1 if nights > 0 else 3
-            additional_travelers = self.travelers - 1
-            breakdown['additional_travelers'] = int(base_rate * days * additional_travelers * 0.7)
-        
-        # Total
-        breakdown['total'] = sum([
-            breakdown['hotel'],
-            breakdown['transport'],
+
+        # -----------------------
+        # DESTINATION / ACTIVITIES
+        # -----------------------
+        breakdown['destination'] = int(self.calculate_destination_base_cost())
+
+        # -----------------------
+        # TOTAL (FINAL FIX)
+        # -----------------------
+        breakdown['total'] = int(
+            breakdown['hotel'] +
+            breakdown['transport'] +
             breakdown['destination']
-        ])
-        
+        )
+
         return breakdown
     
     def get_total_spent(self):
@@ -643,7 +732,6 @@ class TripPlan(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-
 
 # ========== TRANSPORT SCHEDULE MODEL ==========
 class TransportSchedule(models.Model):
