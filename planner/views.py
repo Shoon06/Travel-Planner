@@ -2746,7 +2746,7 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
         budget = getattr(trip, 'budget', 500000)
 
-        # ================= AI PLANS =================
+        # ================= AI PLANS (INCL. CUSTOM) =================
 
         session_key = f'ai_plans_{trip_id}'
         plans = request.session.get(session_key, [])
@@ -2755,6 +2755,14 @@ class PlanSelectionView(LoginRequiredMixin, View):
             plans = self.generate_ai_plans(trip, days, budget)
             request.session[session_key] = plans
             request.session.modified = True
+
+        # Append any saved custom plan to the list for display/selection
+        custom_plan_key = f'custom_plan_{trip_id}'
+        custom_plan = request.session.get(custom_plan_key)
+        if custom_plan:
+            existing_ids = {str(p.get('id')) for p in plans}
+            if str(custom_plan.get('id')) not in existing_ids:
+                plans.append(custom_plan)
 
         # ================= SELECTED PLAN =================
 
@@ -2768,14 +2776,11 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
         if selected_plan_id:
             try:
-                selected_plan_id = int(selected_plan_id)
-
                 selected_plan = next(
-                    (p for p in plans if p.get('id') == selected_plan_id),
+                    (p for p in plans if str(p.get('id')) == str(selected_plan_id)),
                     None
                 )
-
-            except:
+            except Exception:
                 selected_plan = None
 
             if not selected_plan:
@@ -3531,25 +3536,26 @@ class SelectPlanView(LoginRequiredMixin, View):
             
             # Save to session
             request.session[f'selected_plan_{trip_id}'] = plan_id
-            
-            # Also save to trip object if it has the field
+
+            # Persist selection on trip
             if hasattr(trip, 'selected_plan'):
                 try:
-                    # Try to save as integer if possible
-                    try:
-                        plan_id_int = int(plan_id)
-                        trip.selected_plan = plan_id_int
-                    except ValueError:
-                        trip.selected_plan = plan_id
-                    
+                    trip.selected_plan = plan_id
                     trip.save(update_fields=['selected_plan'])
-                    print(f"Saved plan {plan_id} to trip {trip_id}")
                 except Exception as e:
                     print(f"Error saving to trip: {e}")
             
             # Mark all other plans as not selected in session
             session_key = f'ai_plans_{trip_id}'
             plans = request.session.get(session_key, [])
+
+            # If selecting custom, ensure we carry it over
+            if plan_id == 'custom':
+                custom_plan = request.session.get(f'custom_plan_{trip_id}')
+                if custom_plan:
+                    existing_ids = {str(p.get('id')) for p in plans}
+                    if 'custom' not in existing_ids:
+                        plans.append(custom_plan)
             
             # Update the plan selection status in session
             for plan in plans:
@@ -3604,23 +3610,54 @@ class ItineraryDetailView(LoginRequiredMixin, View):
     
     def get(self, request, trip_id, plan_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+
+        # Determine whether activities should be locked (preset plans) or editable (custom)
+        custom_mode = str(request.GET.get('custom', '0')).lower() in ['1', 'true', 'yes']
+        activities_locked = not (plan_id == 'custom' or custom_mode)
         
         # Get itinerary based on plan
         days = trip.calculate_nights() + 1
         itinerary_generator = PlanSelectionView()
-        
-        if plan_id == 'cultural':
-            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
-            plan_title = 'Cultural Explorer'
-        elif plan_id == 'adventure':
-            days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
-            plan_title = 'Adventure Seeker'
-        elif plan_id == 'relaxed':
-            days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
-            plan_title = 'Relaxed Wanderer'
+
+        # Resolve base plan (supports numeric ids 1/2/3 and slugs) so custom plans can seed from an existing plan
+        def resolve_plan(source_id):
+            sid = str(source_id).lower() if source_id is not None else ''
+            if sid in ['1', 'cultural', 'cultural explorer']:
+                return 'cultural', 'Cultural Explorer', itinerary_generator.generate_cultural_itinerary(trip, days)
+            if sid in ['2', 'adventure', 'adventure seeker']:
+                return 'adventure', 'Adventure Seeker', itinerary_generator.generate_adventure_itinerary(trip, days)
+            if sid in ['3', 'relaxed', 'relaxed wanderer']:
+                return 'relaxed', 'Relaxed Wanderer', itinerary_generator.generate_relaxed_itinerary(trip, days)
+            return None, None, []
+
+        # Determine which plan to render and whether a custom plan should inherit activities
+        seed_source = plan_id
+        if plan_id == 'custom':
+            seed_source = request.GET.get('from_plan') or request.session.get(f'selected_plan_{trip_id}')
+
+        plan_key, base_title, seeded_days = resolve_plan(seed_source)
+
+        if plan_id == 'custom':
+            days_data = seeded_days or []
+            plan_title = f"Custom Plan{f' (Based on {base_title})' if base_title else ''}"
+        elif plan_key:
+            days_data = seeded_days
+            plan_title = base_title or 'Custom Plan'
         else:
             days_data = []
             plan_title = 'Custom Plan'
+
+        # Ensure custom/empty plans still render day tabs and panes
+        if not days_data:
+            start_date = trip.start_date or timezone.now().date()
+            days_data = [
+                {
+                    'day_number': idx + 1,
+                    'date': (start_date + timedelta(days=idx)).strftime('%Y-%m-%d'),
+                    'activities': [],
+                }
+                for idx in range(days)
+            ]
         
         # Get weather forecast
         weather_forecast = self.get_weather_forecast_for_trip(trip)
@@ -3675,6 +3712,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'end_date': trip.end_date.strftime('%Y-%m-%d'),
             'travelers': trip.travelers,
             'nights': nights,
+            'activities_locked': activities_locked,
         }
         
         return render(request, self.template_name, context)

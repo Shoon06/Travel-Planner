@@ -23,14 +23,20 @@
                         {{ destination_name }} • {{ start_date }} to {{ end_date }} • {{ travelers }} traveler{{ travelers|pluralize }}
                     </p>
                 </div>
-                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
-                    <button class="btn btn-light btn-lg me-2" id="printItinerary">
+                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0 d-flex flex-wrap justify-content-lg-end gap-2">
+                    <button class="btn btn-light btn-lg" id="printItinerary">
                         <i class="fas fa-print me-2"></i>Print
                     </button>
                     <a href="{% url 'planner:download_itinerary_pdf' trip_id=trip.id plan_id=plan_id %}" 
                        class="btn btn-outline-light btn-lg">
                         <i class="fas fa-download me-2"></i>Download PDF
                     </a>
+                    {% if plan_id == 'custom' and not activities_locked %}
+                    <form id="customConfirmForm" method="post" action="{% url 'planner:confirm_booking' trip.id %}" class="d-none">
+                        {% csrf_token %}
+                        <input type="hidden" name="plan_id" value="custom">
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -82,165 +88,135 @@
                 <div class="mb-4">
                     <nav>
                         <div class="nav nav-tabs" id="daysTab" role="tablist">
-                            {% for day in days_data %}
-                            <button class="nav-link {% if forloop.first %}active{% endif %}" 
-                                    id="day{{ day.day_number }}-tab" data-bs-toggle="tab" 
-                                    data-bs-target="#day{{ day.day_number }}" type="button" role="tab">
-                                <div class="d-flex flex-column align-items-center">
-                                    <span class="small">Day</span>
-                                    <strong class="fs-5">{{ day.day_number }}</strong>
-                                    <small class="xsmall">{{ day.date }}</small>
-                                </div>
-                            </button>
-                            {% endfor %}
+                            {% if days_data %}
+                                {% for day in days_data %}
+                                <button class="nav-link {% if forloop.first %}active{% endif %}" 
+                                        id="day{{ day.day_number }}-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#day{{ day.day_number }}" type="button" role="tab">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="small">Day</span>
+                                        <strong class="fs-5">{{ day.day_number }}</strong>
+                                        <small class="xsmall">{{ day.date }}</small>
+                                    </div>
+                                </button>
+                                {% endfor %}
+                            {% else %}
+                                <button class="nav-link active" id="day1-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#day1" type="button" role="tab">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="small">Day</span>
+                                        <strong class="fs-5">1</strong>
+                                        <small class="xsmall">{{ start_date }}</small>
+                                    </div>
+                                </button>
+                            {% endif %}
                         </div>
                     </nav>
                 </div>
                 
                 <!-- Days Content -->
                 <div class="tab-content" id="daysTabContent">
-                    {% for day in days_data %}
-                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
-                         id="day{{ day.day_number }}" role="tabpanel">
-                         
-                        <!-- Day Header with Weather -->
-                        <div class="card-glass p-4 mb-4">
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <h3 class="fw-bold mb-1">Day {{ day.day_number }}: {{ day.date }}</h3>
-                                    <p class="text-gray mb-0">
-                                        <i class="fas fa-calendar-day me-2"></i>
-                                        {% with day_index=forloop.counter0 %}
-                                            {% if weather_forecast %}
-                                                {{ weather_forecast|get_day_name:day_index }}
-                                            {% else %}
-                                                {% now "l" %}
-                                            {% endif %}
+                    {% if days_data %}
+                        {% for day in days_data %}
+                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
+                             id="day{{ day.day_number }}" role="tabpanel">
+                             
+                            <!-- Day Header with Weather -->
+                            <div class="card-glass p-4 mb-4">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <h3 class="fw-bold mb-1">Day {{ day.day_number }}: {{ day.date }}</h3>
+                                        <p class="text-gray mb-0">
+                                            <i class="fas fa-calendar-day me-2"></i>
+                                            {% with day_index=forloop.counter0 %}
+                                                {% if weather_forecast %}
+                                                    {{ weather_forecast|get_day_name:day_index }}
+                                                {% else %}
+                                                    {% now "l" %}
+                                                {% endif %}
+                                            {% endwith %}
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6 text-md-end">
+                                        {% with weather=weather_forecast|get_item:day.date %}
+                                        {% if weather %}
+                                        <div class="weather-widget d-inline-block">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <img src="https://openweathermap.org/img/wn/{{ weather.daily_summary.icon }}.png" 
+                                                         alt="{{ weather.daily_summary.description }}" 
+                                                         width="50" height="50">
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">{{ weather.daily_summary.temperature }}°C</div>
+                                                    <div class="small text-muted">{{ weather.daily_summary.description }}</div>
+                                                    <div class="xsmall">
+                                                        H: {{ weather.max_temp }}° L: {{ weather.min_temp }}°
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% else %}
+                                        <div class="weather-widget d-inline-block">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-sun fa-2x text-warning"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">25°C</div>
+                                                    <div class="small text-muted">Weather data unavailable</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
                                         {% endwith %}
-                                    </p>
-                                </div>
-                                <div class="col-md-6 text-md-end">
-                                    {% with weather=weather_forecast|get_item:day.date %}
-                                    {% if weather %}
-                                    <div class="weather-widget d-inline-block">
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <img src="https://openweathermap.org/img/wn/{{ weather.daily_summary.icon }}.png" 
-                                                     alt="{{ weather.daily_summary.description }}" 
-                                                     width="50" height="50">
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">{{ weather.daily_summary.temperature }}°C</div>
-                                                <div class="small text-muted">{{ weather.daily_summary.description }}</div>
-                                                <div class="xsmall">
-                                                    H: {{ weather.max_temp }}° L: {{ weather.min_temp }}°
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% else %}
-                                    <div class="weather-widget d-inline-block">
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <i class="fas fa-sun fa-2x text-warning"></i>
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">25°C</div>
-                                                <div class="small text-muted">Weather data unavailable</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    {% endwith %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Activities Timeline -->
-                        {% comment %} <div class="timeline">
-                            {% for activity in day.activities %}
-                            <div class="timeline-item" id="activity-{{ day.day_number }}-{{ forloop.counter0 }}">
-                                <div class="timeline-marker">
-                                    <i class="{{ activity.icon }}"></i>
-                                </div>
-                                <div class="timeline-content">
-                                    <div class="card activity-card mb-4">
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div class="col-md-8">
-                                                    <div class="d-flex align-items-start">
-                                                        <div class="me-4">
-                                                            <span class="badge bg-primary px-3 py-2">
-                                                                {{ activity.time }}
-                                                            </span>
-                                                            <div class="mt-2 xsmall text-center">{{ activity.duration }}</div>
-                                                        </div>
-                                                        <div>
-                                                            <h5 class="fw-bold mb-2">{{ activity.title }}</h5>
-                                                            <p class="text-gray mb-3">{{ activity.description }}</p>
-                                                            <div class="d-flex align-items-center">
-                                                                <i class="fas fa-map-marker-alt me-2 text-muted"></i>
-                                                                <span class="small">{{ activity.location }}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="text-end">
-                                                        <!-- Weather for this time -->
-                                                        {% with time_arg=day.date|add:":"|add:activity.time|cut:" " %}
-                                                            {% with weather=weather_forecast|get_hourly_weather:time_arg %}
-                                                            {% if weather %}
-                                                            <div class="weather-at-time mb-3">
-                                                                <div class="d-flex align-items-center justify-content-end">
-                                                                    <span class="me-2">{{ weather.temperature }}°C</span>
-                                                                    <img src="https://openweathermap.org/img/wn/{{ weather.icon }}.png" 
-                                                                         alt="{{ weather.description }}" width="30" height="30">
-                                                                </div>
-                                                                <div class="xsmall text-muted">{{ weather.description }}</div>
-                                                            </div>
-                                                            {% endif %}
-                                                            {% endwith %}
-                                                        {% endwith %}
-                                                        
-                                                        <!-- Action Buttons -->
-                                                        <div class="btn-group">
-                                                            <button class="btn btn-sm btn-outline-danger delete-activity" 
-                                                                    data-day="{{ day.day_number }}" 
-                                                                    data-index="{{ forloop.counter0 }}">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-secondary edit-activity">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
                             
-                            <!-- Add Activity Button -->
-                            <div class="timeline-item">
-                                <div class="timeline-marker">
-                                    <i class="fas fa-plus"></i>
-                                </div>
-                                <div class="timeline-content">
-                                    <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
-                                            data-day="{{ day.day_number }}">
-                                        <i class="fas fa-plus-circle me-2"></i>Add Custom Activity
-                                    </button>
+                            <!-- Activities Timeline -->
+                            <div class="timeline" id="timeline-day-{{ day.day_number }}">
+                            <!-- Activities will be inserted by JS -->
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="tab-pane fade show active" id="day1" role="tabpanel">
+                            <div class="card-glass p-4 mb-4">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <h3 class="fw-bold mb-1">Day 1: {{ start_date }}</h3>
+                                        <p class="text-gray mb-0">
+                                            <i class="fas fa-calendar-day me-2"></i>
+                                            {% now "l" %}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div> {% endcomment %}
-                        <div class="timeline" id="timeline-day-{{ day.day_number }}">
-                        <!-- Activities will be inserted by JS -->
+                            <div class="timeline" id="timeline-day-1">
+                                <div class="timeline-item">
+                                    <div class="timeline-marker">
+                                        <i class="fas fa-info"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="card activity-card mb-4">
+                                            <div class="card-body d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h5 class="fw-bold mb-1">No activities yet</h5>
+                                                    <p class="text-gray mb-0">Start by adding your first custom activity.</p>
+                                                </div>
+                                                {% if not activities_locked %}
+                                                <button class="btn btn-primary add-activity-btn" data-day="1">
+                                                    <i class="fas fa-plus-circle me-2"></i>Add Custom Activity
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </div>
             
@@ -314,15 +290,32 @@
                                 <span class="fw-bold">Total Estimated Cost</span>
                                 <span class="fw-bold fs-5 text-primary">${{ cost_estimate.total }}</span>
                             </div>
+                            {% if plan_id == 'custom' and not activities_locked %}
+                                <button type="button"
+                                    class="btn w-100 mt-3 text-white"
+                                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;"
+                                    id="customConfirmBtnCost"
+                                    data-confirm-custom="true"
+                                    form="customConfirmForm">
+                                <i class="fas fa-check-circle me-2"></i>Confirm Booking
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
                 
                 <!-- Hotel & Transport Info -->
                 <div class="card-glass p-4">
-                    <h5 class="fw-bold mb-4">
-                        <i class="fas fa-info-circle me-2"></i>Trip Details
-                    </h5>
+                    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Trip Details
+                        </h5>
+                        {% if total_activities == 0 and not activities_locked %}
+                        <button class="btn btn-primary" id="ctaAddActivity" data-day="1">
+                            <i class="fas fa-plus-circle me-2"></i>Add your first activity
+                        </button>
+                        {% endif %}
+                    </div>
                     {% if hotel %}
                     <div class="mb-4">
                         <h6 class="fw-bold mb-2">
@@ -369,9 +362,13 @@
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted">Day</label>
                 <select class="form-select form-select-sm" id="routeDaySelect" style="width: 120px;">
-                    {% for day in days_data %}
-                    <option value="{{ day.day_number }}">Day {{ day.day_number }}</option>
-                    {% endfor %}
+                            {% if days_data %}
+                                {% for day in days_data %}
+                                <option value="{{ day.day_number }}">Day {{ day.day_number }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="1">Day 1</option>
+                            {% endif %}
                 </select>
             </div>
         </div>
@@ -622,10 +619,13 @@
 {% else %}
 <script id="server-days-data" type="application/json">[]</script>
 {% endif %}
+<script id="activities-locked" type="application/json">{{ activities_locked|yesno:"true,false" }}</script>
 <script>
 // Get Django variables first
 const tripId = "{{ trip.id }}";
 const planId = "{{ plan_id }}";
+const totalDays = Number("{{ total_days }}") || 1;
+const activitiesLocked = JSON.parse(document.getElementById('activities-locked').textContent || 'false');
 
 //storage key for storing activity in localStorage
 const STORAGE_KEY = `${tripId}:${planId}`;
@@ -648,32 +648,39 @@ function seed_activities_from_server() {
     }
 
     const initial = {};
-    serverDays.forEach((day) => {
-        if (!day || !day.day_number || !Array.isArray(day.activities)) return;
 
-        initial[day.day_number] = day.activities.map((activity) => ({
-            time: activity.time || "12:00 PM",
-            title: activity.title || "Activity",
-            location: activity.location || "",
-            duration: activity.duration || "1 hour",
-            description: activity.description || "",
-            type: activity.type || "other",
-            lat:
-                activity.lat ||
-                activity.latitude ||
-                activity.activity_lat ||
-                activity.activity_latitude ||
-                "",
-            lng:
-                activity.lng ||
-                activity.longitude ||
-                activity.activity_lng ||
-                activity.activity_longitude ||
-                "",
-            icon: activity.icon || "fas fa-star",
-            is_custom: false,
-        }));
-    });
+    if (serverDays.length === 0) {
+        for (let i = 1; i <= totalDays; i += 1) {
+            initial[i] = [];
+        }
+    } else {
+        serverDays.forEach((day) => {
+            if (!day || !day.day_number || !Array.isArray(day.activities)) return;
+
+            initial[day.day_number] = day.activities.map((activity) => ({
+                time: activity.time || "12:00 PM",
+                title: activity.title || "Activity",
+                location: activity.location || "",
+                duration: activity.duration || "1 hour",
+                description: activity.description || "",
+                type: activity.type || "other",
+                lat:
+                    activity.lat ||
+                    activity.latitude ||
+                    activity.activity_lat ||
+                    activity.activity_latitude ||
+                    "",
+                lng:
+                    activity.lng ||
+                    activity.longitude ||
+                    activity.activity_lng ||
+                    activity.activity_longitude ||
+                    "",
+                icon: activity.icon || "fas fa-star",
+                is_custom: false,
+            }));
+        });
+    }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
 }
@@ -896,6 +903,7 @@ function renderActivities(dayNumber) {
 
                                 <div class="col-md-4">
                                     <div class="text-end">
+                                        ${activitiesLocked ? '' : `
                                         <div class="btn-group">
                                             <button class="btn btn-sm btn-outline-danger"
                                                 onclick="remove_activity(${dayNumber}, '${activity.title}');
@@ -909,6 +917,7 @@ function renderActivities(dayNumber) {
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                         </div>
+                                        `}
                                     </div>
                                 </div>
 
@@ -920,21 +929,22 @@ function renderActivities(dayNumber) {
         `);
     });
 
-    /* Always show Add Activity button */
-    timeline.insertAdjacentHTML("beforeend", `
-        <div class="timeline-item">
-            <div class="timeline-marker">
-                <i class="fas fa-plus"></i>
+    if (!activitiesLocked) {
+        timeline.insertAdjacentHTML("beforeend", `
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <div class="timeline-content">
+                    <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
+                            data-day="${dayNumber}">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Add Custom Activity
+                    </button>
+                </div>
             </div>
-            <div class="timeline-content">
-                <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
-                        data-day="${dayNumber}">
-                    <i class="fas fa-plus-circle me-2"></i>
-                    Add Custom Activity
-                </button>
-            </div>
-        </div>
-    `);
+        `);
+    }
 
     if (routeDaySelect && String(dayNumber) === String(routeDaySelect.value)) {
         sendRouteForDay(dayNumber);
@@ -1156,9 +1166,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
     let editingIndex = null;
-    {% for day in days_data %}
-        renderActivities({{ day.day_number }});
-    {% endfor %}
+    {% if days_data %}
+        {% for day in days_data %}
+            renderActivities({{ day.day_number }});
+        {% endfor %}
+    {% else %}
+        for (let i = 1; i <= totalDays; i += 1) {
+            renderActivities(i);
+        }
+    {% endif %}
 
     if (routeDaySelect) {
         sendRouteForDay(routeDaySelect.value);
@@ -1168,6 +1184,30 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('printItinerary')?.addEventListener('click', function() {
         window.print();
     });
+
+    // Custom plan booking confirm: select custom plan, then submit booking
+    const customConfirmButtons = document.querySelectorAll('[data-confirm-custom="true"]');
+    const customConfirmForm = document.getElementById('customConfirmForm');
+    if (customConfirmButtons.length && customConfirmForm) {
+        customConfirmButtons.forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                try {
+                    await fetch("{% url 'planner:select_plan' trip_id=trip.id %}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: new URLSearchParams({ plan_id: 'custom' })
+                    });
+                } catch (err) {
+                    console.warn('Select custom plan failed', err);
+                }
+                customConfirmForm.submit();
+            });
+        });
+    }
     
     // Add activity modal
     const addActivityModal = document.getElementById('addActivityModal');
@@ -1177,6 +1217,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const activityDayInput = document.getElementById('activityDay');
         const saveActivityBtn = document.getElementById('saveActivityBtn');
         const addActivityForm = document.getElementById('addActivityForm');
+        const ctaAddActivityBtn = document.getElementById('ctaAddActivity');
+        const openAddActivityModal = (day) => {
+            if (activityDayInput) activityDayInput.value = day;
+
+            editingIndex = null;
+            if (saveActivityBtn) saveActivityBtn.textContent = "Add Activity";
+
+            applyTimeBoundsForAttraction(null);
+
+            addActivityModalInstance.show();
+        };
         
         {% comment %} addActivityBtns.forEach(btn => {
             btn.addEventListener('click', function() {
@@ -1203,22 +1254,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // ADD BUTTON
             const addBtn = e.target.closest('.add-activity-btn');
             if (addBtn) {
+                if (activitiesLocked) return;
                 const day = addBtn.getAttribute('data-day');
-                if (activityDayInput) activityDayInput.value = day;
-
-                editingIndex = null;
-                saveActivityBtn.textContent = "Add Activity";
-
-                // Reset and disable time until user picks an attraction
-                applyTimeBoundsForAttraction(null);
-
-                addActivityModalInstance.show();
+                openAddActivityModal(day || 1);
                 return;
             }
 
             // EDIT BUTTON
             const editBtn = e.target.closest('.edit-activity-btn');
             if (editBtn) {
+                if (activitiesLocked) return;
                 const day = editBtn.getAttribute('data-day');
                 const index = editBtn.getAttribute('data-index');
 
@@ -1256,11 +1301,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             });
         });
+
+        ctaAddActivityBtn?.addEventListener('click', () => {
+            if (activitiesLocked) return;
+            openAddActivityModal(1);
+        });
         
         // Save activity
         if (saveActivityBtn) {
             saveActivityBtn.addEventListener('click', function() {
                 console.log("Add Activity works");
+            if (activitiesLocked) return;
                 if (!addActivityForm) return;
                 
                 const formData = new FormData(addActivityForm);

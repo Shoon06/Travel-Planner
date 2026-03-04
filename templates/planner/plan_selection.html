@@ -119,7 +119,7 @@
                             </div>
                             {% endfor %}
                             <div class="text-center">
-                                <a href="{% url 'planner:itinerary_detail' trip_id=trip.id plan_id=plan.id %}" class="btn btn-sm btn-link see-more-btn">
+                                <a href="{% url 'planner:itinerary_detail' trip_id=trip.id plan_id='custom' %}?from_plan={{ plan.id }}&custom=1" class="btn btn-sm btn-link see-more-btn">
                                     + more activities...
                                 </a>
                             </div>

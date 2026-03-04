@@ -107,6 +107,74 @@ class WeatherService:
             return self.get_mock_weather(city_name, is_fallback=True)
 
     # =========================================================
+    # SIMPLE FORECAST (MOCK OR FUTURE REAL HOOK)
+    # =========================================================
+    def get_weather_forecast(self, city_name, start_date_str, end_date_str, latitude=None, longitude=None):
+        """Get weather forecast for a date range; currently uses mock data but keeps API surface stable."""
+
+        # If coordinates and API key exist, a real forecast endpoint could be added here.
+        # For now, always return mock data to keep UI working without API failures.
+        return self.get_mock_forecast(start_date_str, end_date_str, city_name)
+
+    def get_mock_forecast(self, start_date_str, end_date_str, city_name):
+        """Generate mock multi-day forecast with hourly slices."""
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
+        days = (end_date - start_date).days + 1
+        forecasts = {}
+
+        # Base weather pulled from mock current weather for consistency
+        base_weather = self.get_mock_weather(city_name)
+
+        for i in range(days):
+            current_date = start_date + timedelta(days=i)
+            date_str = current_date.strftime('%Y-%m-%d')
+            day_name = current_date.strftime('%A')
+
+            # Vary temperature slightly each day
+            daily_temp = base_weather['temperature'] + random.randint(-2, 2)
+
+            # Generate hourly forecasts (morning/noon/afternoon/evening)
+            hourly_forecasts = []
+            time_slots = [8, 12, 16, 20]
+
+            for hour in time_slots:
+                hour_temp = daily_temp + random.randint(-1, 1)
+                hourly_forecasts.append({
+                    'time': f"{hour:02d}:00",
+                    'temperature': hour_temp,
+                    'description': base_weather['description'],
+                    'icon': base_weather['icon'],
+                    'feels_like': hour_temp + random.randint(-1, 1),
+                    'humidity': random.randint(50, 80),
+                    'wind_speed': round(random.uniform(1.0, 5.0), 1),
+                })
+
+            hourly_temps = [h['temperature'] for h in hourly_forecasts]
+            min_temp = min(hourly_temps)
+            max_temp = max(hourly_temps)
+
+            # Noon snapshot as the daily summary
+            noon_forecast = hourly_forecasts[1]  # 12:00
+
+            forecasts[date_str] = {
+                'date': date_str,
+                'day_name': day_name,
+                'daily_summary': {
+                    'temperature': noon_forecast['temperature'],
+                    'description': noon_forecast['description'],
+                    'icon': noon_forecast['icon'],
+                },
+                'hourly_forecasts': hourly_forecasts,
+                'min_temp': min_temp,
+                'max_temp': max_temp,
+                'is_mock': True,
+            }
+
+        return forecasts
+
+    # =========================================================
     # MOCK WEATHER (SAFE FALLBACK)
     # =========================================================
     def get_mock_weather(self, city_name, is_fallback=False):
