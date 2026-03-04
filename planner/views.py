@@ -18,7 +18,7 @@ from django.http import JsonResponse
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import TripPlan
+from .models import Attraction, TripPlan
 from django.shortcuts import get_object_or_404
 from django.shortcuts import get_object_or_404, render
 from django.views import View
@@ -3600,56 +3600,62 @@ from .views import PlanSelectionView
 
 class ItineraryDetailView(LoginRequiredMixin, View):
     """Display detailed itinerary with weather and activity management"""
-
     template_name = 'planner/itinerary_detail.html'
-
+    
     def get(self, request, trip_id, plan_id):
-
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-
-        # Convert numeric plan_id to name
-        plan_map = {
-            '1': 'cultural',
-            '2': 'adventure',
-            '3': 'relaxed',
-            1: 'cultural',
-            2: 'adventure',
-            3: 'relaxed',
-        }
-
-        if plan_id in plan_map:
-            plan_id = plan_map.get(plan_id)
-
-        elif isinstance(plan_id, str):
-            plan_id = plan_id.lower().strip()
-
-        # Generate itinerary
+        
+        # Get itinerary based on plan
         days = trip.calculate_nights() + 1
         itinerary_generator = PlanSelectionView()
-
+        
         if plan_id == 'cultural':
             days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
             plan_title = 'Cultural Explorer'
-
         elif plan_id == 'adventure':
             days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
             plan_title = 'Adventure Seeker'
-
         elif plan_id == 'relaxed':
             days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
             plan_title = 'Relaxed Wanderer'
-
         else:
-            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
-            plan_title = 'Cultural Explorer'
-            plan_id = 'cultural'
-
-        # Weather
+            days_data = []
+            plan_title = 'Custom Plan'
+        
+        # Get weather forecast
         weather_forecast = self.get_weather_forecast_for_trip(trip)
-
-        # Cost
+        
+        # Get trip cost estimate
         cost_estimate = self.calculate_cost_estimate(trip, plan_id)
-
+        
+        # Get selected hotel and transport. If none saved yet, fall back to the first hotel in the destination
+        hotel = trip.selected_hotel or Hotel.objects.filter(destination=trip.destination).first()
+        transport = trip.selected_transport
+        transport_details = self.get_transport_details(trip)
+        print("Selected Hotel is ", hotel)
+        # Calculate nights
+        nights = trip.calculate_nights()
+        attractions_qs = Attraction.objects.filter(
+            destination=trip.destination,
+            is_active=True,
+        )
+        attractions = [
+            {
+                "id": attraction.id,
+                "name": attraction.name,
+                "type": attraction.type,
+                "description": attraction.description,
+                "latitude": float(attraction.latitude) if attraction.latitude is not None else None,
+                "longitude": float(attraction.longitude) if attraction.longitude is not None else None,
+                "address": attraction.address,
+                "url": getattr(attraction, "url", None) or getattr(attraction, "external_url", None) or "",
+                "opens_at": attraction.opens_at.isoformat() if getattr(attraction, "opens_at", None) else None,
+                "closes_at": attraction.closes_at.isoformat() if getattr(attraction, "closes_at", None) else None,
+                "is_active": attraction.is_active,
+            }
+            for attraction in attractions_qs
+        ]
+        attractions_json = json.dumps(attractions)
         context = {
             'trip': trip,
             'plan_id': plan_id,
@@ -3657,126 +3663,245 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'days_data': days_data,
             'weather_forecast': weather_forecast,
             'cost_estimate': cost_estimate,
-            'hotel': trip.selected_hotel,
-            'transport': trip.selected_transport,
+            'hotel': hotel,
+            'transport': transport,
+            'transport_details': transport_details,
+            'attractions': attractions,
+            'attractions_json': attractions_json,
             'total_days': days,
-            'total_activities': sum(len(day['activities']) for day in days_data) if days_data else 0,
+            'total_activities': sum(len(day['activities']) for day in days_data),
             'destination_name': trip.destination.name,
             'start_date': trip.start_date.strftime('%Y-%m-%d'),
             'end_date': trip.end_date.strftime('%Y-%m-%d'),
             'travelers': trip.travelers,
-            'nights': trip.calculate_nights(),
+            'nights': nights,
         }
-
+        
         return render(request, self.template_name, context)
 
-    # --------------------------------------------------
-    # WEATHER
-    # --------------------------------------------------
+    def get_transport_details(self, trip):
+        """Normalize selected transport for template display"""
+        data = trip.selected_transport or {}
+        if not data:
+            return None
 
-    def get_weather_forecast_for_trip(self, trip):
-
-        try:
-            from .weather_service import weather_service
-
-            destination_name = trip.destination.name
-
-            start_date = trip.start_date
-            max_end_date = start_date + timedelta(days=4)
-            actual_end_date = min(trip.end_date, max_end_date)
-
-            forecast = weather_service.get_weather_forecast(
-                destination_name,
-                start_date.strftime('%Y-%m-%d'),
-                actual_end_date.strftime('%Y-%m-%d')
-            )
-
-            if forecast:
-                return dict(list(forecast.items())[:5])
-
-            return self.generate_mock_weather_forecast(start_date, actual_end_date)
-
-        except Exception:
-            return self.generate_mock_weather_forecast(
-                trip.start_date,
-                trip.start_date + timedelta(days=4)
-            )
-
-    def generate_mock_weather_forecast(self, start_date, end_date):
-
-        import random
-
-        forecasts = {}
-        current = start_date
-
-        for _ in range(5):
-
-            date_str = current.strftime('%Y-%m-%d')
-
-            temp = random.randint(25, 35)
-
-            forecasts[date_str] = {
-                'date': date_str,
-                'day_name': current.strftime('%A'),
-                'daily_summary': {
-                    'temperature': temp,
-                    'description': 'Sunny',
-                    'icon': '01d'
-                },
-                'min_temp': temp - 3,
-                'max_temp': temp + 2,
-                'is_mock': True,
-            }
-
-            current += timedelta(days=1)
-
-        return forecasts
-
-    # --------------------------------------------------
-    # COST (FIXED)
-    # --------------------------------------------------
-
-    def calculate_cost_estimate(self, trip, plan_id):
-        """
-        Calculate cost estimate
-        Includes: Hotel + Transport + Activities
-        NO additional travelers
-        """
-
-        breakdown = trip.get_cost_breakdown()
-
-        plan_multipliers = {
-            'cultural': 1.0,
-            'adventure': 1.15,
-            'relaxed': 0.9,
-       }
-
-        multiplier = plan_multipliers.get(plan_id, 1.0)
-
-    # Apply multiplier ONLY to destination
-        destination_cost = int(
-            breakdown.get('destination', 0) * multiplier
-        )
-
-        hotel_cost = int(breakdown.get('hotel', 0))
-        transport_cost = int(breakdown.get('transport', 0))
-
-    # ✅ FINAL TOTAL (WITH TRANSPORT)
-        total = (
-            hotel_cost +
-            transport_cost +
-            destination_cost
-        )
-
-        return {
-            'total': total,
-            'breakdown': {
-                'hotel': hotel_cost,
-                'transport': transport_cost,
-                'destination': destination_cost,
-            }
+        details = {
+            'type': data.get('type'),
+            'id': data.get('id'),
+            'name': data.get('name'),
+            'price': data.get('price'),
+            'price_display': None,
+            'travel_date': data.get('travel_date') or (trip.start_date.strftime('%Y-%m-%d') if trip.start_date else None),
+            'booking_details': data.get('booking_details', {}),
         }
 
+        # Prefer booking_details total price if available
+        bd = details['booking_details']
+        price_val = bd.get('total_price') or bd.get('price') or details['price']
+        if price_val is not None:
+            try:
+                details['price_display'] = f"{float(price_val):,.0f} MMK"
+            except Exception:
+                details['price_display'] = str(price_val)
+
+        # Backfill name from DB if missing
+        t_type = details['type']
+        t_id = details['id']
+        if not details['name'] and t_id:
+            if t_type == 'flight':
+                flight = Flight.objects.filter(id=t_id).select_related('airline').first()
+                if flight:
+                    details['name'] = f"{flight.airline} Flight {flight.flight_number}"
+            elif t_type == 'bus':
+                bus = BusService.objects.filter(id=t_id).first()
+                if bus:
+                    details['name'] = f"{bus.company} Bus"
+            elif t_type == 'car':
+                car = CarRental.objects.filter(id=t_id).first()
+                if car:
+                    details['name'] = f"{car.company} - {car.car_model}"
+
+        return details
+  
+    def get_weather_forecast_for_trip(self, trip):
+        """Get weather forecast for the trip destination and dates"""
+        try:
+            from .weather_service import weather_service
+            
+            # Use the destination name
+            destination_name = trip.destination.name
+            
+            print(f"Fetching weather for {destination_name} from {trip.start_date} to {trip.end_date}")
+            
+            # Get forecast using the weather service
+            forecast = weather_service.get_weather_forecast(
+                destination_name,
+                trip.start_date.strftime('%Y-%m-%d'),
+                trip.end_date.strftime('%Y-%m-%d')
+            )
+            
+            if forecast:
+                print(f"Successfully got weather forecast with {len(forecast)} days")
+                # Check if we got real data or mock data
+                first_date = list(forecast.keys())[0] if forecast else None
+                if first_date and forecast[first_date].get('is_mock', True):
+                    print("Using mock weather data (API may be unavailable)")
+                else:
+                    print("Using real weather data from API")
+                
+                return forecast
+            else:
+                print("No forecast data received, using mock data")
+                return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+                
+        except Exception as e:
+            print(f"Error getting weather forecast: {e}")
+            import traceback
+            traceback.print_exc()
+            return self.generate_mock_weather_forecast(trip.start_date, trip.end_date)
+    def generate_mock_weather_forecast(self, start_date, end_date):
+        """Generate realistic mock weather data for Myanmar"""
+        from datetime import timedelta
+        import random
+        
+        forecasts = {}
+        current_date = start_date
+        days = (end_date - start_date).days + 1
+        
+        # Typical Myanmar weather conditions
+        myanmar_weather = [
+            {'description': 'Sunny', 'icon': '01d', 'temp_range': (28, 35), 'probability': 0.4},
+            {'description': 'Partly Cloudy', 'icon': '02d', 'temp_range': (26, 32), 'probability': 0.3},
+            {'description': 'Cloudy', 'icon': '03d', 'temp_range': (24, 30), 'probability': 0.2},
+            {'description': 'Light Rain', 'icon': '10d', 'temp_range': (23, 28), 'probability': 0.1},
+        ]
+        
+        # Weighted random selection based on probability
+        for i in range(days):
+            date_str = current_date.strftime('%Y-%m-%d')
+            day_name = current_date.strftime('%A')
+            
+            # Select weather condition based on probability
+            rand_val = random.random()
+            cumulative = 0
+            condition = None
+            
+            for weather in myanmar_weather:
+                cumulative += weather['probability']
+                if rand_val <= cumulative:
+                    condition = weather
+                    break
+            
+            if not condition:
+                condition = myanmar_weather[0]  # Default to sunny
+            
+            # Generate temperature
+            temp = random.randint(condition['temp_range'][0], condition['temp_range'][1])
+            
+            # Generate hourly forecasts (4 key times of day)
+            hourly_forecasts = []
+            time_slots = [
+                {'hour': 8, 'name': 'Morning', 'temp_adjust': -2},
+                {'hour': 12, 'name': 'Noon', 'temp_adjust': 0},
+                {'hour': 16, 'name': 'Afternoon', 'temp_adjust': 1},
+                {'hour': 20, 'name': 'Evening', 'temp_adjust': -1},
+            ]
+            
+            for slot in time_slots:
+                hour_temp = temp + slot['temp_adjust'] + random.randint(-1, 1)
+                hourly_forecasts.append({
+                    'time': f"{slot['hour']:02d}:00",
+                    'temperature': hour_temp,
+                    'description': condition['description'],
+                    'icon': condition['icon'],
+                    'feels_like': hour_temp + random.randint(-1, 1),
+                    'humidity': random.randint(50, 80),
+                    'wind_speed': round(random.uniform(1.0, 5.0), 1),
+                })
+            
+            # Determine min and max temps
+            hourly_temps = [h['temperature'] for h in hourly_forecasts]
+            min_temp = min(hourly_temps)
+            max_temp = max(hourly_temps)
+            
+            # Noon forecast is usually used as daily summary
+            noon_forecast = hourly_forecasts[1]  # 12:00
+            
+            forecasts[date_str] = {
+                'date': date_str,
+                'day_name': day_name,
+                'daily_summary': {
+                    'temperature': noon_forecast['temperature'],
+                    'description': noon_forecast['description'],
+                    'icon': noon_forecast['icon'],
+                },
+                'hourly_forecasts': hourly_forecasts,
+                'min_temp': min_temp,
+                'max_temp': max_temp,
+                'is_mock': True,
+            }
+            
+            current_date += timedelta(days=1)
+        
+        return forecasts
+    
+    def calculate_cost_estimate(self, trip, plan_id):
+        """Calculate cost estimate based on plan"""
+        nights = trip.calculate_nights()
+        
+        # Base costs by plan
+        plan_costs = {
+            'cultural': 1250,
+            'adventure': 1450,
+            'relaxed': 1100
+        }
+        
+        base_cost = plan_costs.get(plan_id, 1000)
+        
+        # Adjust for number of travelers
+        traveler_multiplier = 1 + ((trip.travelers - 1) * 0.7)  # 70% for additional travelers
+        
+        # Adjust for duration
+        duration_multiplier = (nights + 1) / 3  # Based on 3-day base plan
+        
+        # Add hotel cost
+        hotel_cost = 0
+        if trip.selected_hotel:
+            hotel_cost = float(trip.selected_hotel.price_per_night) * nights / 1300  # Convert MMK to USD approx
+        
+        # Add transport cost
+        transport_cost = 0
+        if trip.selected_transport and 'price' in trip.selected_transport:
+            # Try to extract price, handle different formats
+            price_str = str(trip.selected_transport['price'])
+            # Remove any non-numeric characters except dots
+            import re
+            price_clean = re.sub(r'[^\d.]', '', price_str)
+            try:
+                price_value = float(price_clean) if price_clean else 0
+                transport_cost = price_value / 1300  # Convert MMK to USD approx
+            except:
+                transport_cost = 0
+        
+        total_cost = (base_cost * duration_multiplier * traveler_multiplier) + hotel_cost + transport_cost
+        
+        return {
+            'total': round(total_cost),
+            'breakdown': {
+                'plan_base': round(base_cost * duration_multiplier),
+                'hotel': round(hotel_cost),
+                'transport': round(transport_cost),
+                'additional_travelers': round(base_cost * duration_multiplier * (traveler_multiplier - 1))
+            }
+        }
+    def get_popular_attractions(self, city_name):
+        """Deprecated: retained for backward compatibility; now use Attraction model"""
+        return list(
+            Attraction.objects.filter(
+                destination__name__icontains=city_name,
+                is_active=True
+            )
+        )
 
 
 class AddActivityView(LoginRequiredMixin, View):

@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from planner.models import Destination, Hotel, Flight, BusService, CarRental, Airline, TransportSchedule
+from planner.models import Attraction, Destination, Hotel, Flight, BusService, CarRental, Airline, TransportSchedule
 from decimal import Decimal
 from datetime import time, timedelta, datetime
 import random
@@ -13,6 +13,9 @@ class Command(BaseCommand):
         
         # Create destinations
         self.populate_destinations()
+        
+        # Populate attractions so map has data
+        self.populate_attractions()
         
         # Populate hotels
         self.populate_hotels()
@@ -153,6 +156,61 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f'Destinations populated: {Destination.objects.count()} destinations'))
     
+    def populate_attractions(self):
+        """Seed key attractions for major destinations"""
+        self.stdout.write('Populating attractions...')
+
+        default_open = time(9, 0)
+        default_close = time(18, 0)
+
+        seed = {
+            'yangon': [
+                {"name": "Shwedagon Pagoda", "type": "Religious Site", "description": "Gilded pagoda with beautiful sunset views", "latitude": 16.7983, "longitude": 96.1496, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Bogyoke Market", "type": "Market", "description": "Colonial-era market with local crafts", "latitude": 16.7829, "longitude": 96.1583, "opens_at": default_open, "closes_at": time(17, 0)},
+                {"name": "Kandawgyi Park", "type": "Park", "description": "Beautiful park with royal barge", "latitude": 16.7987, "longitude": 96.1703, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Sule Pagoda", "type": "Religious Site", "description": "Ancient pagoda in city center", "latitude": 16.7747, "longitude": 96.1580, "opens_at": default_open, "closes_at": default_close},
+                {"name": "National Museum", "type": "Museum", "description": "Largest museum in Myanmar", "latitude": 16.7794, "longitude": 96.1433, "opens_at": default_open, "closes_at": time(17, 0)},
+            ],
+            'mandalay': [
+                {"name": "Mandalay Palace", "type": "Historical Site", "description": "Last royal palace of Myanmar", "latitude": 21.9886, "longitude": 96.0931, "opens_at": default_open, "closes_at": time(17, 0)},
+                {"name": "Mandalay Hill", "type": "Natural Site", "description": "Hill with panoramic city views", "latitude": 22.0093, "longitude": 96.1010, "opens_at": default_open, "closes_at": default_close},
+                {"name": "U Bein Bridge", "type": "Bridge", "description": "World's longest teak bridge", "latitude": 21.8946, "longitude": 96.0515, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Kuthodaw Pagoda", "type": "Religious Site", "description": "Home to the world's largest book", "latitude": 22.0049, "longitude": 96.1120, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Mingun Pahtodawgyi", "type": "Historical Site", "description": "Massive unfinished stupa", "latitude": 22.0450, "longitude": 96.0197, "opens_at": default_open, "closes_at": time(17, 0)},
+            ],
+            'bagan': [
+                {"name": "Ananda Temple", "type": "Temple", "description": "One of Bagan's most beautiful temples", "latitude": 21.1702, "longitude": 94.8679, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Shwezigon Pagoda", "type": "Pagoda", "description": "Gilded pagoda built in 11th century", "latitude": 21.1953, "longitude": 94.8937, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Dhammayangyi Temple", "type": "Temple", "description": "Largest temple in Bagan", "latitude": 21.1606, "longitude": 94.8591, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Sunset at Buledi", "type": "Viewpoint", "description": "Popular sunset viewing spot", "latitude": 21.1717, "longitude": 94.8606, "opens_at": default_open, "closes_at": default_close},
+                {"name": "Hot Air Balloon Ride", "type": "Activity", "description": "Spectacular sunrise over temples", "latitude": 21.1720, "longitude": 94.8600, "opens_at": default_open, "closes_at": default_close},
+            ],
+        }
+
+        created = 0
+        for key, items in seed.items():
+            destination = Destination.objects.filter(name__icontains=key).first()
+            if not destination:
+                self.stdout.write(self.style.WARNING(f"Destination not found for attractions key: {key}"))
+                continue
+            for item in items:
+                attr, was_created = Attraction.objects.update_or_create(
+                    destination=destination,
+                    name=item["name"],
+                    defaults={
+                        "type": item.get("type", ""),
+                        "description": item.get("description", ""),
+                        "latitude": item.get("latitude"),
+                        "longitude": item.get("longitude"),
+                        "opens_at": item.get("opens_at", default_open),
+                        "closes_at": item.get("closes_at", default_close),
+                        "is_active": True,
+                    },
+                )
+                created += int(was_created)
+
+        self.stdout.write(self.style.SUCCESS(f"Attractions populated: created {created} new records"))
+
     def populate_hotels(self):
         """Populate hotel data"""
         self.stdout.write('Populating hotels...')
@@ -366,10 +424,15 @@ class Command(BaseCommand):
         
         destinations_map = {}
         for dest_name in airport_destinations:
-            try:
-                dest = Destination.objects.get(name__icontains=dest_name)
+            # Prefer exact name match; fall back to icontains; pick first non-region if ties
+            dest_qs = Destination.objects.filter(name__iexact=dest_name).order_by('is_region', 'name')
+            if not dest_qs.exists():
+                dest_qs = Destination.objects.filter(name__icontains=dest_name).order_by('is_region', 'name')
+            dest = dest_qs.first()
+
+            if dest:
                 destinations_map[dest_name] = dest
-            except Destination.DoesNotExist:
+            else:
                 self.stdout.write(self.style.WARNING(f"Destination '{dest_name}' not found, skipping..."))
                 continue
         
@@ -468,10 +531,17 @@ class Command(BaseCommand):
         for route in major_bus_routes:
             from_city_name, to_city_name = route
             
-            try:
-                departure = Destination.objects.get(name__icontains=from_city_name)
-                arrival = Destination.objects.get(name__icontains=to_city_name)
-            except Destination.DoesNotExist:
+            # Resolve departure/arrival deterministically to avoid MultipleObjectsReturned
+            dep_qs = Destination.objects.filter(name__iexact=from_city_name).order_by('is_region', 'name')
+            if not dep_qs.exists():
+                dep_qs = Destination.objects.filter(name__icontains=from_city_name).order_by('is_region', 'name')
+            arr_qs = Destination.objects.filter(name__iexact=to_city_name).order_by('is_region', 'name')
+            if not arr_qs.exists():
+                arr_qs = Destination.objects.filter(name__icontains=to_city_name).order_by('is_region', 'name')
+
+            departure = dep_qs.first()
+            arrival = arr_qs.first()
+            if not departure or not arrival:
                 continue
             
             # Create 1-2 bus services per route
@@ -550,9 +620,11 @@ class Command(BaseCommand):
         
         car_count = 0
         for city_name in car_cities:
-            try:
-                location = Destination.objects.get(name__icontains=city_name)
-            except Destination.DoesNotExist:
+            loc_qs = Destination.objects.filter(name__iexact=city_name).order_by('is_region', 'name')
+            if not loc_qs.exists():
+                loc_qs = Destination.objects.filter(name__icontains=city_name).order_by('is_region', 'name')
+            location = loc_qs.first()
+            if not location:
                 continue
             
             # Create 2-4 car rentals per city

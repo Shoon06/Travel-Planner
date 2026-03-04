@@ -25,6 +25,7 @@ class Airline(models.Model):
         ordering = ['name']
 
 
+
 # ========== DESTINATION MODEL ==========
 # ========== DESTINATION MODEL ==========
 # ========== DESTINATION MODEL ==========
@@ -47,7 +48,7 @@ class Destination(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     history = models.TextField(blank=True, null=True)
-    attractions = models.TextField(blank=True, null=True)  # JSON or comma-separated
+    #attractions = models.TextField(blank=True, null=True)  # JSON or comma-separated
     activities = models.TextField(blank=True, null=True)
     cultural_info = models.TextField(blank=True, null=True)
     best_time_to_visit = models.CharField(max_length=200, blank=True, null=True)
@@ -150,6 +151,36 @@ class Destination(models.Model):
     
     class Meta:
         ordering = ['name']
+
+class Attraction(models.Model):
+    destination = models.ForeignKey(
+        Destination,
+        related_name='attractions',
+        on_delete=models.CASCADE
+    )
+    name = models.CharField(max_length=255)
+    type = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    external_url = models.URLField(blank=True)
+    opens_at = models.TimeField(null=True, blank=True)
+    closes_at = models.TimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = ('destination', 'name')
+        indexes = [
+            models.Index(fields=['destination']),
+            models.Index(fields=['name']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.destination.name})"
 # ========== FLIGHT MODEL ==========
 class Flight(models.Model):
     airline = models.ForeignKey(Airline, on_delete=models.CASCADE, related_name='flights')
