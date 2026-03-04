@@ -1,0 +1,647 @@
+{% extends 'base.html' %}
+{% block title %}Community Posts - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-md-8">
+            <h1 class="display-5 fw-bold mb-3">
+                Community Posts
+                {% if is_admin %}
+                <span class="badge bg-danger ms-2">Admin View</span>
+                {% endif %}
+            </h1>
+            <p class="lead text-gray">Share your Myanmar travel experiences</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'posts:post_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Create Post
+            </a>
+            <!-- REMOVED Content Management Button -->
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card-glass p-4 mb-5">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Filter by Destination</label>
+                <select class="form-select" id="destinationFilter">
+                    <option value="">All Destinations</option>
+                    {% for destination in destinations %}
+                    <option value="{{ destination.id }}">{{ destination.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Sort By</label>
+                <select class="form-select" id="sortFilter">
+                    <option value="newest">Newest First</option>
+                    <option value="popular">Most Popular</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Posts per page</label>
+                <select class="form-select" id="pageSize">
+                    <option value="10">10 posts</option>
+                    <option value="20">20 posts</option>
+                    <option value="50">50 posts</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Posts List -->
+    {% for post in posts %}
+    <div class="card-glass p-4 mb-4 post-card" data-destination="{{ post.destination.id|default:'' }}" data-post-id="{{ post.id }}">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-light p-2 me-3">
+                    <i class="fas fa-user fa-lg"></i>
+                </div>
+                <div>
+                    <h5 class="mb-1">{{ post.user.username }}</h5>
+                    <p class="text-gray small mb-0">
+                        <i class="fas fa-clock me-1"></i>{{ post.created_at|timesince }} ago
+                        {% if post.destination %}
+                        <span class="ms-2">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ post.destination.name }}
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu">
+                    {% if post.user == request.user %}
+                    <!-- User's own post options -->
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                    <li>
+                        <form method="post" action="{% url 'posts:admin_delete_post' post.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger" 
+                                    onclick="return confirm('Are you sure you want to delete your post?')">
+                                <i class="fas fa-trash me-2"></i>Delete
+                            </button>
+                        </form>
+                    </li>
+                    {% endif %}
+                    
+                    {% if is_admin %}
+                    <!-- Admin controls for ALL posts -->
+                    <li><hr class="dropdown-divider"></li>
+                    <li><span class="dropdown-header text-danger">
+                        <i class="fas fa-user-shield me-2"></i>Admin Actions
+                    </span></li>
+                    <li>
+                        <form method="post" action="{% url 'posts:admin_delete_post' post.id %}" class="d-inline" id="delete-form-{{ post.id }}">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger admin-delete-btn" 
+                                    onclick="return confirm('Are you sure you want to delete this post as admin?')">
+                                <i class="fas fa-ban me-2"></i>Delete Post
+                            </button>
+                        </form>
+                    </li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report Details</a></li>
+                    {% else %}
+                    <!-- Regular user options for other people's posts -->
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-flag me-2"></i>Report</a></li>
+                    {% endif %}
+                    
+                    <li><a class="dropdown-item share-post" href="#" data-post-id="{{ post.id }}">
+                        <i class="fas fa-share-alt me-2"></i>Share
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Post content -->
+        <h4 class="mb-3">{{ post.title }}</h4>
+        
+        {% if post.image %}
+        <div class="mb-3">
+            <img src="{{ post.image.url }}" alt="{{ post.title }}" class="img-fluid rounded">
+        </div>
+        {% endif %}
+        
+        <p class="mb-4">{{ post.content|linebreaks }}</p>
+        
+        <!-- Admin Badge if user is admin -->
+        {% if is_admin and post.user.user_type == 'admin' %}
+        <div class="mb-3">
+            <span class="badge bg-warning">
+                <i class="fas fa-crown me-1"></i>Admin Post
+            </span>
+        </div>
+        {% endif %}
+        
+        <!-- Reactions and comments -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light like-btn {% if request.user in post.likes.all %}active{% endif %}" 
+                        data-post-id="{{ post.id }}">
+                    <i class="fas fa-thumbs-up me-1"></i>
+                    <span class="like-count">{{ post.likes.count }}</span>
+                </button>
+                <button class="btn btn-sm btn-outline-light love-btn {% if request.user in post.loves.all %}active{% endif %}" 
+                        data-post-id="{{ post.id }}">
+                    <i class="fas fa-heart me-1"></i>
+                    <span class="love-count">{{ post.loves.count }}</span>
+                </button>
+                <button class="btn btn-sm btn-outline-light dislike-btn {% if request.user in post.dislikes.all %}active{% endif %}" 
+                        data-post-id="{{ post.id }}">
+                    <i class="fas fa-thumbs-down me-1"></i>
+                    <span class="dislike-count">{{ post.dislikes.count }}</span>
+                </button>
+            </div>
+            <a href="{% url 'posts:post_detail' post.id %}" class="btn btn-sm btn-outline-light">
+                <i class="fas fa-comment me-1"></i>
+                <span class="comment-count" data-post-id="{{ post.id }}">{{ post.comments.count }}</span> Comments
+            </a>
+        </div>
+        
+        <!-- Comment Form -->
+        <div class="comment-form mt-3">
+            <form method="post" action="{% url 'posts:add_comment' post.id %}" class="comment-form" id="comment-form-{{ post.id }}">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text" class="form-control comment-input" placeholder="Add a comment..." name="content" required data-post-id="{{ post.id }}">
+                    <button type="submit" class="btn btn-primary submit-comment" data-post-id="{{ post.id }}">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Comments Section (NEW) -->
+        <div class="comments-section mt-3" id="comments-{{ post.id }}" style="display: none;">
+            <div class="comments-container">
+                <!-- Comments will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- View Comments Link (NEW) -->
+        {% if post.comments.count > 0 %}
+        <div class="mt-2">
+            <a href="#" class="text-primary view-comments-btn" data-post-id="{{ post.id }}">
+                <i class="fas fa-comments me-1"></i>View {{ post.comments.count }} comment{{ post.comments.count|pluralize }}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-center py-5">
+        <i class="fas fa-newspaper fa-3x text-gray mb-3"></i>
+        <h4 class="mb-3">No posts yet</h4>
+        <p class="text-gray mb-4">Be the first to share your travel experience!</p>
+        <a href="{% url 'posts:post_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Create First Post
+        </a>
+    </div>
+    {% endfor %}
+    
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<style>
+    .admin-delete-btn:hover {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+    }
+    
+    .post-card {
+        transition: transform 0.3s ease;
+        position: relative;
+    }
+    
+    .post-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .dropdown-item.text-danger {
+        color: #dc3545 !important;
+    }
+    
+    .dropdown-item.text-danger:hover {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+    }
+    
+    button.dropdown-item {
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        padding: 0.5rem 1rem;
+    }
+    
+    button.dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .comment-item {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .comment-item:last-child {
+        border-bottom: none;
+    }
+    
+    .comment-user {
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .comment-time {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    
+    .comments-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .view-comments-btn {
+        font-size: 0.9rem;
+        text-decoration: none;
+    }
+    
+    .view-comments-btn:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Community page loaded');
+        
+        // Handle comment form submission with AJAX
+        document.querySelectorAll('.comment-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const postId = this.querySelector('.comment-input').getAttribute('data-post-id');
+                const content = this.querySelector('.comment-input').value.trim();
+                
+                if (!content) {
+                    alert('Please enter a comment');
+                    return;
+                }
+                
+                const submitBtn = this.querySelector('.submit-comment');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                // Get CSRF token
+                const csrfToken = this.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                fetch(`/posts/${postId}/comment/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'content': content,
+                        'csrfmiddlewaretoken': csrfToken
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear the input
+                        this.querySelector('.comment-input').value = '';
+                        
+                        // Update comment count
+                        const commentCountElement = document.querySelector(`.comment-count[data-post-id="${postId}"]`);
+                        if (commentCountElement) {
+                            const currentCount = parseInt(commentCountElement.textContent) || 0;
+                            commentCountElement.textContent = currentCount + 1;
+                        }
+                        
+                        // Update "View comments" link
+                        const viewCommentsLink = document.querySelector(`.view-comments-btn[data-post-id="${postId}"]`);
+                        if (viewCommentsLink) {
+                            const currentText = viewCommentsLink.textContent;
+                            const newCount = parseInt(commentCountElement.textContent);
+                            viewCommentsLink.innerHTML = `<i class="fas fa-comments me-1"></i>View ${newCount} comment${newCount === 1 ? '' : 's'}`;
+                        }
+                        
+                        // If comments section is visible, add the new comment
+                        const commentsSection = document.querySelector(`#comments-${postId}`);
+                        if (commentsSection.style.display !== 'none') {
+                            addCommentToDOM(postId, data.comment);
+                        }
+                        
+                        // Show success message
+                        showNotification('Comment added successfully!', 'success');
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding comment:', error);
+                    alert('An error occurred while adding the comment');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                });
+            });
+        });
+        
+        // Handle view comments button
+        document.querySelectorAll('.view-comments-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const postId = this.getAttribute('data-post-id');
+                const commentsSection = document.querySelector(`#comments-${postId}`);
+                
+                if (commentsSection.style.display === 'none') {
+                    // Load comments
+                    loadComments(postId);
+                    commentsSection.style.display = 'block';
+                    this.innerHTML = `<i class="fas fa-chevron-up me-1"></i>Hide comments`;
+                } else {
+                    // Hide comments
+                    commentsSection.style.display = 'none';
+                    this.innerHTML = `<i class="fas fa-comments me-1"></i>View ${this.textContent.match(/\d+/)[0]} comment${this.textContent.match(/\d+/)[0] === '1' ? '' : 's'}`;
+                }
+            });
+        });
+        
+        // Function to load comments for a post
+        function loadComments(postId) {
+            const commentsContainer = document.querySelector(`#comments-${postId} .comments-container`);
+            
+            // Show loading
+            commentsContainer.innerHTML = '<div class="text-center py-2"><i class="fas fa-spinner fa-spin"></i> Loading comments...</div>';
+            
+            fetch(`/posts/${postId}/`)
+                .then(response => response.text())
+                .then(html => {
+                    // Parse the HTML to extract comments
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Find comments in the detail page (you might need to adjust this selector)
+                    const comments = doc.querySelectorAll('.comment-item, .comment, [class*="comment"]');
+                    
+                    if (comments.length > 0) {
+                        commentsContainer.innerHTML = '';
+                        comments.forEach(comment => {
+                            commentsContainer.appendChild(comment.cloneNode(true));
+                        });
+                    } else {
+                        commentsContainer.innerHTML = '<div class="text-center py-2 text-muted">No comments yet. Be the first!</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading comments:', error);
+                    commentsContainer.innerHTML = '<div class="text-center py-2 text-danger">Error loading comments</div>';
+                });
+        }
+        
+        // Function to add a new comment to DOM
+        function addCommentToDOM(postId, commentData) {
+            const commentsContainer = document.querySelector(`#comments-${postId} .comments-container`);
+            
+            // Create comment element
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment-item mb-2';
+            commentElement.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <div class="me-2">
+                        <i class="fas fa-user-circle fa-lg text-secondary"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <span class="comment-user">${commentData.user}</span>
+                            <small class="comment-time">${commentData.created_at}</small>
+                        </div>
+                        <p class="mb-0">${commentData.content}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add to top of comments
+            if (commentsContainer.firstChild) {
+                commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
+            } else {
+                commentsContainer.appendChild(commentElement);
+            }
+        }
+        
+        // Helper function to show notifications
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = `
+                top: 20px;
+                right: 20px;
+                z-index: 1050;
+                max-width: 300px;
+            `;
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+        
+        // Filter functionality
+        const destinationFilter = document.getElementById('destinationFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        const pageSize = document.getElementById('pageSize');
+        
+        if (destinationFilter) {
+            destinationFilter.addEventListener('change', function() {
+                applyFilters();
+            });
+        }
+        
+        if (sortFilter) {
+            sortFilter.addEventListener('change', function() {
+                applyFilters();
+            });
+        }
+        
+        if (pageSize) {
+            pageSize.addEventListener('change', function() {
+                applyFilters();
+            });
+        }
+        
+        function applyFilters() {
+            const params = new URLSearchParams();
+            
+            if (destinationFilter.value) {
+                params.set('destination', destinationFilter.value);
+            }
+            
+            if (sortFilter.value && sortFilter.value !== 'newest') {
+                params.set('sort', sortFilter.value);
+            }
+            
+            if (pageSize.value && pageSize.value !== '10') {
+                params.set('per_page', pageSize.value);
+            }
+            
+            window.location.href = window.location.pathname + '?' + params.toString();
+        }
+        
+        // Like button functionality
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                likePost(postId, 'like');
+            });
+        });
+        
+        // Love button functionality
+        document.querySelectorAll('.love-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                likePost(postId, 'love');
+            });
+        });
+        
+        // Dislike button functionality
+        document.querySelectorAll('.dislike-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                likePost(postId, 'dislike');
+            });
+        });
+        
+        function likePost(postId, action) {
+            fetch(`/posts/${postId}/${action}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Update button states and counts
+                const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+                if (postCard) {
+                    const likeBtn = postCard.querySelector('.like-btn');
+                    const loveBtn = postCard.querySelector('.love-btn');
+                    const dislikeBtn = postCard.querySelector('.dislike-btn');
+                    
+                    // Update counts
+                    if (postCard.querySelector('.like-count')) {
+                        postCard.querySelector('.like-count').textContent = data.likes_count;
+                    }
+                    if (postCard.querySelector('.love-count')) {
+                        postCard.querySelector('.love-count').textContent = data.loves_count;
+                    }
+                    if (postCard.querySelector('.dislike-count')) {
+                        postCard.querySelector('.dislike-count').textContent = data.dislikes_count;
+                    }
+                    
+                    // Update active states
+                    if (action === 'like') {
+                        likeBtn.classList.toggle('active', data.liked);
+                        loveBtn.classList.remove('active');
+                        dislikeBtn.classList.remove('active');
+                    } else if (action === 'love') {
+                        loveBtn.classList.toggle('active', data.loved);
+                        likeBtn.classList.remove('active');
+                        dislikeBtn.classList.remove('active');
+                    } else if (action === 'dislike') {
+                        dislikeBtn.classList.toggle('active', data.disliked);
+                        likeBtn.classList.remove('active');
+                        loveBtn.classList.remove('active');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error liking post:', error);
+            });
+        }
+        
+        // Share functionality
+        document.querySelectorAll('.share-post').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const postId = this.getAttribute('data-post-id');
+                const url = window.location.origin + '/posts/' + postId + '/';
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Check out this post on GoMyanmar',
+                        url: url
+                    });
+                } else {
+                    // Fallback: Copy to clipboard
+                    navigator.clipboard.writeText(url).then(() => {
+                        alert('Link copied to clipboard!');
+                    });
+                }
+            });
+        });
+        
+        // Helper function to get CSRF token
+        function getCSRFToken() {
+            const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfTokenElement) {
+                return csrfTokenElement.value;
+            }
+            return '';
+        }
+    });
+</script>
+{% endblock %}

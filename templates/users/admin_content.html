@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block title %}Content Management - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Content Management</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Manage all website content</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Statistics -->
+    <div class="row mb-5">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <i class="fas fa-map-marked-alt fa-2x mb-3" style="color: #6B47A4;"></i>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_destinations }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Destinations</p>
+                <a href="/admin/planner/destination/" class="btn btn-sm btn-outline-primary mt-2">Manage</a>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <i class="fas fa-hotel fa-2x mb-3" style="color: #3498db;"></i>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_hotels }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Hotels</p>
+                <a href="/admin/planner/hotel/" class="btn btn-sm btn-outline-primary mt-2">Manage</a>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <i class="fas fa-plane fa-2x mb-3" style="color: #e74c3c;"></i>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_flights }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Flights</p>
+                <a href="/admin/planner/flight/" class="btn btn-sm btn-outline-primary mt-2">Manage</a>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <i class="fas fa-newspaper fa-2x mb-3" style="color: #2ecc71;"></i>
+                <h3 class="mb-2" style="color: #2c3e50;">{{ total_posts }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Community Posts</p>
+                <a href="/admin/posts/post/" class="btn btn-sm btn-outline-primary mt-2">Manage</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Content -->
+    <div class="row">
+        <!-- Recent Destinations -->
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Recent Destinations</h4>
+                <div class="list-group">
+                    {% for dest in recent_destinations %}
+                    <a href="/admin/planner/destination/{{ dest.id }}/change/" 
+                       class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ dest.name }}</h6>
+                            <small style="color: #7f8c8d;">{{ dest.created_at|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1" style="color: #7f8c8d;">{{ dest.region }}</p>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item" style="background: rgba(255, 255, 255, 0.9);">
+                        <p class="mb-0" style="color: #7f8c8d;">No destinations found</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="/admin/planner/destination/" class="btn btn-outline-primary w-100 mt-3">
+                    View All Destinations
+                </a>
+            </div>
+        </div>
+        
+        <!-- Recent Hotels -->
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Recent Hotels</h4>
+                <div class="list-group">
+                    {% for hotel in recent_hotels %}
+                    <a href="/admin/planner/hotel/{{ hotel.id }}/change/" 
+                       class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ hotel.name }}</h6>
+                            <small style="color: #7f8c8d;">{{ hotel.created_at|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1" style="color: #7f8c8d;">
+                            {{ hotel.destination.name }} • 
+                            <span class="badge bg-{% if hotel.category == 'luxury' %}danger{% elif hotel.category == 'medium' %}warning text-dark{% else %}success{% endif %}">
+                                {{ hotel.get_category_display }}
+                            </span>
+                        </p>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item" style="background: rgba(255, 255, 255, 0.9);">
+                        <p class="mb-0" style="color: #7f8c8d;">No hotels found</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="/admin/planner/hotel/" class="btn btn-outline-primary w-100 mt-3">
+                    View All Hotels
+                </a>
+            </div>
+        </div>
+        
+        <!-- Recent Posts -->
+        <div class="col-md-4 mb-4">
+            <div class="card-glass p-4 h-100">
+                <h4 style="color: #2c3e50;" class="mb-3">Recent Community Posts</h4>
+                <div class="list-group">
+                    {% for post in recent_posts %}
+                    <a href="/admin/posts/post/{{ post.id }}/change/" 
+                       class="list-group-item list-group-item-action" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1" style="color: #2c3e50;">{{ post.title|truncatechars:40 }}</h6>
+                            <small style="color: #7f8c8d;">{{ post.created_at|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1" style="color: #7f8c8d;">
+                            By {{ post.user.username }}
+                            {% if post.destination %}
+                            • {{ post.destination.name }}
+                            {% endif %}
+                        </p>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item" style="background: rgba(255, 255, 255, 0.9);">
+                        <p class="mb-0" style="color: #7f8c8d;">No posts found</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="/admin/posts/post/" class="btn btn-outline-primary w-100 mt-3">
+                    View All Posts
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

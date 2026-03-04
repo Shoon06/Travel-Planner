@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ title }} - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card-glass p-5">
+                <h2 class="mb-4">{{ title }}</h2>
+                
+                <!-- Display form errors -->
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-circle me-2"></i>Please correct the errors below:</h5>
+                    <ul class="mb-0">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <form method="post" enctype="multipart/form-data" id="destinationForm">
+                    {% csrf_token %}
+                    
+                    <!-- Coordinates help text -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>Coordinates Required for Maps</h6>
+                        <p class="mb-0">Please enter accurate latitude and longitude coordinates for the destination center. This is required for proper map display.</p>
+                    </div>
+                    
+                    <!-- CITY/TOWN FORM -->
+                    {% if destination_type == 'city_town' %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Name</label>
+                            <input type="text" name="name" class="form-control" 
+                                   placeholder="e.g., Yangon, Mandalay, Bagan" 
+                                   value="{{ form.name.value|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Region</label>
+                            <input type="text" name="region" class="form-control" 
+                                   placeholder="e.g., Yangon Region, Shan State" 
+                                   value="{{ form.region.value|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Type</label>
+                            <select name="type" class="form-select" required>
+                                <option value="">--- Select Type ---</option>
+                                <option value="city" {% if form.type.value == 'city' %}selected{% endif %}>City</option>
+                                <option value="town" {% if form.type.value == 'town' %}selected{% endif %}>Town</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Latitude</label>
+                            <input type="number" name="latitude" class="form-control" step="0.000001" 
+                                   placeholder="e.g., 16.8409" required
+                                   value="{{ form.latitude.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Longitude</label>
+                            <input type="number" name="longitude" class="form-control" step="0.000001" 
+                                   placeholder="e.g., 96.1735" required
+                                   value="{{ form.longitude.value|default:'' }}">
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="description" class="form-control" rows="3" 
+                                      placeholder="Description of the city/town">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+                        
+                        <!-- Main Image -->
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Main Image</label>
+                            <input type="file" name="image" class="form-control" accept="image/*">
+                            {% if form.image.value %}
+                                <small class="text-muted">Current: {{ form.image.value }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_active" class="form-check-input" id="is_active" 
+                                       {% if form.is_active.value or not form.is_active.value %}checked{% endif %}>
+                                <label class="form-check-label fw-bold" for="is_active">Active</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden fields -->
+                        <input type="hidden" name="is_region" value="true">
+                    </div>
+                    
+                    <!-- ATTRACTION FORM -->
+                    {% elif destination_type == 'attraction' %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Name</label>
+                            <input type="text" name="name" class="form-control" 
+                                   placeholder="e.g., Shwedagon Pagoda" required
+                                   value="{{ form.name.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Region</label>
+                            <input type="text" name="region" class="form-control" 
+                                   placeholder="e.g., Yangon Region" required
+                                   value="{{ form.region.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Type</label>
+                            <select name="type" class="form-select" required>
+                                <option value="">--- Select Type ---</option>
+                                <option value="attraction" {% if form.type.value == 'attraction' or not form.type.value %}selected{% endif %}>Attraction</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Parent City/Town</label>
+                            <input type="text" name="parent" class="form-control" 
+                                   placeholder="e.g., Bagan, Mandalay, Taunggyi"
+                                   value="{{ request.POST.parent|default:'' }}">
+                            <small class="text-muted">Enter the city/town where this attraction is located</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Latitude</label>
+                            <input type="number" name="latitude" class="form-control" step="0.000001" 
+                                   placeholder="e.g., 16.8409" required
+                                   value="{{ form.latitude.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Longitude</label>
+                            <input type="number" name="longitude" class="form-control" step="0.000001" 
+                                   placeholder="e.g., 96.1735" required
+                                   value="{{ form.longitude.value|default:'' }}">
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="description" class="form-control" rows="3" 
+                                      placeholder="Description of the attraction">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+                        
+                        <!-- Main Image -->
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Main Image</label>
+                            <input type="file" name="image" class="form-control" accept="image/*">
+                            {% if form.image.value %}
+                                <small class="text-muted">Current: {{ form.image.value }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="col-12 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_active" class="form-check-input" id="is_active" 
+                                       {% if form.is_active.value or not form.is_active.value %}checked{% endif %}>
+                                <label class="form-check-label fw-bold" for="is_active">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    <h4 class="mb-3">Gallery Images (Optional)</h4>
+                    <p class="text-muted small mb-3">Upload up to 8 photos of the attraction with captions</p>
+                    
+                    <!-- Photo 1-8 -->
+                    {% for i in "12345678"|make_list %}
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label>Image {{ i }}</label>
+                            <input type="file" name="gallery_image{{ i }}" class="form-control" accept="image/*">
+                        </div>
+                        <div class="col-md-8">
+                            <label>Caption {{ i }}</label>
+                            <textarea name="caption_{{ i }}" class="form-control" rows="1" 
+                                      placeholder="Caption for photo {{ i }}">{{ request.POST|dictsortreversed:"caption_"|dictsort:"caption_"|first }}</textarea>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Hidden fields -->
+                    <input type="hidden" name="is_region" value="false">
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_destinations' %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add {{ destination_type|title }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px 15px;
+    }
+    .nav-tabs .nav-link.active {
+        color: #3498db;
+        font-weight: 600;
+        border-bottom: 3px solid #3498db;
+    }
+    .alert-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    .alert-danger ul {
+        margin-top: 10px;
+        padding-left: 20px;
+    }
+    .btn-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Form ready for {{ destination_type }}');
+    
+    // Ensure form submits normally
+    const form = document.getElementById('destinationForm');
+    form.onsubmit = null; // Remove any existing handlers
+    
+    // Log form submission
+    form.addEventListener('submit', function(e) {
+        console.log('Form submitting...');
+        
+        // Log all form data
+        const formData = new FormData(this);
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+        
+        return true; // Allow submission
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,325 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_flights.html -->
+{% extends 'base.html' %}
+{% block title %}Flights - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Manage Flights</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Add, edit, or remove flights</p>
+            </div>
+            <a href="{% url 'users:admin_add_flight' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Flight
+            </a>
+        </div>
+        
+        <!-- Statistics - NOW DYNAMIC -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="total-flights-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ total_flights }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Total Flights</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="active-flights-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ active_flights }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Active</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="airline-count-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ airline_count }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Airlines</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search -->
+        <form method="get" class="mb-3">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" 
+                       placeholder="Search flights..." value="{{ request.GET.search }}">
+                <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Flights Table -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">Flight Number</th>
+                        <th style="color: #2c3e50;">Airline</th>
+                        <th style="color: #2c3e50;">Route</th>
+                        <th style="color: #2c3e50;">Departure</th>
+                        <th style="color: #2c3e50;">Price</th>
+                        <th style="color: #2c3e50;">Seats</th>
+                        <th style="color: #2c3e50;">Status</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="flights-table-body">
+                    {% for flight in flights %}
+                    <tr id="flight-row-{{ flight.id }}">
+                        <td style="color: #34495e; font-weight: 500;">{{ flight.flight_number }}</td>
+                        <td style="color: #34495e;">{{ flight.airline.name }} ({{ flight.airline.code }})</td>
+                        <td>
+                            <div style="color: #2c3e50;">{{ flight.departure.name }} → {{ flight.arrival.name }}</div>
+                            <div class="text-gray small">
+                                {{ flight.departure_time|time:"H:i" }} - {{ flight.arrival_time|time:"H:i" }}
+                            </div>
+                        </td>
+                        <td style="color: #7f8c8d;">{{ flight.departure_time|time:"H:i" }}</td>
+                        <td style="color: #34495e;">MMK {{ flight.price|floatformat:0 }}</td>
+                        <td>
+                            <span class="badge {% if flight.available_seats > 10 %}bg-success{% elif flight.available_seats > 0 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                {{ flight.available_seats }} seats
+                            </span>
+                        </td>
+                        <td>
+                            {% if flight.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'users:admin_edit_flight' flight.id %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger delete-flight-btn" 
+                                        data-flight-id="{{ flight.id }}"
+                                        data-flight-name="{{ flight.airline.name }} {{ flight.flight_number }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="empty-flights-row">
+                        <td colspan="8" class="text-center py-4">
+                            <i class="fas fa-plane fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No flights found</h5>
+                            <p style="color: #7f8c8d;">Add your first flight to get started</p>
+                            <a href="{% url 'users:admin_add_flight' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add Flight
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Notification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageContent">
+                <!-- Message will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to show modal message
+        function showMessage(message, isSuccess = true) {
+            const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+            const content = document.getElementById('messageContent');
+            
+            if (isSuccess) {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-circle text-danger fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+            
+            modal.show();
+        }
+
+        // Function to update flight statistics
+        function updateFlightStatistics() {
+            // Send AJAX request to update statistics
+            fetch('{% url "users:admin_flights" %}?ajax_stats=1', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Parse the HTML to extract statistics
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find statistics elements in the parsed HTML
+                const totalElem = doc.querySelector('#total-flights-stat h4');
+                const activeElem = doc.querySelector('#active-flights-stat h4');
+                const airlineElem = doc.querySelector('#airline-count-stat h4');
+                
+                // Update the statistics on current page
+                if (totalElem) {
+                    document.querySelector('#total-flights-stat h4').textContent = totalElem.textContent;
+                }
+                if (activeElem) {
+                    document.querySelector('#active-flights-stat h4').textContent = activeElem.textContent;
+                }
+                if (airlineElem) {
+                    document.querySelector('#airline-count-stat h4').textContent = airlineElem.textContent;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating statistics:', error);
+            });
+        }
+
+        // Delete flight
+        document.querySelectorAll('.delete-flight-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const flightId = this.getAttribute('data-flight-id');
+                const flightName = this.getAttribute('data-flight-name');
+                
+                if (confirm(`Are you sure you want to delete flight ${flightName}?`)) {
+                    // Show loading state
+                    const originalHTML = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    this.disabled = true;
+                    
+                    // Using Django URL template tag
+                    fetch(`{% url 'users:admin_delete_content' 'flight' 0 %}`.replace('0', flightId), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({})
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        
+                        if (data.success) {
+                            showMessage(data.message, true);
+                            
+                            // Remove the row from table with animation
+                            const row = document.getElementById(`flight-row-${flightId}`);
+                            if (row) {
+                                row.style.opacity = '0.5';
+                                row.style.transition = 'opacity 0.3s';
+                                
+                                setTimeout(() => {
+                                    row.remove();
+                                    
+                                    // Update statistics
+                                    updateFlightStatistics();
+                                    
+                                    // Check if table is empty
+                                    const tbody = document.getElementById('flights-table-body');
+                                    const emptyRow = document.getElementById('empty-flights-row');
+                                    
+                                    if (tbody.children.length === 0 || 
+                                        (tbody.children.length === 1 && emptyRow)) {
+                                        // Show empty state
+                                        tbody.innerHTML = `
+                                            <tr id="empty-flights-row">
+                                                <td colspan="8" class="text-center py-4">
+                                                    <i class="fas fa-plane fa-3x text-gray mb-3"></i>
+                                                    <h5 style="color: #2c3e50;">No flights found</h5>
+                                                    <p style="color: #7f8c8d;">Add your first flight to get started</p>
+                                                    <a href="{% url 'users:admin_add_flight' %}" class="btn btn-primary">
+                                                        <i class="fas fa-plus me-2"></i>Add Flight
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }
+                                }, 300);
+                            }
+                        } else {
+                            showMessage('Error: ' + data.error, false);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        showMessage('Error deleting flight. Please try again.', false);
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

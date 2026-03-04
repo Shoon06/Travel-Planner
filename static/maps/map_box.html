@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mandalay Hotels Map - Select Hotel</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  crossorigin=""
+/>
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+#testMap {
+    height: 100vh;
+    width: 100vw;
+    background: #d41919;
+}
+
+/* Permanent hotel name above marker */
+.leaflet-tooltip.hotel-name {
+    background-color: rgba(255,255,255,0.95);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #007BFF;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* Modal styling */
+.hotel-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 1000;
+    width: 250px;
+    display: none;
+    font-family: sans-serif;
+}
+.hotel-modal h3 {
+    margin-top: 0;
+    font-size: 16px;
+}
+.hotel-modal button {
+    margin-top: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+.hotel-modal button:hover {
+    background-color: #0056b3;
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.3);
+    z-index: 900;
+    display: none;
+}
+</style>
+</head>
+<body>
+<div id="testMap"></div>
+
+<!-- Modal overlay -->
+<div class="modal-overlay" id="modalOverlay"></div>
+
+<!-- Modal -->
+<div class="hotel-modal" id="hotelModal">
+    <h3 id="modalHotelName">Hotel Name</h3>
+    <p id="modalHotelRating">Rating: </p>
+    <p id="modalHotelType">Type: </p>
+    <button id="selectHotelBtn">Select Hotel</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+/* Initialize map */
+const map = L.map('testMap').setView([21.9587, 96.0891], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO, © OpenStreetMap contributors'
+}).addTo(map);
+
+let hotelMarkers = [];
+
+/* Modal elements */
+const hotelModal = document.getElementById('hotelModal');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalHotelName = document.getElementById('modalHotelName');
+const modalHotelRating = document.getElementById('modalHotelRating');
+const modalHotelType = document.getElementById('modalHotelType');
+const selectHotelBtn = document.getElementById('selectHotelBtn');
+
+/* Function to add a hotel marker */
+function addHotelMarker(hotel) {
+    if (!hotel.latitude || !hotel.longitude) return;
+
+    const marker = L.circleMarker([hotel.latitude, hotel.longitude], {
+        radius: 10,
+        color: '#007BFF',
+        fillColor: '#007BFF',
+        fillOpacity: 0.7
+    }).addTo(map);
+
+    // Always visible hotel name above marker
+    L.tooltip({
+        permanent: true,
+        direction: 'top',
+        className: 'hotel-name',
+        offset: [0, -12]
+    })
+    .setContent(hotel.name)
+    .setLatLng([hotel.latitude, hotel.longitude])
+    .addTo(map);
+
+    // Click marker to open modal
+    marker.on('click', () => showHotelModal(hotel));
+
+    hotelMarkers.push(marker);
+}
+
+/* Show modal */
+function showHotelModal(hotel) {
+    modalHotelName.textContent = hotel.name;
+    modalHotelRating.textContent = `Rating: ${hotel.rating || 'N/A'} ★`;
+    modalHotelType.textContent = `Type: ${hotel.type || 'Hotel'}`;
+    hotelModal.style.display = 'block';
+    modalOverlay.style.display = 'block';
+
+    selectHotelBtn.onclick = () => {
+        // send selected hotel to parent
+        window.parent.postMessage(
+            {
+                type: "HOTEL_SELECTED",
+                hotelId: hotel.id
+            },
+            window.location.origin
+        );
+
+        closeModal();
+    };
+}
+
+/* Close modal */
+function closeModal() {
+    hotelModal.style.display = 'none';
+    modalOverlay.style.display = 'none';
+}
+
+/* Close modal on overlay click */
+modalOverlay.addEventListener('click', closeModal);
+
+/* Dummy initial hotels */
+const dummyHotels = [
+    {latitude:21.9587, longitude:96.0891, name:'🏨 Central Mandalay', rating:4.5, type:'Hotel'},
+    {latitude:21.9720, longitude:96.0810, name:'🏨 Mandalay Palace Hotel', rating:4.7, type:'Hotel'},
+    {latitude:21.9540, longitude:96.0895, name:'🏨 U Bein View Motel', rating:4.2, type:'Motel'},
+    {latitude:21.9600, longitude:96.0830, name:'🏨 Mahamuni Hotel', rating:4.0, type:'Hotel'}
+];
+dummyHotels.forEach(addHotelMarker);
+
+/* Listen for hotel data from parent frame */
+window.addEventListener('message', function(event) {
+    if (event.origin !== window.location.origin) return;
+    if (event.data.type !== 'HOTELS_DATA') return;
+
+    const hotelsData = event.data.payload;
+    if (!Array.isArray(hotelsData)) return;
+
+    // Clear old markers
+    hotelMarkers.forEach(marker => map.removeLayer(marker));
+    hotelMarkers = [];
+
+    // Add new markers
+    hotelsData.forEach(addHotelMarker);
+
+    // Fit map to all markers
+    const latlngs = hotelsData.map(h => [h.latitude, h.longitude]);
+    if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), {padding:[50,50]});
+    map.invalidateSize();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Transport Schedules - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Transport Schedules</h4>
+                    <div class="card-tools">
+                        <a href="#" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#addScheduleModal">
+                            <i class="fas fa-plus"></i> Add Schedule
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="mb-3">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <select name="transport_type" class="form-control">
+                                    <option value="">All Types</option>
+                                    <option value="flight" {% if request.GET.transport_type == 'flight' %}selected{% endif %}>Flight</option>
+                                    <option value="bus" {% if request.GET.transport_type == 'bus' %}selected{% endif %}>Bus</option>
+                                    <option value="car" {% if request.GET.transport_type == 'car' %}selected{% endif %}>Car</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" name="date_from" class="form-control" placeholder="From Date" 
+                                       value="{{ request.GET.date_from }}">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" name="date_to" class="form-control" placeholder="To Date" 
+                                       value="{{ request.GET.date_to }}">
+                            </div>
+                            <div class="col-md-2">
+                                <select name="status" class="form-control">
+                                    <option value="">All Status</option>
+                                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group">
+                                    <input type="text" name="search" class="form-control" placeholder="Search..." 
+                                           value="{{ request.GET.search }}">
+                                    <button type="submit" class="btn btn-primary">Filter</button>
+                                    <a href="{% url 'users:admin_schedules' %}" class="btn btn-secondary">Reset</a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info"><i class="fas fa-calendar-alt"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Total Schedules</span>
+                                    <span class="info-box-number">{{ total_schedules }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-success"><i class="fas fa-check-circle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Active Schedules</span>
+                                    <span class="info-box-number">{{ active_schedules }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-warning"><i class="fas fa-clock"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Upcoming Schedules</span>
+                                    <span class="info-box-number">{{ upcoming_schedules }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Schedules Table -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Transport</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Seats</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedules %}
+                                <tr>
+                                    <td>{{ schedule.id }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ schedule.transport_type }}">
+                                            {{ schedule.get_transport_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% with transport=schedule.get_transport_object %}
+                                            {% if transport %}
+                                                {% if schedule.transport_type == 'flight' %}
+                                                    {{ transport.airline.name }} {{ transport.flight_number }}
+                                                {% elif schedule.transport_type == 'bus' %}
+                                                    {{ transport.company }}
+                                                {% else %}
+                                                    {{ transport.company }} - {{ transport.car_model }}
+                                                {% endif %}
+                                            {% else %}
+                                                Transport #{{ schedule.transport_id }}
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>{{ schedule.travel_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if schedule.departure_time %}
+                                            {{ schedule.departure_time|time:"H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ schedule.available_seats }}/{{ schedule.total_seats }}
+                                        {% if schedule.available_seats <= 0 %}
+                                            <span class="badge bg-danger">Full</span>
+                                        {% elif schedule.available_seats <= 5 %}
+                                            <span class="badge bg-warning">Limited</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ schedule.price|floatformat:0 }} MMK</td>
+                                    <td>
+                                        {% if schedule.is_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-info" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-danger delete-schedule" 
+                                                data-id="{{ schedule.id }}" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center">No schedules found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,256 @@
+\<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Admin Dashboard - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="card-glass p-3 mb-3">
+                <div class="text-center mb-3">
+                    <div class="feature-icon gradient-teal mx-auto mb-3">
+                        <i class="fas fa-crown fa-2x text-white"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1">Admin Panel</h5>
+                    <p class="text-gray small mb-0">Welcome, {{ request.user.username }}</p>
+                </div>
+                
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'users:admin_dashboard' %}" 
+                       class="list-group-item list-group-item-action {% if request.path == '/users/admin/dashboard/' %}active{% endif %}">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                    <a href="{% url 'users:admin_hotels' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-hotel me-2"></i>Hotels
+                    </a>
+                    <a href="{% url 'users:admin_destinations' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-map-marker-alt me-2"></i>Destinations
+                    </a>
+                    <a href="{% url 'users:admin_flights' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-plane me-2"></i>Flights
+                    </a>
+                    <a href="{% url 'users:admin_buses' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-bus me-2"></i>Buses
+                    </a>
+                    <a href="{% url 'users:admin_dashboard_users' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-users me-2"></i>Users
+                    </a>
+                    
+                    <a href="{% url 'users:admin_system_settings' %}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card-glass p-3 bg-success bg-opacity-10 border-success border-opacity-25">
+                <h6 class="fw-bold mb-3 text-success">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus me-1"></i> Add Hotel
+                    </a>
+                    <a href="{% url 'users:admin_add_destination' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus me-1"></i> Add Destination
+                    </a>
+                    <a href="{% url 'users:admin_add_user' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-user-plus me-1"></i> Add User
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Statistics Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-teal d-inline-flex mb-3">
+                            <i class="fas fa-users fa-lg text-white"></i>
+                        </div>
+                        <h3 class="mb-2">{{ total_users }}</h3>
+                        <p class="text-gray mb-0">Total Users</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-purple d-inline-flex mb-3">
+                            <i class="fas fa-hotel fa-lg text-white"></i>
+                        </div>
+                        <h3 class="mb-2">{{ total_hotels }}</h3>
+                        <p class="text-gray mb-0">Hotels</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-glass p-3 text-center">
+                        <div class="feature-icon gradient-blue d-inline-flex mb-3">
+                            <i class="fas fa-suitcase fa-lg text-white"></i>
+                        </div>
+                        <h3 class="mb-2">{{ total_trips }}</h3>
+                        <p class="text-gray mb-0">Trips</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Hotels -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">Recent Hotels</h5>
+                    <a href="{% url 'users:admin_hotels' %}" class="btn btn-sm btn-outline-light">
+                        View All <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Hotel</th>
+                                <th>Destination</th>
+                                <th>Price/Night</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hotel in recent_hotels %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if hotel.image %}
+                                        <img src="{{ hotel.image.url }}" alt="{{ hotel.name }}" 
+                                             class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                        {% endif %}
+                                        <span>{{ hotel.name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ hotel.destination.name }}</td>
+                                <td>MMK {{ hotel.price_in_mmk }}</td>
+                                <td>
+                                    {% if hotel.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3">
+                                    <i class="fas fa-hotel fa-2x text-gray mb-2 d-block"></i>
+                                    <p class="text-gray mb-0">No hotels yet</p>
+                                    <a href="{% url 'users:admin_add_hotel' %}" class="btn btn-sm btn-primary mt-2">
+                                        Add First Hotel
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Recent Users -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">Recent Users</h5>
+                    <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-sm btn-outline-light">
+                        View All <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in recent_users %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if user.profile_picture %}
+                                        <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                             class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 32px; height: 32px;">
+                                            <i class="fas fa-user text-gray"></i>
+                                        </div>
+                                        {% endif %}
+                                        <span>{{ user.username }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="badge {% if user.user_type == 'admin' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                        {{ user.user_type|title }}
+                                    </span>
+                                </td>
+                                <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3">
+                                    <i class="fas fa-users fa-2x text-gray mb-2 d-block"></i>
+                                    <p class="text-gray mb-0">No users yet</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Quick Stats - Updated to full width -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card-glass p-4">
+                        <h5 class="fw-bold mb-3">System Overview</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-teal d-inline-flex mb-3">
+                                        <i class="fas fa-map-marker-alt fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_destinations }}</h3>
+                                    <p class="text-gray mb-0">Destinations</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-blue d-inline-flex mb-3">
+                                        <i class="fas fa-plane fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_flights }}</h3>
+                                    <p class="text-gray mb-0">Flights</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center py-3">
+                                    <div class="feature-icon gradient-purple d-inline-flex mb-3">
+                                        <i class="fas fa-bus fa-lg text-white"></i>
+                                    </div>
+                                    <h3 class="mb-2">{{ total_buses }}</h3>
+                                    <p class="text-gray mb-0">Buses</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Day Route Steps</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  crossorigin=""
+/>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+/>
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+#routeMap {
+    height: 100vh;
+    width: 100vw;
+}
+
+.legend {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.92);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    font-family: "Segoe UI", Arial, sans-serif;
+    min-width: 220px;
+    z-index: 500;
+}
+.legend-title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #222;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #333;
+}
+.legend-item:last-child {
+    margin-bottom: 0;
+}
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+}
+
+.step-marker-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #667eea;
+    color: #111;
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.leaflet-tooltip.activity-label {
+    background-color: rgba(255,255,255,0.95);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 12px;
+    color: #0d6efd;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.activity-label .label-index {
+    display: inline-block;
+    background: #667eea;
+    color: #fff;
+    border-radius: 10px;
+    padding: 0 6px;
+    margin-right: 6px;
+    font-size: 11px;
+}
+.activity-label .label-title {
+    display: block;
+    color: #111;
+    font-weight: 600;
+}
+.activity-label .label-location {
+    display: block;
+    color: #666;
+    font-weight: 500;
+}
+</style>
+</head>
+<body>
+<div id="routeMap"></div>
+<div class="legend" id="routeLegend" style="display:none;"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script>
+const map = L.map('routeMap').setView([21.9587, 96.0891], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO, © OpenStreetMap contributors'
+}).addTo(map);
+
+const router = L.Routing.osrmv1({
+    serviceUrl: 'https://router.project-osrm.org/route/v1',
+    profile: 'driving',
+    useHints: false
+});
+
+let routeLines = [];
+let markers = [];
+let requestToken = 0;
+let offsetByKey = {};
+const legColors = [
+    '#667eea',
+    '#34a853',
+    '#fbbc05',
+    '#ea4335',
+    '#00acc1',
+    '#ab47bc',
+    '#ff7043',
+    '#7cb342'
+];
+
+function createNumberIcon(color, index) {
+    return L.divIcon({
+        className: 'step-marker',
+        html: `<div class="step-marker-badge" style="border-color:${color}; color:${color};">${index + 1}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    });
+}
+
+function createHotelIcon() {
+    return L.divIcon({
+        className: 'step-marker',
+        html: `<div class="step-marker-badge" style="background:#111827; color:#fff; border-color:#111827;">H</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    });
+}
+
+function clearRoute() {
+    routeLines.forEach(line => map.removeLayer(line));
+    routeLines = [];
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    offsetByKey = {};
+}
+
+function getOffsetLatLng(lat, lng) {
+    const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    const count = (offsetByKey[key] || 0) + 1;
+    offsetByKey[key] = count;
+
+    if (count === 1) return [lat, lng];
+
+    const angle = (count - 1) * 45;
+    const radius = 0.00035 * count;
+    const offsetLat = lat + Math.cos((angle * Math.PI) / 180) * radius;
+    const offsetLng = lng + Math.sin((angle * Math.PI) / 180) * radius;
+    return [offsetLat, offsetLng];
+}
+
+function addHotelMarker(activity, lat, lng) {
+    const marker = L.marker([lat, lng], {
+        title: activity.title || 'Hotel',
+        icon: createHotelIcon()
+    }).addTo(map);
+
+    const titleText = activity.title || 'Hotel';
+    const locationText = activity.location || '';
+    const labelHtml = `
+        <div class="label-index">H</div>
+        <div class="label-title">${titleText}</div>
+        ${locationText ? `<div class="label-location">${locationText}</div>` : ''}
+    `;
+
+    marker.bindTooltip(labelHtml, {
+        permanent: true,
+        direction: 'top',
+        className: 'activity-label',
+        offset: [0, -12],
+        opacity: 0.95
+    });
+
+    marker.bindPopup(`
+        <strong>${titleText}</strong><br>
+        <small>${locationText}</small>
+    `);
+
+    markers.push(marker);
+}
+
+function addNumberedMarker(activity, index, lat, lng) {
+    const color = legColors[index % legColors.length];
+    const marker = L.marker([lat, lng], {
+        title: activity.title || `Stop ${index + 1}`,
+        icon: createNumberIcon(color, index)
+    }).addTo(map);
+
+    const titleText = activity.title || 'Activity';
+    const locationText = activity.location || '';
+    const labelHtml = `
+        <div class="label-index">${index + 1}</div>
+        <div class="label-title">${titleText}</div>
+        ${locationText ? `<div class="label-location">${locationText}</div>` : ''}
+    `;
+
+    marker.bindTooltip(labelHtml, {
+        permanent: true,
+        direction: 'top',
+        className: 'activity-label',
+        offset: [0, -12],
+        opacity: 0.95
+    });
+
+    marker.bindPopup(`
+        <strong>${index + 1}. ${activity.title || 'Activity'}</strong><br>
+        <small>${activity.time || ''}</small><br>
+        <small>${activity.location || ''}</small>
+    `);
+
+    markers.push(marker);
+    return marker;
+}
+
+function updateLegend(activities) {
+    const legend = document.getElementById('routeLegend');
+    if (!legend) return;
+
+    const stops = activities.filter(a => !a.is_hotel);
+
+    if (!stops.length) {
+        legend.style.display = 'none';
+        legend.innerHTML = '';
+        return;
+    }
+
+    legend.style.display = 'block';
+    legend.innerHTML = '<div class="legend-title">Step-by-step route</div>';
+    stops.forEach((activity, index) => {
+        const color = legColors[index % legColors.length];
+        const timePart = activity.time ? ` | ${activity.time}` : '';
+        const text = `${index + 1}. ${activity.title || 'Activity'}${timePart}`;
+        legend.insertAdjacentHTML('beforeend', `
+            <div class="legend-item">
+                <span class="legend-color" style="background:${color}"></span>
+                <span>${text}</span>
+            </div>
+        `);
+    });
+}
+
+function renderRoute(activities) {
+    clearRoute();
+    if (!Array.isArray(activities) || activities.length === 0) {
+        map.setView([21.9587, 96.0891], 10);
+        map.invalidateSize();
+        updateLegend([]);
+        return;
+    }
+
+    requestToken += 1;
+    const token = requestToken;
+
+    const isHotel = (item, idx) => {
+        if (!item) return false;
+        const typeMatch = (item.type || '').toString().toLowerCase() === 'hotel';
+        const flagMatch = item.is_hotel === true || item.isHotel === true;
+        const nameHint = idx === 0 && (item.title || item.name || '').toString().toLowerCase().includes('hotel');
+        return flagMatch || typeMatch || nameHint;
+    };
+
+    const startHotel = activities.length && isHotel(activities[0], 0) ? activities[0] : null;
+    const stops = startHotel ? activities.slice(1) : activities;
+
+    updateLegend(stops);
+
+    const waypoints = [];
+
+    if (startHotel) {
+        const [lat, lng] = getOffsetLatLng(startHotel.lat, startHotel.lng);
+        addHotelMarker(startHotel, lat, lng);
+        waypoints.push(L.latLng(lat, lng));
+    }
+
+    stops.forEach((activity, idx) => {
+        const [lat, lng] = getOffsetLatLng(activity.lat, activity.lng);
+        addNumberedMarker(activity, idx, lat, lng);
+        waypoints.push(L.latLng(lat, lng));
+    });
+
+    if (waypoints.length === 1) {
+        map.setView(waypoints[0], 14);
+    } else {
+        map.fitBounds(L.latLngBounds(waypoints), { padding: [40, 40] });
+    }
+
+    if (waypoints.length > 1) {
+        for (let i = 0; i < waypoints.length - 1; i += 1) {
+            const from = waypoints[i];
+            const to = waypoints[i + 1];
+            const routingWaypoints = [
+                L.Routing.waypoint(from),
+                L.Routing.waypoint(to)
+            ];
+            // Legs align with stop indices; if a hotel starts the route, color by the next stop index
+            const legIndex = startHotel ? Math.max(0, i) : i;
+            const legColor = legColors[legIndex % legColors.length];
+            const baseLine = L.polyline([from, to], {
+                color: legColor,
+                weight: 4,
+                opacity: 0.4,
+                dashArray: '6 8'
+            }).addTo(map);
+            routeLines.push(baseLine);
+            router.route(routingWaypoints, function(error, routes) {
+                if (error || !routes || !routes[0]) {
+                    return;
+                }
+
+                if (token !== requestToken) {
+                    return;
+                }
+
+                const routeCoordinates = routes[0].coordinates || [];
+                if (!routeCoordinates.length) {
+                    return;
+                }
+
+                const line = L.polyline(routeCoordinates, {
+                    color: legColor,
+                    weight: 5,
+                    opacity: 0.85
+                }).addTo(map);
+                routeLines.push(line);
+            });
+        }
+    }
+
+    map.invalidateSize();
+}
+
+window.addEventListener('message', function(event) {
+    if (event.origin !== window.location.origin && event.origin !== 'null') return;
+    if (event.data.type !== 'DAY_ROUTE_DATA') return;
+
+    const activities = event.data.payload || [];
+    console.log('[Step Route] received', activities);
+    if (activities.length > 1) {
+        console.log('[Step Route] steps', activities.length - 1);
+    }
+    renderRoute(activities);
+});
+</script>
+</body>
+</html>

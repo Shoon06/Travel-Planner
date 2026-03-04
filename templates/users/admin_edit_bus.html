@@ -1,0 +1,161 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_edit_bus.html -->
+{% extends 'base.html' %}
+{% block title %}Edit Bus Service - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-glass p-5">
+                <h2 class="mb-4">Edit Bus Service</h2>
+                
+                <!-- Header with bus info -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex align-items-center">
+                        {% if bus.bus_image %}
+                        <img src="{{ bus.bus_image.url }}" alt="{{ bus.company }}" 
+                             class="rounded me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded bg-light d-flex align-items-center justify-content-center me-3" 
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-bus fa-2x text-gray"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h5 class="mb-1">{{ bus.company }} - {{ bus.bus_number }}</h5>
+                            <p class="mb-0">{{ bus.departure.name }} → {{ bus.arrival.name }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Current Image Preview -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Current Bus Image</label>
+                        <div>
+                            {% if bus.bus_image %}
+                            <img src="{{ bus.bus_image.url }}" alt="{{ bus.company }}" 
+                                 class="img-fluid rounded" style="max-height: 200px;">
+                            {% else %}
+                            <div class="border rounded p-4 text-center bg-light">
+                                <i class="fas fa-bus fa-3x text-gray mb-2"></i>
+                                <p class="mb-0">No image uploaded</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Route Info -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card-glass p-3">
+                                <h6 class="mb-2">Departure Info</h6>
+                                <p class="mb-1"><strong>Location:</strong> {{ bus.departure.name }}</p>
+                                <p class="mb-1"><strong>Time:</strong> {{ bus.departure_time }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card-glass p-3">
+                                <h6 class="mb-2">Arrival Info</h6>
+                                <p class="mb-1"><strong>Location:</strong> {{ bus.arrival.name }}</p>
+                                <p class="mb-1"><strong>Duration:</strong> {{ bus.duration }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bus Details -->
+                    <div class="alert alert-light mb-4">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p class="mb-1"><strong>Price:</strong> MMK {{ bus.price|floatformat:0 }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="mb-1"><strong>Type:</strong> {{ bus.get_bus_type_display }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="mb-1"><strong>Status:</strong> 
+                                    {% if bus.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Total Seats:</strong> {{ bus.total_seats }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Available Seats:</strong> {{ bus.available_seats }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_buses' %}" class="btn btn-outline-secondary me-md-2">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Update Bus Service
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Form styling */
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px 15px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .form-label {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .alert-info {
+        background-color: rgba(52, 152, 219, 0.1);
+        border-color: rgba(52, 152, 219, 0.3);
+        color: #2c3e50;
+    }
+    
+    .alert-light {
+        background-color: rgba(236, 240, 241, 0.5);
+        border-color: rgba(189, 195, 199, 0.3);
+    }
+</style>
+{% endblock %}

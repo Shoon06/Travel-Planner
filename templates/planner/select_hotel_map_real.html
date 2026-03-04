@@ -1,0 +1,917 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\select_hotel_map_real.html -->
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% load static %}
+{% block title %}Select Hotel - GoMyanmar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<style>
+    #hotelMap {
+        height: 500px !important; /* FIXED: Force height */
+        width: 100% !important; /* FIXED: Force width */
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        z-index: 1;
+        position: relative; /* FIXED: Add position */
+        overflow: hidden; /* FIXED: Prevent overflow */
+    }
+    
+    .map-container {
+        position: relative;
+        margin-bottom: 2rem;
+        width: 100%; /* FIXED: Ensure full width */
+        height: 500px; /* FIXED: Set container height */
+    }
+    
+    /* FIXED: Add clear container for map */
+    #hotelMapContainer {
+        width: 100%;
+        height: 500px;
+        position: relative;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    
+    /* Loading overlay */
+    #mapLoading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        border-radius: 15px;
+        flex-direction: column;
+    }
+    
+    /* Map controls */
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 15px 15px 12px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        max-width: 250px;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .map-controls.collapsed {
+        opacity: 0.92;
+    }
+
+    .map-controls .controls-toggle-btn {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        border: none;
+        background: transparent;
+        color: #555;
+        padding: 4px 6px;
+    }
+
+    .map-controls .controls-toggle-btn:hover {
+        color: #000;
+    }
+
+    .map-controls-body {
+        margin-top: 6px;
+    }
+
+    .map-controls.collapsed .map-controls-body {
+        display: none;
+    }
+    
+    /* Custom marker styles */
+    .custom-marker {
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .budget-marker {
+        background-color: #10B981 !important;
+    }
+    
+    .medium-marker {
+        background-color: #F59E0B !important;
+    }
+    
+    .luxury-marker {
+        background-color: #EF4444 !important;
+    }
+    
+    .real-marker {
+        background-color: #8B5CF6 !important;
+    }
+    
+    .selected-marker {
+        background-color: #7C3AED !important;
+        width: 35px !important;
+        height: 35px !important;
+        border: 4px solid white !important;
+        z-index: 1000 !important;
+    }
+    
+    .destination-center-marker {
+        background-color: #1D4ED8 !important;
+        width: 40px !important;
+        height: 40px !important;
+        border: 4px solid white !important;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Hotel list styles */
+    .hotel-item {
+        cursor: pointer;
+        transition: all 0.3s;
+        border-left: 3px solid transparent;
+        margin-bottom: 1rem;
+    }
+    
+    .hotel-item:hover {
+        background-color: #f8fafc;
+        border-left-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+    
+    .hotel-item.selected {
+        background-color: #e0f2fe;
+        border-left: 3px solid #3b82f6;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .price-badge {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header Section -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2">Find Hotels in {{ trip.destination.name }}</h2>
+                <p class="text-gray mb-0">
+                    <i class="fas fa-calendar me-2"></i>{{ trip.start_date|date:"M d, Y" }} - {{ trip.end_date|date:"M d, Y" }}
+                    <span class="mx-2">•</span>
+                    <i class="fas fa-users me-2"></i>{{ trip.travelers }} traveler{% if trip.travelers > 1 %}s{% endif %}
+                    <span class="mx-2">•</span>
+                    <i class="fas fa-moon me-2"></i>{{ nights }} night{% if nights > 1 %}s{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Planning
+            </a>
+        </div>
+    </div>
+    
+    <!-- Interactive Map Section - FIXED -->
+    <div class="card-glass p-4 mb-4">
+        <h5 class="mb-3">
+            <i class="fas fa-map-marked-alt me-2"></i>Interactive Map of {{ trip.destination.name }}
+            <small class="text-gray ms-2">Click on any hotel marker to see details</small>
+        </h5>
+        
+        <div class="map-container">
+            <!-- FIXED: Separate container for map -->
+            <div id="hotelMapContainer">
+                <div id="hotelMap"></div>
+                <div id="mapLoading" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading map...</span>
+                    </div>
+                    <p class="mt-2">Loading map of {{ trip.destination.name }}...</p>
+                </div>
+            </div>
+            
+            <!-- Map Controls -->
+            <div class="map-controls" id="mapControls">
+                <button type="button" class="controls-toggle-btn" id="mapControlsToggle" aria-label="Toggle map controls">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h6 class="mb-3 pe-4">
+                    <i class="fas fa-map-marked-alt me-2"></i>Map Controls
+                    <small class="text-gray d-block">Click markers to see details</small>
+                </h6>
+                <div class="map-controls-body">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="showBudget" checked>
+                        <label class="form-check-label" for="showBudget">
+                            <span class="badge bg-success me-2" style="width: 10px; height: 10px; display: inline-block;"></span>
+                            Budget Hotels
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="showMedium" checked>
+                        <label class="form-check-label" for="showMedium">
+                            <span class="badge bg-warning me-2" style="width: 10px; height: 10px; display: inline-block;"></span>
+                            Medium Hotels
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="showLuxury" checked>
+                        <label class="form-check-label" for="showLuxury">
+                            <span class="badge bg-danger me-2" style="width: 10px; height: 10px; display: inline-block;"></span>
+                            Luxury Hotels
+                        </label>
+                    </div>
+                    <hr class="my-2">
+                    <button class="btn btn-sm btn-outline-primary w-100" id="fitBounds">
+                        <i class="fas fa-expand me-1"></i>Show All Hotels
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="resetView">
+                        <i class="fas fa-location-arrow me-1"></i>Center on {{ trip.destination.name }}
+                    </button>
+                    <hr class="my-3">
+                    <label class="form-label fw-bold small">Price Range (MMK)</label>
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text">Min</span>
+                        <input type="number" class="form-control" id="mapMinPrice" min="0" step="1000" placeholder="0">
+                    </div>
+                    <div class="input-group input-group-sm mb-3">
+                        <span class="input-group-text">Max</span>
+                        <input type="number" class="form-control" id="mapMaxPrice" min="0" step="1000" placeholder="500000">
+                    </div>
+                    <button class="btn btn-sm btn-outline-success w-100" id="applyMapPriceFilter">
+                        <i class="fas fa-filter me-1"></i>Apply Price Filter
+                    </button>
+                    <hr class="my-3">
+                    <label class="form-label fw-bold small">Search Hotels</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="mapHotelSearch" placeholder="Type hotel name...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hotels List -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card-glass p-4">
+                <h5 class="mb-4">
+                    <i class="fas fa-list me-2"></i>Available Hotels in {{ trip.destination.name }}
+                    <span class="badge bg-primary ms-2" id="hotelCount">{{ hotels|length }}</span>
+                </h5>
+                
+                <div class="hotel-list-container" id="hotelsList">
+                    {% for hotel in hotels %}
+                    <div class="hotel-item card p-3" 
+                         data-hotel-id="{{ hotel.id }}"
+                         data-name="{{ hotel.name|lower }}"
+                         data-category="{{ hotel.category }}"
+                         data-price="{{ hotel.price_per_night }}"
+                         data-rating="{{ hotel.rating }}"
+                         data-lat="{{ hotel.latitude|default:'' }}"
+                         data-lng="{{ hotel.longitude|default:'' }}"
+                         data-is-real="false">
+                        <div class="row">
+                            <!-- Hotel Image -->
+                            <div class="col-md-3">
+                                {% if hotel.image and hotel.image.url %}
+                                    <img src="{{ hotel.image.url }}" alt="{{ hotel.name }}" 
+                                         class="img-fluid rounded" style="height: 120px; width: 100%; object-fit: cover;">
+                                {% else %}
+                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                         style="height: 120px;">
+                                        <i class="fas fa-hotel fa-2x text-gray"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Hotel Details -->
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-1">{{ hotel.name }}</h6>
+                                
+                                <p class="text-gray small mb-2">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ hotel.address|truncatechars:60 }}
+                                </p>
+                                
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="me-3">
+                                        <i class="fas fa-star text-warning me-1"></i>
+                                        <strong>{{ hotel.rating }}</strong>
+                                        <small class="text-gray">({{ hotel.review_count }} reviews)</small>
+                                    </span>
+                                    <span class="badge 
+                                        {% if hotel.category == 'budget' %}bg-success
+                                        {% elif hotel.category == 'medium' %}bg-warning
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ hotel.get_category_display }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Amenities -->
+                                <div class="small">
+                                    {% for amenity in hotel.amenities|slice:":4" %}
+                                    <span class="badge bg-light text-dark me-1 mb-1">
+                                        <i class="fas fa-check me-1"></i>{{ amenity|title }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Price and Booking -->
+                            <div class="col-md-3 text-end">
+                                <div class="mb-2">
+                                    <div class="price-badge">
+                                        {{ hotel.price_per_night|mmk_currency }}
+                                    </div>
+                                    <small class="text-gray">per night</small>
+                                </div>
+                                
+                                <!-- FIXED: Use existing filters to calculate total -->
+                                {% with total=hotel.price_per_night|multiply:nights %}
+                                <p class="fw-bold mb-3">
+                                    Total: <span class="text-teal">{{ total|mmk_currency }}</span>
+                                </p>
+                                {% endwith %}
+                                
+                                <button class="btn btn-sm btn-primary select-hotel-btn" 
+                                        data-hotel-id="{{ hotel.id }}">
+                                    <i class="fas fa-check me-1"></i>Select Hotel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <div class="feature-icon gradient-bg mx-auto mb-4">
+                            <i class="fas fa-hotel fa-2x text-white"></i>
+                        </div>
+                        <h5 class="mb-3">No hotels available</h5>
+                        <p class="text-gray mb-4">
+                            No hotels found in {{ trip.destination.name }}.
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Selected Hotel Summary -->
+        <div class="col-lg-4">
+            <div class="card-glass p-4 sticky-top" style="top: 100px;">
+                <h5 class="mb-4">
+                    <i class="fas fa-shopping-cart me-2"></i>Selected Hotel
+                </h5>
+                
+                <div id="selectedHotelSummary" class="text-center py-4">
+                    <div class="text-gray mb-3">
+                        <i class="fas fa-hotel fa-3x"></i>
+                    </div>
+                    <p class="text-gray">No hotel selected yet</p>
+                    <p class="small text-gray">Click on any hotel from the list or map to select</p>
+                </div>
+                
+                <!-- Booking Form -->
+                <form method="post" action="{% url 'planner:save_hotel' trip.id %}" 
+                      id="bookingForm" style="display: none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="hotel_id" id="selectedHotelId">
+                    
+                    <div id="bookingDetails">
+                        <div class="border-top pt-3 mt-3">
+                            <h6 class="fw-bold">Booking Summary</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Hotel:</td>
+                                    <td class="text-end" id="bookingHotelName"></td>
+                                </tr>
+                                <tr>
+                                    <td>Nights:</td>
+                                    <td class="text-end">{{ nights }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Price per night:</td>
+                                    <td class="text-end" id="bookingPricePerNight"></td>
+                                </tr>
+                                <tr class="fw-bold">
+                                    <td>Total:</td>
+                                    <td class="text-end" id="bookingTotalPrice"></td>
+                                </tr>
+                            </table>
+                            
+                            <button type="submit" class="btn btn-primary w-100 mt-3">
+                                <i class="fas fa-check-circle me-2"></i>Book This Hotel
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+    // Global variables
+    let map;
+    let markers = [];
+    let markerCluster;
+    let selectedHotelId = null;
+    
+    // FIXED: Get destination coordinates from Django template
+    const centerLat = {{ center_lat|default:"21.9588" }};
+    const centerLng = {{ center_lng|default:"96.0891" }};
+    const nights = {{ nights }};
+    
+    // FIXED: Get hotel markers from Django template
+    const hotelMarkers = {{ hotel_markers|safe|default:"[]" }};
+    console.log('Loaded', hotelMarkers.length, 'hotel markers');
+
+    // Filter state
+    let filterMinPrice = 0;
+    let filterMaxPrice = Infinity;
+    let filterSearchTerm = '';
+    
+    // Define city bounds for Myanmar cities
+    const cityBounds = {
+        'yangon': {
+            bounds: [[16.7, 96.0], [17.0, 96.4]],  // Southwest, Northeast
+            zoom: 13
+        },
+        'mandalay': {
+            bounds: [[21.8, 95.9], [22.1, 96.3]],
+            zoom: 13
+        },
+        'bagan': {
+            bounds: [[21.0, 94.7], [21.3, 95.1]],
+            zoom: 14
+        },
+        'inle lake': {
+            bounds: [[20.4, 96.8], [20.7, 97.0]],
+            zoom: 12
+        },
+        'naypyidaw': {
+            bounds: [[19.6, 96.0], [19.9, 96.3]],
+            zoom: 13
+        },
+        'pyin oo lwin': {
+            bounds: [[21.9, 96.3], [22.2, 96.6]],
+            zoom: 13
+        },
+        'ngapali': {
+            bounds: [[18.3, 94.1], [18.5, 94.5]],
+            zoom: 12
+        }
+    };
+    
+    // Define marker colors by category
+    const markerColors = {
+        'budget': '#10B981',  // Green
+        'medium': '#F59E0B',  // Yellow/Orange
+        'luxury': '#EF4444',  // Red
+        'real': '#8B5CF6',    // Purple for real hotels
+        'selected': '#7C3AED', // Dark purple for selected
+        'destination': '#1D4ED8' // Blue for destination center
+    };
+    
+    // Function to create custom marker icon
+    function createMarkerIcon(color, size = 25, isSelected = false) {
+        const markerSize = isSelected ? 35 : size;
+        const borderSize = isSelected ? 4 : 3;
+        
+        return L.divIcon({
+            className: `custom-marker ${isSelected ? 'selected-marker' : ''}`,
+            html: `
+                <div style="
+                    background-color: ${color};
+                    width: ${markerSize}px;
+                    height: ${markerSize}px;
+                    border-radius: 50%;
+                    border: ${borderSize}px solid white;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-hotel" style="color: white; font-size: ${isSelected ? '14px' : '10px'};"></i>
+                </div>
+            `,
+            iconSize: [markerSize, markerSize],
+            iconAnchor: [markerSize/2, markerSize/2]
+        });
+    }
+    
+    // Function to get marker color by category
+    function getMarkerColor(category) {
+        return markerColors[category] || markerColors.medium;
+    }
+
+    function refreshFilterState() {
+        const minInput = parseInt(document.getElementById('mapMinPrice')?.value || '0', 10);
+        const maxInput = parseInt(document.getElementById('mapMaxPrice')?.value || '0', 10);
+        filterMinPrice = isNaN(minInput) ? 0 : minInput;
+        filterMaxPrice = isNaN(maxInput) || maxInput === 0 ? Infinity : maxInput;
+        filterSearchTerm = (document.getElementById('mapHotelSearch')?.value || '').trim().toLowerCase();
+    }
+
+    function hotelMatchesFilters(hotelData) {
+        const showBudget = document.getElementById('showBudget').checked;
+        const showMedium = document.getElementById('showMedium').checked;
+        const showLuxury = document.getElementById('showLuxury').checked;
+
+        const category = (hotelData.category || '').toLowerCase();
+        const price = parseFloat(hotelData.price) || 0;
+        const name = (hotelData.name || '').toLowerCase();
+        const address = (hotelData.address || '').toLowerCase();
+
+        const categoryOk = (category === 'budget' && showBudget) ||
+                           (category === 'medium' && showMedium) ||
+                           (category === 'luxury' && showLuxury) ||
+                           (!['budget','medium','luxury'].includes(category) && (showBudget || showMedium || showLuxury));
+
+        const priceOk = price >= filterMinPrice && price <= filterMaxPrice;
+        const searchOk = !filterSearchTerm || name.includes(filterSearchTerm) || address.includes(filterSearchTerm);
+
+        return categoryOk && priceOk && searchOk;
+    }
+    
+    // Initialize Leaflet map
+    function initMap() {
+        console.log('Initializing map at:', centerLat, centerLng);
+        
+        // Get city name for bounds
+        const cityName = "{{ trip.destination.name|lower }}".trim().toLowerCase();
+        
+        // Initialize map
+        map = L.map('hotelMap', {
+            zoomControl: true,
+            scrollWheelZoom: true,
+            dragging: true,
+            tap: true,
+            maxBoundsViscosity: 1.0
+        });
+        
+        // Set view based on city
+        let initialZoom = 13;
+        if (cityBounds[cityName]) {
+            map.setView([centerLat, centerLng], cityBounds[cityName].zoom);
+            const bounds = L.latLngBounds(cityBounds[cityName].bounds);
+            map.setMaxBounds(bounds);
+            initialZoom = cityBounds[cityName].zoom;
+            console.log(`Restricting map to ${cityName} bounds`);
+        } else {
+            map.setView([centerLat, centerLng], 13);
+        }
+        
+        // FIXED: Add OpenStreetMap tiles with zoom limits
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 18,
+            minZoom: 11  // Don't zoom out too far
+        }).addTo(map);
+        
+        // FIXED: Add a marker for the destination center
+        const destinationMarker = L.marker([centerLat, centerLng], {
+            icon: createMarkerIcon(markerColors.destination, 40)
+        }).addTo(map)
+        .bindPopup(`
+            <div style="padding: 10px; min-width: 200px;">
+                <h6 style="margin: 0 0 10px 0;">{{ trip.destination.name }}</h6>
+                <p style="margin: 0; color: #666;">Your destination center</p>
+            </div>
+        `);
+        
+        // FIXED: Initialize marker cluster
+        markerCluster = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true
+        });
+        
+        map.addLayer(markerCluster);
+        
+        // FIXED: Load hotels from the hotelMarkers variable (from Django template)
+        addHotelMarkersFromTemplate();
+        
+        // FIXED: Set map bounds to show destination properly
+        if (hotelMarkers.length > 0) {
+            fitMapToMarkers();
+        } else {
+            // If no hotels, just center on destination with proper zoom
+            map.setView([centerLat, centerLng], initialZoom);
+        }
+
+        // Apply initial filters so map and list stay in sync
+        filterMarkers();
+        
+        // Hide loading indicator
+        setTimeout(() => {
+            document.getElementById('mapLoading').style.display = 'none';
+        }, 500);
+    }
+    
+    // FIXED: Add hotels from template data
+    function addHotelMarkersFromTemplate() {
+        console.log('Adding', hotelMarkers.length, 'hotel markers to map');
+        
+        hotelMarkers.forEach(hotel => {
+            // Only add marker if coordinates are valid
+            if (hotel.latitude && hotel.longitude && 
+                hotel.latitude != 0 && hotel.longitude != 0) {
+                
+                const color = getMarkerColor(hotel.category);
+                const icon = createMarkerIcon(color);
+                
+                const marker = L.marker([hotel.latitude, hotel.longitude], { 
+                    icon: icon 
+                });
+                
+                // Create popup content
+                const popupContent = `
+                    <div style="min-width: 250px; padding: 10px;">
+                        <h6 style="margin: 0 0 10px 0; font-size: 1rem; color: #1f2937;">${hotel.name}</h6>
+                        <p style="color: #666; margin-bottom: 10px; font-size: 0.9rem;">${hotel.address || ''}</p>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: #fbbf24;">
+                                <i class="fas fa-star"></i> ${hotel.rating || '3.5'}
+                            </span>
+                            <span style="font-weight: bold; color: #10b981;">
+                                MMK ${hotel.price ? parseInt(hotel.price).toLocaleString() : '50,000'}
+                            </span>
+                        </div>
+                        <p style="margin-bottom: 15px;">
+                            <span class="badge ${hotel.category === 'budget' ? 'bg-success' : hotel.category === 'medium' ? 'bg-warning' : 'bg-danger'}">
+                                ${hotel.category_display || hotel.category || 'medium'}
+                            </span>
+                        </p>
+                        <button onclick="selectHotelOnMap(${hotel.id})" 
+                                style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 5px; width: 100%; cursor: pointer; font-size: 0.9rem;">
+                            <i class="fas fa-check me-2"></i>Select Hotel
+                        </button>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                marker.hotelId = hotel.id;
+                marker.hotelData = hotel;
+                
+                // Add click event
+                marker.on('click', function(e) {
+                    selectHotelOnMap(hotel.id);
+                });
+                
+                // Add to markers array
+                markers.push({
+                    marker: marker,
+                    hotelId: hotel.id,
+                    hotelData: hotel
+                });
+                
+                // Add to marker cluster
+                markerCluster.addLayer(marker);
+                
+                console.log(`Added marker for ${hotel.name} at ${hotel.latitude}, ${hotel.longitude}`);
+            } else {
+                console.log(`Skipping ${hotel.name} - invalid coordinates`);
+            }
+        });
+        
+        console.log('Total markers added:', markers.length);
+    }
+    
+    // Select hotel from map
+    function selectHotelOnMap(hotelId) {
+        // Update marker styles
+        markers.forEach(item => {
+            const isSelected = item.hotelId === hotelId;
+            const color = isSelected ? markerColors.selected : getMarkerColor(item.hotelData.category);
+            
+            item.marker.setIcon(createMarkerIcon(color, 25, isSelected));
+            
+            // Open popup if selected
+            if (isSelected) {
+                item.marker.openPopup();
+                
+                // Center map on selected hotel with zoom
+                map.setView(item.marker.getLatLng(), 15);
+            }
+        });
+        
+        // Update hotel list selection
+        document.querySelectorAll('.hotel-item[data-is-real="false"]').forEach(item => {
+            const itemHotelId = parseInt(item.dataset.hotelId);
+            item.classList.toggle('selected', itemHotelId === hotelId);
+            
+            // Scroll to selected item
+            if (itemHotelId === hotelId) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+        
+        // Update booking summary
+        const hotelItem = document.querySelector(`[data-hotel-id="${hotelId}"]`);
+        if (hotelItem) {
+            updateBookingSummary(hotelItem);
+        }
+    }
+    
+    // Update booking summary
+    function updateBookingSummary(hotelElement) {
+        selectedHotelId = parseInt(hotelElement.dataset.hotelId);
+        const hotelName = hotelElement.querySelector('h6').textContent;
+        const price = parseFloat(hotelElement.dataset.price);
+        const totalPrice = price * nights;
+        
+        // Update summary display
+        document.getElementById('selectedHotelSummary').innerHTML = `
+            <div class="text-center">
+                <h6 class="fw-bold">${hotelName}</h6>
+                <div class="price-badge mt-2">MMK ${price.toLocaleString()}</div>
+                <p class="small text-gray mt-2">per night × ${nights} nights</p>
+                <h5 class="mt-3 text-teal">MMK ${totalPrice.toLocaleString()}</h5>
+                <p class="small text-success mt-2">
+                    <i class="fas fa-check-circle me-1"></i>Ready to book
+                </p>
+            </div>
+        `;
+        
+        // Update booking form
+        document.getElementById('selectedHotelId').value = selectedHotelId;
+        document.getElementById('bookingHotelName').textContent = hotelName;
+        document.getElementById('bookingPricePerNight').textContent = `MMK ${price.toLocaleString()}`;
+        document.getElementById('bookingTotalPrice').textContent = `MMK ${totalPrice.toLocaleString()}`;
+        
+        // Show booking form
+        document.getElementById('bookingForm').style.display = 'block';
+        
+        // Scroll to booking form
+        document.getElementById('selectedHotelSummary').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
+    
+    // Fit map to show all markers
+    function fitMapToMarkers() {
+        if (markers.length === 0) return;
+        
+        const bounds = L.latLngBounds(
+            markers.map(m => m.marker.getLatLng())
+        );
+        
+        // Add padding but don't zoom out too much
+        map.fitBounds(bounds, { 
+            padding: [50, 50],
+            maxZoom: 15  // Don't zoom in too close if only few markers
+        });
+    }
+    
+    // Filter markers and list using category, price, and search
+    function filterMarkers() {
+        if (!markerCluster) return;
+        refreshFilterState();
+
+        markers.forEach(item => {
+            const shouldShow = hotelMatchesFilters(item.hotelData);
+            if (shouldShow) {
+                if (!markerCluster.hasLayer(item.marker)) {
+                    markerCluster.addLayer(item.marker);
+                }
+            } else {
+                markerCluster.removeLayer(item.marker);
+            }
+        });
+
+        // Update list visibility to mirror map filters
+        document.querySelectorAll('.hotel-item[data-is-real="false"]').forEach(item => {
+            const hotelPayload = {
+                category: item.dataset.category,
+                price: item.dataset.price,
+                name: item.dataset.name,
+                address: item.querySelector('.text-gray')?.textContent || ''
+            };
+            const show = hotelMatchesFilters(hotelPayload);
+            item.style.display = show ? '' : 'none';
+        });
+
+        updateHotelCount();
+    }
+
+    function updateHotelCount() {
+        const visibleCount = Array.from(document.querySelectorAll('.hotel-item[data-is-real="false"]'))
+            .filter(el => el.style.display !== 'none')
+            .length;
+        const badge = document.getElementById('hotelCount');
+        if (badge) {
+            badge.textContent = visibleCount;
+        }
+    }
+    
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize map after DOM is loaded
+        setTimeout(() => {
+            initMap();
+        }, 100);
+
+        const mapControlsToggle = document.getElementById('mapControlsToggle');
+        const mapControls = document.getElementById('mapControls');
+        if (mapControlsToggle && mapControls) {
+            const toggleIcon = mapControlsToggle.querySelector('i');
+            mapControlsToggle.addEventListener('click', function() {
+                const collapsed = mapControls.classList.toggle('collapsed');
+                if (toggleIcon) {
+                    toggleIcon.classList.toggle('fa-chevron-left', !collapsed);
+                    toggleIcon.classList.toggle('fa-chevron-right', collapsed);
+                }
+                mapControlsToggle.setAttribute('aria-label', collapsed ? 'Show map controls' : 'Hide map controls');
+            });
+        }
+        
+        // Hotel item click
+        document.querySelectorAll('.hotel-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                // Don't trigger if clicking on buttons
+                if (e.target.closest('button')) return;
+                
+                const hotelId = parseInt(this.dataset.hotelId);
+                selectHotelOnMap(hotelId);
+                
+                // Fly to marker on map
+                const markerItem = markers.find(m => m.hotelId === hotelId);
+                if (markerItem) {
+                    map.flyTo(markerItem.marker.getLatLng(), 15, {
+                        duration: 1
+                    });
+                    markerItem.marker.openPopup();
+                }
+            });
+        });
+        
+        // Select hotel button click
+        document.querySelectorAll('.select-hotel-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const hotelId = parseInt(this.dataset.hotelId);
+                selectHotelOnMap(hotelId);
+                
+                // Fly to marker on map
+                const markerItem = markers.find(m => m.hotelId === hotelId);
+                if (markerItem) {
+                    map.flyTo(markerItem.marker.getLatLng(), 15, {
+                        duration: 1
+                    });
+                    markerItem.marker.openPopup();
+                }
+            });
+        });
+        
+        // Map controls
+        document.getElementById('showBudget').addEventListener('change', filterMarkers);
+        document.getElementById('showMedium').addEventListener('change', filterMarkers);
+        document.getElementById('showLuxury').addEventListener('change', filterMarkers);
+        document.getElementById('applyMapPriceFilter').addEventListener('click', filterMarkers);
+        document.getElementById('mapMinPrice').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') filterMarkers();
+        });
+        document.getElementById('mapMaxPrice').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') filterMarkers();
+        });
+        document.getElementById('mapHotelSearch').addEventListener('input', filterMarkers);
+        
+        document.getElementById('fitBounds').addEventListener('click', fitMapToMarkers);
+        
+        document.getElementById('resetView').addEventListener('click', function() {
+            const cityName = "{{ trip.destination.name|lower }}".trim().toLowerCase();
+            let zoomLevel = 13;
+            if (cityBounds[cityName]) {
+                zoomLevel = cityBounds[cityName].zoom;
+            }
+            map.setView([centerLat, centerLng], zoomLevel);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,843 @@
+ALL UNIQUE AMENITIES IN DATABASE:
+==================================================
+  1. 24_hour_front_desk
+  2. air_conditioning
+  3. airport_convenience
+  4. airport_proximity
+  5. airport_shuttle
+  6. airport_stop
+  7. andaman_view
+  8. archipelago_exploration
+  9. archipelago_inn
+ 10. archipelago_tours
+ 11. balcony
+ 12. bank_location
+ 13. bar
+ 14. bay_location
+ 15. bay_stay
+ 16. bay_view
+ 17. beach_access
+ 18. beach_activities
+ 19. beach_bungalows
+ 20. beach_front
+ 21. beach_house
+ 22. beach_hut_style
+ 23. beach_paradise
+ 24. beach_theme
+ 25. beach_tours
+ 26. beach_trips
+ 27. beachcomber_style
+ 28. beachfront
+ 29. best_sunset
+ 30. best_sunsets
+ 31. bicycle_rental
+ 32. boat_access
+ 33. boat_building
+ 34. boat_services
+ 35. boat_tours
+ 36. boating
+ 37. bodhi_proximity
+ 38. bodhi_tataung_access
+ 39. border_access
+ 40. border_city
+ 41. border_proximity
+ 42. border_view
+ 43. breakfast
+ 44. buddha_statue_view
+ 45. buddha_view
+ 46. budget_bay_view
+ 47. budget_beach
+ 48. budget_friendly
+ 49. budget_ocean
+ 50. budget_ocean_view
+ 51. budget_river
+ 52. budget_river_view
+ 53. budget_scenic
+ 54. budget_sea_view
+ 55. budget_travelers
+ 56. bungalow_style
+ 57. business_center
+ 58. car_rental
+ 59. casino
+ 60. casual_beach
+ 61. cave_access
+ 62. cave_exploration
+ 63. cave_tours
+ 64. central_location
+ 65. central_location_budget
+ 66. chin_architecture
+ 67. chin_culture
+ 68. chindwin_river
+ 69. chindwin_view
+ 70. chinese_style
+ 71. city_accommodation
+ 72. city_center
+ 73. city_inn
+ 74. city_view
+ 75. cliff_view
+ 76. coconut_grove
+ 77. colonial_area
+ 78. comfortable_budget
+ 79. comfortable_stay
+ 80. common_room
+ 81. concierge
+ 82. conference_room
+ 83. conference_rooms
+ 84. cool_air_budget
+ 85. cool_breeze
+ 86. cool_climate
+ 87. cool_ocean_air
+ 88. cool_river_air
+ 89. cool_sea_air
+ 90. cooling_breeze
+ 91. coral_bay
+ 92. coral_reef
+ 93. cultural_displays
+ 94. cultural_experience
+ 95. cultural_immersion
+ 96. cultural_performances
+ 97. cultural_tours
+ 98. culture_focused
+ 99. delta_experience
+100. delta_tours
+101. delta_view
+102. direct_beach
+103. dive_center
+104. dive_certification
+105. diving
+106. diving_community
+107. diving_packages
+108. dorm
+109. dorm_rooms
+110. early_flights
+111. early_riser
+112. ethnic_focus
+113. ethnic_village_tours
+114. extended_stay
+115. family_run
+116. fishing
+117. fishing_arrangements
+118. fishing_community
+119. fishing_tours
+120. fishing_village
+121. fitness
+122. flight_information
+123. fresh_air
+124. garden
+125. gateway_to_islands
+126. gateway_to_shan
+127. getaway
+128. golden_service
+129. golden_theme
+130. golden_triangle_tours
+131. government_proximity
+132. guide_services
+133. gym
+134. hairdryer
+135. heritage_building
+136. highest_point
+137. hiking_tours
+138. hill_location
+139. hill_tribe_experience
+140. hill_tribe_tours
+141. hill_view
+142. hilltop
+143. hilltop_location
+144. hilltop_view
+145. himalayan_foothills
+146. historic
+147. historical
+148. house_style
+149. immigration_assistance
+150. infinity_pool
+151. inle_tours
+152. inle_transfers
+153. inn_style
+154. international_standards
+155. island
+156. island_dreams
+157. island_hopping
+158. island_hopping_tours
+159. island_theme
+160. island_tours
+161. jade_market_proximity
+162. jade_mining_tours
+163. kachin_culture
+164. kayah_culture
+165. kayah_traditional
+166. kayaking
+167. kayan_culture
+168. kayan_village_access
+169. kayin_culture
+170. kyaiktiyo_tours
+171. lake_view
+172. laundry
+173. limestone_view
+174. local_advice
+175. local_architecture
+176. local_community
+177. local_contacts
+178. local_culture
+179. local_experience
+180. local_family
+181. local_favorite
+182. local_food
+183. local_guide
+184. local_homestay
+185. local_industry
+186. local_style
+187. local_village
+188. lockers
+189. lodge_experience
+190. long_neck_karen_tours
+191. long_neck_kayan_tours
+192. luxurious
+193. luxury_touch
+194. main_hotel
+195. marina_view
+196. marine_environment
+197. marine_life
+198. market_access
+199. market_proximity
+200. market_vibes
+201. market_view
+202. massage
+203. meditation
+204. memorable_experience
+205. minibar
+206. moken_experience
+207. moken_heritage
+208. moken_stay
+209. mon_culture
+210. monastery_stay
+211. monastery_tours
+212. mountain_air
+213. mountain_breeze
+214. mountain_experience
+215. mountain_lodge
+216. mountain_panorama
+217. mountain_setting
+218. mountain_trekking
+219. mountain_view
+220. mrauk_u_express_service
+221. mrauk_u_tours
+222. multi_ethnic_experience
+223. multiple_pagoda_view
+224. observation_deck
+225. ocean_breeze
+226. ocean_inn
+227. ocean_panorama
+228. ocean_view
+229. official_visits
+230. overnight_stay
+231. pagoda_proximity
+232. pagoda_stay
+233. pagoda_tours
+234. pagoda_view
+235. palace_style
+236. palace_view
+237. palm_garden
+238. palm_tree_setting
+239. panoramic_hakha_view
+240. panoramic_ocean
+241. panoramic_view
+242. paradise_theme
+243. parking
+244. peaceful
+245. peaceful_garden
+246. peaceful_location
+247. pearl_city
+248. pearl_diving
+249. pearl_farm_tours
+250. pearl_fishing_tours
+251. pearl_industry
+252. pearl_inn
+253. pearl_theme
+254. pearl_theme_budget
+255. pearl_trading
+256. photography
+257. plaza_location
+258. pool
+259. port_activities
+260. port_area
+261. port_proximity
+262. port_stay
+263. port_view
+264. pristine_beach
+265. private_pool
+266. rakhine_culture
+267. rakhine_traditional
+268. relaxed
+269. religious_sites
+270. religious_stay
+271. religious_tourism
+272. remote_beach
+273. resort_style
+274. rest_stop
+275. restaurant
+276. river_activities
+277. river_bank
+278. river_boat_tours
+279. river_breeze
+280. river_cruises
+281. river_inn
+282. river_mouth
+283. river_sea_meeting
+284. river_side
+285. river_view
+286. river_view_budget
+287. riverfront
+288. riverside
+289. riverside_garden
+290. riverside_inn
+291. romantic
+292. rooftop
+293. room_service
+294. royal_experience
+295. royal_service
+296. royal_treatment
+297. rural_experience
+298. safe
+299. sauna
+300. scenic
+301. scenic_hills
+302. scenic_location
+303. scenic_view
+304. scuba_diving
+305. sea_breeze
+306. sea_gypsy_culture
+307. sea_gypsy_experience
+308. sea_hotel
+309. sea_port
+310. sea_theme
+311. sea_view
+312. seafood
+313. seashell_theme
+314. seaside
+315. seclusion
+316. shan_cuisine
+317. shan_culture
+318. shan_traditional
+319. shared_kitchen
+320. shopping
+321. shopping_area
+322. shopping_proximity
+323. simple_accommodation
+324. simple_inn
+325. snorkeling
+326. snorkeling_tours
+327. spa
+328. spelunking_tours
+329. spiritual_retreat
+330. spiritual_stay
+331. standing_buddha_view
+332. statue_view_budget
+333. strand_road_view
+334. sunbeds
+335. sunrise_view
+336. sunset_view
+337. swimming_pool
+338. tattoo_tradition
+339. tea_garden
+340. tea_plantation_tours
+341. tennis
+342. tennis_court
+343. terrace
+344. thailand_access
+345. thailand_view
+346. thanboddhay_access
+347. tour_advice
+348. tour_arrangements
+349. tour_booking
+350. tour_desk
+351. town_center
+352. traditional
+353. traditional_boats
+354. traditional_design
+355. traditional_stay
+356. transfer_service
+357. transit_accommodation
+358. travel_community
+359. trekking_base
+360. trekking_guides
+361. trekking_information
+362. trekking_tours
+363. triangle_view
+364. tropical_fantasy
+365. tropical_garden
+366. tropical_setting
+367. tv
+368. umbrella_workshop
+369. university_area
+370. urban_accommodation
+371. valley_location
+372. valley_view
+373. viewpoint
+374. villa
+375. villa_accommodation
+376. villa_stay
+377. village_experience
+378. village_setting
+379. water_sports
+380. wifi
+381. world_tallest_buddha
+382. yacht_services
+383. yachting
+384. yoga
+
+
+AMENITIES GROUPED BY FIRST LETTER:
+==================================================
+
+2:
+--------------------
+  • 24_hour_front_desk
+
+A:
+--------------------
+  • air_conditioning
+  • airport_convenience
+  • airport_proximity
+  • airport_shuttle
+  • airport_stop
+  • andaman_view
+  • archipelago_exploration
+  • archipelago_inn
+  • archipelago_tours
+
+B:
+--------------------
+  • balcony
+  • bank_location
+  • bar
+  • bay_location
+  • bay_stay
+  • bay_view
+  • beach_access
+  • beach_activities
+  • beach_bungalows
+  • beach_front
+  • beach_house
+  • beach_hut_style
+  • beach_paradise
+  • beach_theme
+  • beach_tours
+  • beach_trips
+  • beachcomber_style
+  • beachfront
+  • best_sunset
+  • best_sunsets
+  • bicycle_rental
+  • boat_access
+  • boat_building
+  • boat_services
+  • boat_tours
+  • boating
+  • bodhi_proximity
+  • bodhi_tataung_access
+  • border_access
+  • border_city
+  • border_proximity
+  • border_view
+  • breakfast
+  • buddha_statue_view
+  • buddha_view
+  • budget_bay_view
+  • budget_beach
+  • budget_friendly
+  • budget_ocean
+  • budget_ocean_view
+  • budget_river
+  • budget_river_view
+  • budget_scenic
+  • budget_sea_view
+  • budget_travelers
+  • bungalow_style
+  • business_center
+
+C:
+--------------------
+  • car_rental
+  • casino
+  • casual_beach
+  • cave_access
+  • cave_exploration
+  • cave_tours
+  • central_location
+  • central_location_budget
+  • chin_architecture
+  • chin_culture
+  • chindwin_river
+  • chindwin_view
+  • chinese_style
+  • city_accommodation
+  • city_center
+  • city_inn
+  • city_view
+  • cliff_view
+  • coconut_grove
+  • colonial_area
+  • comfortable_budget
+  • comfortable_stay
+  • common_room
+  • concierge
+  • conference_room
+  • conference_rooms
+  • cool_air_budget
+  • cool_breeze
+  • cool_climate
+  • cool_ocean_air
+  • cool_river_air
+  • cool_sea_air
+  • cooling_breeze
+  • coral_bay
+  • coral_reef
+  • cultural_displays
+  • cultural_experience
+  • cultural_immersion
+  • cultural_performances
+  • cultural_tours
+  • culture_focused
+
+D:
+--------------------
+  • delta_experience
+  • delta_tours
+  • delta_view
+  • direct_beach
+  • dive_center
+  • dive_certification
+  • diving
+  • diving_community
+  • diving_packages
+  • dorm
+  • dorm_rooms
+
+E:
+--------------------
+  • early_flights
+  • early_riser
+  • ethnic_focus
+  • ethnic_village_tours
+  • extended_stay
+
+F:
+--------------------
+  • family_run
+  • fishing
+  • fishing_arrangements
+  • fishing_community
+  • fishing_tours
+  • fishing_village
+  • fitness
+  • flight_information
+  • fresh_air
+
+G:
+--------------------
+  • garden
+  • gateway_to_islands
+  • gateway_to_shan
+  • getaway
+  • golden_service
+  • golden_theme
+  • golden_triangle_tours
+  • government_proximity
+  • guide_services
+  • gym
+
+H:
+--------------------
+  • hairdryer
+  • heritage_building
+  • highest_point
+  • hiking_tours
+  • hill_location
+  • hill_tribe_experience
+  • hill_tribe_tours
+  • hill_view
+  • hilltop
+  • hilltop_location
+  • hilltop_view
+  • himalayan_foothills
+  • historic
+  • historical
+  • house_style
+
+I:
+--------------------
+  • immigration_assistance
+  • infinity_pool
+  • inle_tours
+  • inle_transfers
+  • inn_style
+  • international_standards
+  • island
+  • island_dreams
+  • island_hopping
+  • island_hopping_tours
+  • island_theme
+  • island_tours
+
+J:
+--------------------
+  • jade_market_proximity
+  • jade_mining_tours
+
+K:
+--------------------
+  • kachin_culture
+  • kayah_culture
+  • kayah_traditional
+  • kayaking
+  • kayan_culture
+  • kayan_village_access
+  • kayin_culture
+  • kyaiktiyo_tours
+
+L:
+--------------------
+  • lake_view
+  • laundry
+  • limestone_view
+  • local_advice
+  • local_architecture
+  • local_community
+  • local_contacts
+  • local_culture
+  • local_experience
+  • local_family
+  • local_favorite
+  • local_food
+  • local_guide
+  • local_homestay
+  • local_industry
+  • local_style
+  • local_village
+  • lockers
+  • lodge_experience
+  • long_neck_karen_tours
+  • long_neck_kayan_tours
+  • luxurious
+  • luxury_touch
+
+M:
+--------------------
+  • main_hotel
+  • marina_view
+  • marine_environment
+  • marine_life
+  • market_access
+  • market_proximity
+  • market_vibes
+  • market_view
+  • massage
+  • meditation
+  • memorable_experience
+  • minibar
+  • moken_experience
+  • moken_heritage
+  • moken_stay
+  • mon_culture
+  • monastery_stay
+  • monastery_tours
+  • mountain_air
+  • mountain_breeze
+  • mountain_experience
+  • mountain_lodge
+  • mountain_panorama
+  • mountain_setting
+  • mountain_trekking
+  • mountain_view
+  • mrauk_u_express_service
+  • mrauk_u_tours
+  • multi_ethnic_experience
+  • multiple_pagoda_view
+
+O:
+--------------------
+  • observation_deck
+  • ocean_breeze
+  • ocean_inn
+  • ocean_panorama
+  • ocean_view
+  • official_visits
+  • overnight_stay
+
+P:
+--------------------
+  • pagoda_proximity
+  • pagoda_stay
+  • pagoda_tours
+  • pagoda_view
+  • palace_style
+  • palace_view
+  • palm_garden
+  • palm_tree_setting
+  • panoramic_hakha_view
+  • panoramic_ocean
+  • panoramic_view
+  • paradise_theme
+  • parking
+  • peaceful
+  • peaceful_garden
+  • peaceful_location
+  • pearl_city
+  • pearl_diving
+  • pearl_farm_tours
+  • pearl_fishing_tours
+  • pearl_industry
+  • pearl_inn
+  • pearl_theme
+  • pearl_theme_budget
+  • pearl_trading
+  • photography
+  • plaza_location
+  • pool
+  • port_activities
+  • port_area
+  • port_proximity
+  • port_stay
+  • port_view
+  • pristine_beach
+  • private_pool
+
+R:
+--------------------
+  • rakhine_culture
+  • rakhine_traditional
+  • relaxed
+  • religious_sites
+  • religious_stay
+  • religious_tourism
+  • remote_beach
+  • resort_style
+  • rest_stop
+  • restaurant
+  • river_activities
+  • river_bank
+  • river_boat_tours
+  • river_breeze
+  • river_cruises
+  • river_inn
+  • river_mouth
+  • river_sea_meeting
+  • river_side
+  • river_view
+  • river_view_budget
+  • riverfront
+  • riverside
+  • riverside_garden
+  • riverside_inn
+  • romantic
+  • rooftop
+  • room_service
+  • royal_experience
+  • royal_service
+  • royal_treatment
+  • rural_experience
+
+S:
+--------------------
+  • safe
+  • sauna
+  • scenic
+  • scenic_hills
+  • scenic_location
+  • scenic_view
+  • scuba_diving
+  • sea_breeze
+  • sea_gypsy_culture
+  • sea_gypsy_experience
+  • sea_hotel
+  • sea_port
+  • sea_theme
+  • sea_view
+  • seafood
+  • seashell_theme
+  • seaside
+  • seclusion
+  • shan_cuisine
+  • shan_culture
+  • shan_traditional
+  • shared_kitchen
+  • shopping
+  • shopping_area
+  • shopping_proximity
+  • simple_accommodation
+  • simple_inn
+  • snorkeling
+  • snorkeling_tours
+  • spa
+  • spelunking_tours
+  • spiritual_retreat
+  • spiritual_stay
+  • standing_buddha_view
+  • statue_view_budget
+  • strand_road_view
+  • sunbeds
+  • sunrise_view
+  • sunset_view
+  • swimming_pool
+
+T:
+--------------------
+  • tattoo_tradition
+  • tea_garden
+  • tea_plantation_tours
+  • tennis
+  • tennis_court
+  • terrace
+  • thailand_access
+  • thailand_view
+  • thanboddhay_access
+  • tour_advice
+  • tour_arrangements
+  • tour_booking
+  • tour_desk
+  • town_center
+  • traditional
+  • traditional_boats
+  • traditional_design
+  • traditional_stay
+  • transfer_service
+  • transit_accommodation
+  • travel_community
+  • trekking_base
+  • trekking_guides
+  • trekking_information
+  • trekking_tours
+  • triangle_view
+  • tropical_fantasy
+  • tropical_garden
+  • tropical_setting
+  • tv
+
+U:
+--------------------
+  • umbrella_workshop
+  • university_area
+  • urban_accommodation
+
+V:
+--------------------
+  • valley_location
+  • valley_view
+  • viewpoint
+  • villa
+  • villa_accommodation
+  • villa_stay
+  • village_experience
+  • village_setting
+
+W:
+--------------------
+  • water_sports
+  • wifi
+  • world_tallest_buddha
+
+Y:
+--------------------
+  • yacht_services
+  • yachting
+  • yoga

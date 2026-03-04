@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}How It Works - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">How GoMyanmar Works</h1>
+            <p class="lead">Plan your perfect Myanmar adventure in just a few simple steps</p>
+        </div>
+    </div>
+
+    <!-- Step-by-Step Process -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h2 class="mb-4">Your Journey in 4 Simple Steps</h2>
+            
+            <!-- Step 1 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="display-1 text-primary mb-3">1</div>
+                        </div>
+                        <div class="col-md-10">
+                            <h3>Enter Your Travel Details</h3>
+                            <p>Tell us where you want to go, when you're traveling, and how many people are joining. You can choose from popular destinations like Yangon, Mandalay, Bagan, Inle Lake, and more.</p>
+                            <ul>
+                                <li>Select departure and destination cities</li>
+                                <li>Choose your travel dates</li>
+                                <li>Specify number of travelers</li>
+                                <li>Select accommodation type</li>
+                                <li>Choose transportation preference</li>
+                            </ul>
+                            <a href="{% url 'planner:plan' %}" class="btn btn-primary">Start Planning</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="display-1 text-primary mb-3">2</div>
+                        </div>
+                        <div class="col-md-10">
+                            <h3>Choose Your Perfect Plan</h3>
+                            <p>Browse through our curated travel plans tailored to different interests and travel styles. Each plan includes carefully selected activities and experiences.</p>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Cultural Explorer</h5>
+                                            <p class="card-text">Perfect for travelers interested in history, temples, and local culture.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Adventure Seeker</h5>
+                                            <p class="card-text">For those who love outdoor activities and unique experiences.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Relaxation & Wellness</h5>
+                                            <p class="card-text">Slow-paced journeys focused on relaxation and self-care.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="display-1 text-primary mb-3">3</div>
+                        </div>
+                        <div class="col-md-10">
+                            <h3>Customize Your Trip</h3>
+                            <p>Review and customize your selected plan. You can:</p>
+                            <ul>
+                                <li>View detailed day-by-day itinerary</li>
+                                <li>Check weather forecasts for your travel dates</li>
+                                <li>Select specific hotels from our curated list</li>
+                                <li>Choose your preferred transportation (bus, flight, etc.)</li>
+                                <li>See the complete cost breakdown</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="display-1 text-primary mb-3">4</div>
+                        </div>
+                        <div class="col-md-10">
+                            <h3>Confirm & Enjoy Your Trip</h3>
+                            <p>Once you're satisfied with your plan, confirm your booking and get ready for your adventure!</p>
+                            <ul>
+                                <li>Confirm hotel and transport bookings</li>
+                                <li>Download your detailed itinerary as PDF</li>
+                                <li>Print your travel documents</li>
+                                <li>Access your trip dashboard anytime</li>
+                                <li>Get booking references and confirmations</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h2 class="mb-4">Key Features</h2>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-map-marked-alt fa-3x text-primary mb-3"></i>
+                            <h4>Smart Trip Planning</h4>
+                            <p>AI-powered recommendations based on your preferences and travel style.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-hotel fa-3x text-primary mb-3"></i>
+                            <h4>Real Hotel Selection</h4>
+                            <p>Choose from real hotels with actual locations, prices, and amenities.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-bus fa-3x text-primary mb-3"></i>
+                            <h4>Transport Options</h4>
+                            <p>Multiple transportation choices including buses, flights, and trains.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-cloud-sun fa-3x text-primary mb-3"></i>
+                            <h4>Weather Integration</h4>
+                            <p>Real-time weather forecasts for your travel dates and destinations.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-pdf fa-3x text-primary mb-3"></i>
+                            <h4>PDF Itinerary</h4>
+                            <p>Download and print your complete travel plan with all details.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                            <h4>Cost Analysis</h4>
+                            <p>Track your travel expenses and get detailed cost breakdowns.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h2 class="mb-4">Frequently Asked Questions</h2>
+            <div class="accordion" id="faqAccordion">
+                <div class="card">
+                    <div class="card-header" id="faq1">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapse1" aria-expanded="true" aria-controls="collapse1">
+                                How do I start planning my trip?
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapse1" class="collapse show" aria-labelledby="faq1" data-parent="#faqAccordion">
+                        <div class="card-body">
+                            Simply click on "Plan Trip" in the navigation menu, then enter your travel details including departure city, destination, dates, and number of travelers.
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="faq2">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapse2" aria-expanded="false" aria-controls="collapse2">
+                                Can I customize my travel plan?
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapse2" class="collapse" aria-labelledby="faq2" data-parent="#faqAccordion">
+                        <div class="card-body">
+                            Yes! After selecting a base plan, you can customize hotels, transportation, and activities to match your preferences and budget.
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="faq3">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapse3" aria-expanded="false" aria-controls="collapse3">
+                                How accurate are the cost estimates?
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapse3" class="collapse" aria-labelledby="faq3" data-parent="#faqAccordion">
+                        <div class="card-body">
+                            Our cost estimates are based on current market rates and are updated regularly. The final price may vary slightly based on availability and seasonal changes.
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="faq4">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapse4" aria-expanded="false" aria-controls="collapse4">
+                                Can I save my trip plans?
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapse4" class="collapse" aria-labelledby="faq4" data-parent="#faqAccordion">
+                        <div class="card-body">
+                            Yes, all your trip plans are saved in your dashboard. You can access them anytime, make changes, or create new trips based on previous ones.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <div class="jumbotron">
+                <h2>Ready to Start Your Myanmar Adventure?</h2>
+                <p class="lead">Create your perfect trip in minutes</p>
+                <a href="{% url 'planner:plan' %}" class="btn btn-primary btn-lg">Plan Your Trip Now</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    .display-1 {
+        font-size: 5rem;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .jumbotron {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 3rem 2rem;
+    }
+    .btn-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    .btn-link:hover {
+        color: #0056b3;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}

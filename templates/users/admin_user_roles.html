@@ -1,0 +1,337 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_user_roles.html -->
+{% extends 'base.html' %}
+{% block title %}User Role Management - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">User Role Management</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Manage user roles and permissions</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Role Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ users.count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Total Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ admin_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Admins</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">{{ user_count }}</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Regular Users</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card-glass p-3 text-center">
+                <h3 class="mb-2" style="color: #2c3e50;">2</h3>
+                <p class="mb-0" style="color: #7f8c8d;">Role Types</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Display messages -->
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Users Table with Role Management -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">User</th>
+                        <th style="color: #2c3e50;">Current Role</th>
+                        <th style="color: #2c3e50;">Change Role</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" 
+                                     class="rounded-circle me-2" width="40" height="40">
+                                {% else %}
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                     style="width: 40px; height: 40px; background: linear-gradient(135deg, #6B47A4, #3498db);">
+                                    <span class="text-white fw-bold">{{ user.username|first|upper }}</span>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <strong style="color: #2c3e50;">{{ user.username }}</strong>
+                                    <div class="text-gray small">{{ user.email }}</div>
+                                    {% if user == request.user %}
+                                    <div class="text-warning small">(Your Account)</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if user.user_type == 'admin' %}
+                            <span class="badge bg-danger px-3 py-2">
+                                <i class="fas fa-crown me-1"></i>Administrator
+                            </span>
+                            {% else %}
+                            <span class="badge bg-primary px-3 py-2">
+                                <i class="fas fa-user me-1"></i>Regular User
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <select class="form-select role-select" 
+                                    data-user-id="{{ user.id }}"
+                                    id="role-select-{{ user.id }}"
+                                    {% if user == request.user %}disabled{% endif %}>
+                                {% for value, label in user_types %}
+                                <option value="{{ value }}" {% if user.user_type == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-primary update-role-btn" 
+                                        data-user-id="{{ user.id }}"
+                                        id="update-btn-{{ user.id }}"
+                                        {% if user == request.user %}disabled{% endif %}>
+                                    <i class="fas fa-save me-1"></i>Update
+                                </button>
+                                <a href="/admin/users/customuser/{{ user.id }}/change/" 
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No users found</h5>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Debug log
+    console.log('Page loaded - User Role Management');
+    
+    // Store original values
+    const originalValues = {};
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Initialize original values and button states
+    document.querySelectorAll('.role-select').forEach(select => {
+        const userId = select.getAttribute('data-user-id');
+        originalValues[userId] = select.value;
+        updateButtonState(userId);
+    });
+    
+    // Handle role selection change
+    document.querySelectorAll('.role-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const userId = this.getAttribute('data-user-id');
+            console.log(`Role changed for user ${userId}: ${this.value}`);
+            updateButtonState(userId);
+        });
+    });
+    
+    // Handle update button click
+    document.querySelectorAll('.update-role-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            console.log(`Update button clicked for user ${userId}`);
+            updateUserRole(userId);
+        });
+    });
+    
+    // Function to update button state
+    function updateButtonState(userId) {
+        const selectElement = document.querySelector(`#role-select-${userId}`);
+        const updateButton = document.querySelector(`#update-btn-${userId}`);
+        
+        if (!selectElement || !updateButton) {
+            console.error(`Elements not found for user ${userId}`);
+            return;
+        }
+        
+        const currentValue = selectElement.value;
+        const originalValue = originalValues[userId];
+        const isCurrentUser = selectElement.disabled;
+        
+        console.log(`Button state for user ${userId}: current=${currentValue}, original=${originalValue}, isCurrentUser=${isCurrentUser}`);
+        
+        if (currentValue === originalValue || isCurrentUser) {
+            updateButton.disabled = true;
+            updateButton.classList.remove('btn-primary');
+            updateButton.classList.add('btn-outline-primary');
+        } else {
+            updateButton.disabled = false;
+            updateButton.classList.remove('btn-outline-primary');
+            updateButton.classList.add('btn-primary');
+        }
+    }
+    
+    // Function to update user role
+    function updateUserRole(userId) {
+        const selectElement = document.querySelector(`#role-select-${userId}`);
+        const updateButton = document.querySelector(`#update-btn-${userId}`);
+        
+        if (!selectElement || !updateButton) {
+            console.error(`Elements not found for user ${userId}`);
+            return;
+        }
+        
+        const newRole = selectElement.value;
+        
+        // Check if role has changed
+        if (newRole === originalValues[userId]) {
+            alert('No changes detected. Please select a different role first.');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to change this user's role to ${newRole === 'admin' ? 'Administrator' : 'Regular User'}?`)) {
+            return;
+        }
+        
+        // Show loading state
+        updateButton.disabled = true;
+        updateButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Updating...';
+        
+        // Create data to send
+        const data = {
+            'user_id': userId,
+            'user_type': newRole,
+            'action': 'update_role',
+            'csrfmiddlewaretoken': csrfToken
+        };
+        
+        console.log('Sending data:', data);
+        
+        // Send request using fetch
+        fetch('{% url "users:admin_user_roles" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams(data)
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (response.ok) {
+                return response.json().then(data => {
+                    console.log('Response data:', data);
+                    
+                    if (data.success) {
+                        // Update original value
+                        originalValues[userId] = newRole;
+                        
+                        // Show success message
+                        showMessage('success', data.message || 'Role updated successfully!');
+                        
+                        // Reload after 2 seconds to show updated badge
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        throw new Error(data.error || 'Failed to update role');
+                    }
+                });
+            } else {
+                return response.text().then(text => {
+                    console.error('Server error response:', text);
+                    throw new Error(`Server error: ${response.status}`);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            showMessage('danger', `Error: ${error.message}`);
+            
+            // Reset button
+            updateButton.disabled = false;
+            updateButton.innerHTML = '<i class="fas fa-save me-1"></i>Update';
+        });
+    }
+    
+    // Function to show messages
+    function showMessage(type, message) {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.custom-alert');
+        existingMessages.forEach(msg => msg.remove());
+        
+        // Create message element
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} custom-alert alert-dismissible fade show`;
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.style.minWidth = '300px';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+
+<style>
+.custom-alert {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}

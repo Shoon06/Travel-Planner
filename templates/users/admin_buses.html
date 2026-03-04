@@ -1,0 +1,379 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_buses.html -->
+{% extends 'base.html' %}
+{% block title %}Buses - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;">Manage Bus Services</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Add, edit, or remove bus services</p>
+            </div>
+            <a href="{% url 'users:admin_add_bus' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Bus
+            </a>
+        </div>
+        
+        <!-- Statistics - NOW DYNAMIC -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="total-buses-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ total_buses }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Total Buses</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="active-buses-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ active_buses }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Active</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-glass p-3 text-center" id="bus-type-count-stat">
+                    <h4 class="mb-1" style="color: #2c3e50;">{{ bus_type_count }}</h4>
+                    <p class="mb-0" style="color: #7f8c8d;">Bus Types</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search -->
+        <form method="get" class="mb-3">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" 
+                       placeholder="Search buses..." value="{{ request.GET.search }}">
+                <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Buses Table -->
+    <div class="card-glass p-4">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="color: #2c3e50;">Bus Number</th>
+                        <th style="color: #2c3e50;">Operator</th>
+                        <th style="color: #2c3e50;">Route</th>
+                        <th style="color: #2c3e50;">Departure Time</th>
+                        <th style="color: #2c3e50;">Price</th>
+                        <th style="color: #2c3e50;">Seats</th>
+                        <th style="color: #2c3e50;">Type</th>
+                        <th style="color: #2c3e50;">Status</th>
+                        <th style="color: #2c3e50;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="buses-table-body">
+                    {% for bus in buses %}
+                    <tr id="bus-row-{{ bus.id }}">
+                        <td style="color: #34495e; font-weight: 500;">
+                            {{ bus.bus_number|default:bus.company|slice:":15" }}
+                        </td>
+                        <td style="color: #34495e;">{{ bus.company|slice:":20" }}</td>
+                        <td>
+                            <div style="color: #2c3e50;">{{ bus.departure.name }} → {{ bus.arrival.name }}</div>
+                            <div class="text-gray small">
+                                Duration: {{ bus.get_duration_display }}
+                            </div>
+                        </td>
+                        <td style="color: #7f8c8d;">
+                            {{ bus.departure_time|time:"H:i" }}
+                        </td>
+                        <td style="color: #34495e;">MMK {{ bus.price|floatformat:0 }}</td>
+                        <td>
+                            <span class="badge {% if bus.available_seats > 10 %}bg-success{% elif bus.available_seats > 0 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                {{ bus.available_seats }} / {{ bus.total_seats }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if bus.bus_type == 'luxury' %}bg-danger{% elif bus.bus_type == 'vip' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                                {{ bus.get_bus_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if bus.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'users:admin_edit_bus' bus.id %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger delete-bus-btn" 
+                                        data-bus-id="{{ bus.id }}"
+                                        data-bus-name="{{ bus.company }} {{ bus.bus_number }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="empty-buses-row">
+                        <td colspan="9" class="text-center py-4">
+                            <i class="fas fa-bus fa-3x text-gray mb-3"></i>
+                            <h5 style="color: #2c3e50;">No bus services found</h5>
+                            <p style="color: #7f8c8d;">Add your first bus service to get started</p>
+                            <a href="{% url 'users:admin_add_bus' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add Bus
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Improved Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <!-- Previous Button -->
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+                </li>
+                {% endif %}
+                
+                <!-- First Page -->
+                {% if page_obj.number > 3 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">1</a>
+                </li>
+                {% if page_obj.number > 4 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+                {% endif %}
+                
+                <!-- Page Numbers (Limited to 5 around current) -->
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Last Page -->
+                {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
+                {% if page_obj.number < page_obj.paginator.num_pages|add:"-3" %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        {{ page_obj.paginator.num_pages }}
+                    </a>
+                </li>
+                {% endif %}
+                
+                <!-- Next Button -->
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+                </li>
+                {% endif %}
+            </ul>
+            
+            <!-- Page Info -->
+            <div class="text-center mt-2 text-gray">
+                <small>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</small>
+            </div>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Notification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageContent">
+                <!-- Message will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to show modal message
+        function showMessage(message, isSuccess = true) {
+            const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+            const content = document.getElementById('messageContent');
+            
+            if (isSuccess) {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-circle text-danger fa-3x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+            
+            modal.show();
+        }
+
+        // Function to update bus statistics
+        function updateBusStatistics() {
+            // Send AJAX request to update statistics
+            fetch('{% url "users:admin_buses" %}?ajax_stats=1', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Parse the HTML to extract statistics
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find statistics elements in the parsed HTML
+                const totalElem = doc.querySelector('#total-buses-stat h4');
+                const activeElem = doc.querySelector('#active-buses-stat h4');
+                const typeElem = doc.querySelector('#bus-type-count-stat h4');
+                
+                // Update the statistics on current page
+                if (totalElem) {
+                    document.querySelector('#total-buses-stat h4').textContent = totalElem.textContent;
+                }
+                if (activeElem) {
+                    document.querySelector('#active-buses-stat h4').textContent = activeElem.textContent;
+                }
+                if (typeElem) {
+                    document.querySelector('#bus-type-count-stat h4').textContent = typeElem.textContent;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating statistics:', error);
+            });
+        }
+
+        // Delete bus
+        document.querySelectorAll('.delete-bus-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const busId = this.getAttribute('data-bus-id');
+                const busName = this.getAttribute('data-bus-name');
+                
+                if (confirm(`Are you sure you want to delete bus service ${busName}?`)) {
+                    // Show loading state
+                    const originalHTML = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    this.disabled = true;
+                    
+                    // Using Django URL template tag
+                    fetch(`{% url 'users:admin_delete_content' 'bus' 0 %}`.replace('0', busId), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({})
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        
+                        if (data.success) {
+                            showMessage(data.message, true);
+                            
+                            // Remove the row from table with animation
+                            const row = document.getElementById(`bus-row-${busId}`);
+                            if (row) {
+                                row.style.opacity = '0.5';
+                                row.style.transition = 'opacity 0.3s';
+                                
+                                setTimeout(() => {
+                                    row.remove();
+                                    
+                                    // Update statistics
+                                    updateBusStatistics();
+                                    
+                                    // Check if table is empty
+                                    const tbody = document.getElementById('buses-table-body');
+                                    const emptyRow = document.getElementById('empty-buses-row');
+                                    
+                                    if (tbody.children.length === 0 || 
+                                        (tbody.children.length === 1 && emptyRow)) {
+                                        // Show empty state
+                                        tbody.innerHTML = `
+                                            <tr id="empty-buses-row">
+                                                <td colspan="9" class="text-center py-4">
+                                                    <i class="fas fa-bus fa-3x text-gray mb-3"></i>
+                                                    <h5 style="color: #2c3e50;">No bus services found</h5>
+                                                    <p style="color: #7f8c8d;">Add your first bus service to get started</p>
+                                                    <a href="{% url 'users:admin_add_bus' %}" class="btn btn-primary">
+                                                        <i class="fas fa-plus me-2"></i>Add Bus
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }
+                                }, 300);
+                            }
+                        } else {
+                            showMessage('Error: ' + data.error, false);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Reset button state
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        showMessage('Error deleting bus service. Please try again.', false);
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mandalay Attractions Map - Select Attraction</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  crossorigin=""
+/>
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+#attractionMap {
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Permanent attraction name above marker */
+.leaflet-tooltip.attraction-name {
+    background-color: rgba(255,255,255,0.95);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #0d6efd;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* Modal styling */
+.attraction-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 1000;
+    width: 280px;
+    display: none;
+    font-family: sans-serif;
+}
+.attraction-modal h3 {
+    margin-top: 0;
+    font-size: 16px;
+}
+.attraction-modal button {
+    margin-top: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+.attraction-modal button:hover {
+    background-color: #0b5ed7;
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.3);
+    z-index: 900;
+    display: none;
+}
+</style>
+</head>
+<body>
+<div id="attractionMap"></div>
+
+<div class="modal-overlay" id="modalOverlay"></div>
+
+<div class="attraction-modal" id="attractionModal">
+    <h3 id="modalName">Attraction Name</h3>
+    <p id="modalCategory">Category: </p>
+    <p id="modalRating">Rating: </p>
+    <p id="modalDescription"></p>
+    <button id="selectAttractionBtn">Select Attraction</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+/* Initialize map 
+10 → City-wide
+
+12–13 → District / urban area
+
+14–15 → Streets & neighborhoods
+
+16+ → Buildings
+*/
+const map = L.map('attractionMap').setView([21.9587, 96.0891], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO, © OpenStreetMap contributors'
+}).addTo(map);
+
+let attractionMarkers = [];
+
+/* Modal elements */
+const attractionModal = document.getElementById('attractionModal');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalName = document.getElementById('modalName');
+const modalCategory = document.getElementById('modalCategory');
+const modalRating = document.getElementById('modalRating');
+const modalDescription = document.getElementById('modalDescription');
+const selectAttractionBtn = document.getElementById('selectAttractionBtn');
+
+/* Add an attraction marker */
+function addAttractionMarker(attraction) {
+    if (!attraction.latitude || !attraction.longitude) return;
+
+    const marker = L.circleMarker([attraction.latitude, attraction.longitude], {
+        radius: 10,
+        color: '#0d6efd',
+        fillColor: '#0d6efd',
+        fillOpacity: 0.7
+    }).addTo(map);
+
+    // Permanent tooltip above marker
+    L.tooltip({
+        permanent: true,
+        direction: 'top',
+        className: 'attraction-name',
+        offset: [0, -12]
+    })
+    .setContent(attraction.name)
+    .setLatLng([attraction.latitude, attraction.longitude])
+    .addTo(map);
+
+    // Click to open modal
+    marker.on('click', () => showAttractionModal(attraction));
+
+    attractionMarkers.push(marker);
+}
+
+/* Show modal */
+function showAttractionModal(attraction) {
+    modalName.textContent = attraction.name;
+    modalCategory.textContent = `Category: ${attraction.category || 'Attraction'}`;
+    modalRating.textContent = `Rating: ${attraction.rating || 'N/A'} ★`;
+    modalDescription.textContent = attraction.description || '';
+
+    attractionModal.style.display = 'block';
+    modalOverlay.style.display = 'block';
+
+    selectAttractionBtn.onclick = () => {
+        window.parent.postMessage({
+            type: 'ATTRACTION_SELECTED',
+            attraction: {
+                name: attraction.name,
+                latitude: attraction.latitude,
+                longitude: attraction.longitude,
+                description: attraction.description,
+                type: attraction.type || attraction.category,
+                id: attraction.id,
+                opens_at: attraction.opens_at,
+                closes_at: attraction.closes_at
+            }
+        }, window.location.origin);
+        closeModal();
+    };
+}
+
+/* Close modal */
+function closeModal() {
+    attractionModal.style.display = 'none';
+    modalOverlay.style.display = 'none';
+}
+
+/* Close on overlay click */
+modalOverlay.addEventListener('click', closeModal);
+
+// /* Dummy attractions */
+// const dummyAttractions = [
+//     {id:1, latitude:21.9587, longitude:96.0891, name:'Shwenandaw Monastery', category:'Temple', rating:4.6, description:'Famous teak monastery.'},
+//     {id:2, latitude:21.9720, longitude:96.0810, name:'Mandalay Palace', category:'Palace', rating:4.8, description:'Royal palace complex.'},
+//     {id:3, latitude:21.9540, longitude:96.0895, name:'U Bein Bridge', category:'Bridge', rating:4.7, description:'World\'s longest teak bridge.'},
+//     {id:4, latitude:21.9600, longitude:96.0830, name:'Mahamuni Pagoda', category:'Pagoda', rating:4.5, description:'Famous Buddhist temple.'}
+// ];
+// dummyAttractions.forEach(addAttractionMarker);
+
+/* Listen for data from parent */
+function fitMapToAttractions(data) {
+    const coords = (data || [])
+        .filter(a => typeof a.latitude === 'number' && typeof a.longitude === 'number')
+        .map(a => [a.latitude, a.longitude]);
+
+    if (coords.length > 1) {
+        map.fitBounds(L.latLngBounds(coords), { padding: [50, 50] });
+    } else if (coords.length === 1) {
+        map.setView(coords[0], 14);
+    }
+
+    map.invalidateSize();
+}
+
+window.addEventListener('message', function(event) {
+    if (event.origin !== window.location.origin) return;
+
+    if (event.data.type === 'ATTRACTIONS_DATA') {
+        const data = event.data.payload;
+        if (!Array.isArray(data)) return;
+
+        // Clear old markers
+        attractionMarkers.forEach(marker => map.removeLayer(marker));
+        attractionMarkers = [];
+
+        data.forEach(addAttractionMarker);
+        console.log("Attractions loaded:", data.length);
+        fitMapToAttractions(data);
+        return;
+    }
+
+    if (event.data.type === 'REFRESH_MAP') {
+        fitMapToAttractions(attractionMarkers.map(m => ({
+            latitude: m.getLatLng().lat,
+            longitude: m.getLatLng().lng
+        })));
+    }
+});
+</script>
+</body>
+</html>

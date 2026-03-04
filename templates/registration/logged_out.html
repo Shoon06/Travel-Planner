@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Logged Out - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card premium-card text-center p-5">
+                <i class="fas fa-sign-out-alt fa-4x text-primary mb-4"></i>
+                <h2 class="fw-bold mb-3">Successfully Logged Out</h2>
+                <p class="text-muted mb-4">You have been successfully logged out of your account.</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home me-2"></i>Return to Home
+                    </a>
+                    <a href="{% url 'users:login' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login Again
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

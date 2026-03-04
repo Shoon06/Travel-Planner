@@ -1,0 +1,55 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+myenv/
+
+# Django / Python builds
+*.log
+*.pot
+*.pyc
+build/
+dist/
+*.egg-info/
+
+# SQLite databases and backups
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite
+
+# Local settings and secrets
+.env.local
+.env.*.local
+.envrc
+secrets.json
+
+# Media and collected static
+media/
+staticfiles/
+
+# IDE/editor noise
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test/coverage outputs
+.coverage
+htmlcov/
+pytest-cache/
+.pytest_cache/
+.cache/
+
+# Node / frontend (just in case)
+node_modules/
+*.tsbuildinfo
+
+# OS metadata
+Desktop.ini

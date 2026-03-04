@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select {{ transport_type|title }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2">{{ transport_type|title }} Options</h2>
+                        <p class="text-gray mb-0">Choose your preferred class for travel to {{ trip.destination.name }}</p>
+                    </div>
+                    <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Options
+                    </a>
+                </div>
+                
+                <!-- Date Information -->
+                <div class="card-glass p-3 mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Travel Date: {{ travel_date|date:"F d, Y" }}</h6>
+                        </div>
+                        <div>
+                            <small class="text-gray">
+                                Showing {{ transport_items|length }} option(s) available on this date
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Class Filter -->
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <a href="?type={{ transport_type }}&class=all" class="btn btn-sm {% if not transport_class or transport_class == 'all' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                        All Classes
+                    </a>
+                    
+                    {% if transport_type == 'flight' %}
+                        <a href="?type={{ transport_type }}&class=low" class="btn btn-sm {% if transport_class == 'low' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Economy Class
+                        </a>
+                        <a href="?type={{ transport_type }}&class=medium" class="btn btn-sm {% if transport_class == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Business Class
+                        </a>
+                        <a href="?type={{ transport_type }}&class=high" class="btn btn-sm {% if transport_class == 'high' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Luxury Class
+                        </a>
+                    {% elif transport_type == 'bus' %}
+                        <a href="?type={{ transport_type }}&class=low" class="btn btn-sm {% if transport_class == 'low' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Standard Class
+                        </a>
+                        <a href="?type={{ transport_type }}&class=medium" class="btn btn-sm {% if transport_class == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            VIP Class
+                        </a>
+                        <a href="?type={{ transport_type }}&class=high" class="btn btn-sm {% if transport_class == 'high' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Luxury Class
+                        </a>
+                    {% elif transport_type == 'car' %}
+                        <a href="?type={{ transport_type }}&class=low" class="btn btn-sm {% if transport_class == 'low' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Economy Car
+                        </a>
+                        <a href="?type={{ transport_type }}&class=medium" class="btn btn-sm {% if transport_class == 'medium' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            SUV
+                        </a>
+                        <a href="?type={{ transport_type }}&class=high" class="btn btn-sm {% if transport_class == 'high' %}btn-primary{% else %}btn-outline-light{% endif %}">
+                            Luxury Car
+                        </a>
+                    {% endif %}
+                </div>
+                
+                {% if error_message %}
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>{{ error_message }}
+                </div>
+                {% endif %}
+                
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} mt-3">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            
+            <!-- Transport List -->
+            <div class="row">
+                {% for item in transport_items %}
+                <div class="col-md-4 mb-4">
+                    <div class="card-glass p-4 h-100">
+                        <div class="text-center mb-3">
+                            <div class="transport-icon">
+                                {% if transport_type == 'flight' %}
+                                    <i class="fas fa-plane fa-3x {% if item.category == 'low' %}text-blue{% elif item.category == 'medium' %}text-green{% else %}text-gold{% endif %}"></i>
+                                {% elif transport_type == 'car' %}
+                                    <i class="fas fa-car fa-3x {% if item.car_type == 'economy' %}text-blue{% elif item.car_type == 'suv' %}text-green{% else %}text-gold{% endif %}"></i>
+                                {% else %}
+                                    <i class="fas fa-bus fa-3x {% if item.bus_type == 'standard' %}text-blue{% elif item.bus_type == 'vip' %}text-green{% else %}text-gold{% endif %}"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mb-3">
+                            {% if transport_type == 'flight' %}
+                                {% if item.category == 'low' %}
+                                    <span class="badge bg-blue mb-2">Economy Class</span>
+                                {% elif item.category == 'medium' %}
+                                    <span class="badge bg-green mb-2">Business Class</span>
+                                {% else %}
+                                    <span class="badge bg-gold mb-2">Luxury Class</span>
+                                {% endif %}
+                                <h5 class="mb-1">Flight {{ item.flight_number }}</h5>
+                                <p class="text-gray small mb-2">{{ item.departure_time|time:"g:i A" }} - {{ item.arrival_time|time:"g:i A" }}</p>
+                                <p class="text-gray small mb-0">
+                                    {{ item.get_duration_display }} • 
+                                    {% if item.schedule_available_seats %}
+                                        {{ item.schedule_available_seats }} seats available
+                                    {% else %}
+                                        {{ item.available_seats }} seats available
+                                    {% endif %}
+                                </p>
+                                
+                            {% elif transport_type == 'bus' %}
+                                {% if item.bus_type == 'standard' %}
+                                    <span class="badge bg-blue mb-2">Standard Class</span>
+                                {% elif item.bus_type == 'vip' %}
+                                    <span class="badge bg-green mb-2">VIP Class</span>
+                                {% else %}
+                                    <span class="badge bg-gold mb-2">Luxury Class</span>
+                                {% endif %}
+                                <h5 class="mb-1">{{ item.get_bus_type_display }} Bus</h5>
+                                <p class="text-gray small mb-2">{{ item.departure_time|time:"g:i A" }}</p>
+                                <p class="text-gray small mb-0">
+                                    {{ item.get_duration_display }} • 
+                                    {% if item.schedule_available_seats %}
+                                        {{ item.schedule_available_seats }} seats available
+                                    {% else %}
+                                        {{ item.available_seats }} seats available
+                                    {% endif %}
+                                </p>
+                                
+                            {% elif transport_type == 'car' %}
+                                {% if item.car_type == 'economy' %}
+                                    <span class="badge bg-blue mb-2">Economy Car</span>
+                                {% elif item.car_type == 'suv' %}
+                                    <span class="badge bg-green mb-2">SUV</span>
+                                {% else %}
+                                    <span class="badge bg-gold mb-2">Luxury Car</span>
+                                {% endif %}
+                                <h5 class="mb-1">{{ item.car_model }}</h5>
+                                <p class="text-gray small mb-2">{{ item.get_car_type_display }}</p>
+                                <p class="text-gray small mb-0">
+                                    {{ item.seats }} seats • 
+                                    {% if item.schedule_available_seats and item.schedule_available_seats == 0 %}
+                                        <span class="text-warning">Not Available</span>
+                                    {% elif item.schedule_available_seats %}
+                                        <span class="text-success">Available</span>
+                                    {% else %}
+                                        {{ item.get_features_display|slice:":30" }}...
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="transport-description mb-3">
+                            <p class="text-gray small mb-2">{{ item.description }}</p>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="price-display mb-3">
+                                <h4 class="price-tag mb-2">
+                                    {% if transport_type == 'flight' or transport_type == 'bus' %}
+                                        {% if item.schedule_price %}
+                                            {{ item.schedule_price|floatformat:0 }} MMK
+                                        {% else %}
+                                            {{ item.price_in_mmk }} MMK
+                                        {% endif %}
+                                    {% else %}
+                                        {% if item.schedule_price %}
+                                            {{ item.schedule_price|floatformat:0 }} MMK/day
+                                        {% else %}
+                                            {{ item.price_in_mmk }} MMK/day
+                                        {% endif %}
+                                    {% endif %}
+                                </h4>
+                                <small class="text-gray">per {% if transport_type == 'car' %}day{% else %}person{% endif %}</small>
+                                
+                                {% if item.schedule_date %}
+                                <div class="mt-2">
+                                    <small class="text-gray">
+                                        <i class="fas fa-calendar-day me-1"></i>{{ item.schedule_date|date:"M d" }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Availability Check -->
+                            {% if item.schedule_available_seats and item.schedule_available_seats < trip.travelers %}
+                            <div class="alert alert-warning small mb-3">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Only {{ item.schedule_available_seats }} seat(s) left
+                            </div>
+                            {% endif %}
+                            
+                            {% if transport_type == 'car' %}
+                            <form method="post" action="{% url 'planner:save_transport' trip.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="transport_type" value="{{ transport_type }}">
+                                <input type="hidden" name="transport_id" value="{{ item.id }}">
+                                {% if item.schedule_id %}
+                                <input type="hidden" name="schedule_id" value="{{ item.schedule_id }}">
+                                {% endif %}
+                                <button type="submit" class="btn btn-primary w-100 {% if item.schedule_available_seats == 0 %}disabled{% endif %}">
+                                    {% if item.schedule_available_seats == 0 %}
+                                        Not Available
+                                    {% else %}
+                                        Select Car
+                                    {% endif %}
+                                </button>
+                            </form>
+                            {% else %}
+                            <a href="{% url 'planner:select_seats' trip.id item.id %}?type={{ transport_type }}{% if item.schedule_id %}&schedule_id={{ item.schedule_id }}{% endif %}" 
+                               class="btn btn-primary w-100 {% if item.schedule_available_seats and item.schedule_available_seats < trip.travelers %}btn-warning{% endif %}">
+                                {% if item.schedule_available_seats and item.schedule_available_seats < trip.travelers %}
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Limited Seats
+                                {% else %}
+                                    Select & Choose Seats
+                                {% endif %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="card-glass p-5 text-center">
+                        <div class="feature-icon gradient-purple mx-auto mb-4">
+                            {% if transport_type == 'flight' %}
+                            <i class="fas fa-plane fa-2x text-white"></i>
+                            {% elif transport_type == 'car' %}
+                            <i class="fas fa-car fa-2x text-white"></i>
+                            {% else %}
+                            <i class="fas fa-bus fa-2x text-white"></i>
+                            {% endif %}
+                        </div>
+                        <h4 class="mb-3">No {{ transport_type }} options available</h4>
+                        <p class="text-gray mb-4">
+                            {% if error_message %}
+                                {{ error_message }}
+                            {% else %}
+                                No {{ transport_type }} services available for {{ travel_date|date:"F d, Y" }}.<br>
+                                Please try a different date or transport type.
+                            {% endif %}
+                        </p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-primary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Options
+                            </a>
+                            <a href="{% url 'planner:plan' %}" class="btn btn-outline-light">
+                                <i class="fas fa-calendar-alt me-2"></i>Change Date
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Date Change Notice -->
+            {% if transport_items %}
+            <div class="card-glass p-4 mt-4">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-info-circle text-primary mt-1 me-3 fa-lg"></i>
+                    <div>
+                        <h6 class="mb-2">Need a different date?</h6>
+                        <p class="text-gray small mb-0">
+                            These options are only available for {{ travel_date|date:"F d, Y" }}. 
+                            To see options for other dates, go back to your trip plan and adjust your travel dates.
+                        </p>
+                        <a href="{% url 'planner:plan' %}" class="btn btn-sm btn-outline-light mt-2">
+                            <i class="fas fa-edit me-2"></i>Edit Travel Dates
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .price-tag {
+        background: linear-gradient(135deg, #6B47A4, #B79EDC);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1.2rem;
+        display: inline-block;
+    }
+    
+    .price-tag:before {
+        content: 'MMK ';
+        font-size: 0.8em;
+        font-weight: 400;
+    }
+    
+    .transport-icon {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+    
+    .badge {
+        padding: 5px 15px;
+        border-radius: 15px;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .bg-blue {
+        background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+        color: white;
+    }
+    
+    .bg-green {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: white;
+    }
+    
+    .bg-gold {
+        background: linear-gradient(135deg, #F59E0B, #D97706);
+        color: white;
+    }
+    
+    .text-blue { color: #3B82F6; }
+    .text-green { color: #10B981; }
+    .text-gold { color: #F59E0B; }
+    
+    .transport-description {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 15px;
+        min-height: 60px;
+    }
+    
+    .price-display {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 15px;
+    }
+    
+    .feature-icon.gradient-purple {
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .alert-warning {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: #F59E0B;
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+    
+    .btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #F59E0B, #D97706);
+        border: none;
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background: linear-gradient(135deg, #D97706, #B45309);
+        color: white;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add confirmation for limited seats
+        const limitedSeatButtons = document.querySelectorAll('.btn-warning');
+        limitedSeatButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (!confirm('Limited seats available! Are you sure you want to proceed?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+        
+        // Disable buttons for unavailable options
+        const unavailableButtons = document.querySelectorAll('.btn.disabled');
+        unavailableButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                alert('This option is not available for the selected date.');
+            });
+        });
+    });
+</script>
+{% endblock %}

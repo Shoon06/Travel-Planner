@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Edit Attraction - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card-glass p-5">
+                <h2 class="mb-4">Edit Attraction: {{ destination.name }}</h2>
+                
+                <!-- Header with destination info -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex align-items-center">
+                        {% if destination.image %}
+                        <img src="{{ destination.image.url }}" alt="{{ destination.name }}" 
+                             class="rounded me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded bg-light d-flex align-items-center justify-content-center me-3" 
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-camera fa-2x text-gray"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h5 class="mb-1">{{ destination.name }}</h5>
+                            <p class="mb-0">{{ destination.region }} • Attraction</p>
+                            {% if destination.parent %}
+                            <small>Located in: {{ destination.parent.name }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Display form errors -->
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-circle me-2"></i>Please correct the errors below:</h5>
+                    <ul class="mb-0">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <form method="post" enctype="multipart/form-data" id="destinationForm">
+                    {% csrf_token %}
+                    
+                    <!-- Coordinates help text -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>Coordinates Required for Maps</h6>
+                        <p class="mb-0">Please enter accurate latitude and longitude coordinates for the destination center. This is required for proper map display.</p>
+                    </div>
+                    
+                    <!-- Attraction Form -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.name.label }}</label>
+                            {{ form.name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.region.label }}</label>
+                            {{ form.region }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.type.label }}</label>
+                            {{ form.type }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Parent City/Town</label>
+                            <input type="text" name="parent" class="form-control" 
+                                   placeholder="e.g., Bagan, Mandalay, Taunggyi"
+                                   value="{{ form.parent.value|default:'' }}">
+                            <div class="form-text">Enter the name of the city/town where this attraction is located</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Latitude</label>
+                            {{ form.latitude }}
+                            <div class="form-text">e.g., 16.8409 (Yangon)</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Longitude</label>
+                            {{ form.longitude }}
+                            <div class="form-text">e.g., 96.1735 (Yangon)</div>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <!-- Main Image Field -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Main Image</label>
+                            <input type="file" name="image" class="form-control" accept="image/*">
+                            {% if destination.image %}
+                            <div class="mt-2">
+                                <small>Current:</small><br>
+                                <img src="{{ destination.image.url }}" alt="{{ destination.name }}" 
+                                     class="img-thumbnail" style="max-height: 100px;">
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check mt-4">
+                                {{ form.is_active }}
+                                <label class="form-check-label fw-bold">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    <h4 class="mb-3">Gallery Images with Captions</h4>
+                    <p class="text-muted mb-4">Add up to 8 photos with descriptions. Each photo will be displayed with its caption.</p>
+                    
+                    <!-- Photo 1-8 - FIXED: Using individual if statements instead of dynamic attribute access -->
+                    
+                    <!-- Photo 1 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 1</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 1</label>
+                                    <input type="file" name="gallery_image1" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image1 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image1.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 1</label>
+                                    <textarea name="caption_1" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_1.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 2 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 2</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 2</label>
+                                    <input type="file" name="gallery_image2" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image2 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image2.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 2</label>
+                                    <textarea name="caption_2" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_2.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 3 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 3</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 3</label>
+                                    <input type="file" name="gallery_image3" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image3 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image3.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 3</label>
+                                    <textarea name="caption_3" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_3.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 4 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 4</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 4</label>
+                                    <input type="file" name="gallery_image4" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image4 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image4.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 4</label>
+                                    <textarea name="caption_4" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_4.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 5 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 5</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 5</label>
+                                    <input type="file" name="gallery_image5" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image5 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image5.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 5</label>
+                                    <textarea name="caption_5" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_5.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 6 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 6</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 6</label>
+                                    <input type="file" name="gallery_image6" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image6 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image6.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 6</label>
+                                    <textarea name="caption_6" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_6.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 7 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 7</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 7</label>
+                                    <input type="file" name="gallery_image7" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image7 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image7.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 7</label>
+                                    <textarea name="caption_7" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_7.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Photo 8 -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Photo 8</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Image 8</label>
+                                    <input type="file" name="gallery_image8" class="form-control" accept="image/*">
+                                    {% if destination.gallery_image8 %}
+                                    <div class="mt-2">
+                                        <small>Current:</small><br>
+                                        <img src="{{ destination.gallery_image8.url }}" class="img-thumbnail" style="max-height: 60px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Caption for Photo 8</label>
+                                    <textarea name="caption_8" class="form-control" rows="2" 
+                                              placeholder="Describe what's in this photo...">{{ form.caption_8.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden field for is_region -->
+                    <input type="hidden" name="is_region" value="false">
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_destinations' %}" class="btn btn-outline-secondary me-md-2">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Update Attraction
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px 15px;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    .form-label {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    .card {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+    .alert-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Preview images before upload
+    const imageInputs = document.querySelectorAll('input[type="file"][accept="image/*"]');
+    imageInputs.forEach(input => {
+        input.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                const previewDiv = this.closest('.col-md-4, .col-md-6');
+                
+                reader.onload = function(e) {
+                    let preview = previewDiv.querySelector('.image-preview');
+                    if (!preview) {
+                        preview = document.createElement('div');
+                        preview.className = 'mt-2 image-preview';
+                        previewDiv.appendChild(preview);
+                    }
+                    preview.innerHTML = `<small>Preview:</small><br>
+                        <img src="${e.target.result}" class="img-thumbnail" style="max-height: 60px;">`;
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

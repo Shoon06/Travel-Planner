@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% block title %}Visited Destinations - GoMyanmar{% endblock %}
+{% load custom_filters %}
+{% load humanize %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-2">Visited Destinations</h2>
+                <p class="text-gray mb-0">
+                    {{ total_destinations_visited }} destination{{ total_destinations_visited|pluralize }} • 
+                    {{ total_visited_trips }} trip{{ total_visited_trips|pluralize }} • 
+                    {{ total_days_traveled }} days traveled
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'planner:dashboard' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_destinations_visited }}</h4>
+                    <p class="text-gray mb-0">Destinations Visited</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_visited_trips }}</h4>
+                    <p class="text-gray mb-0">Completed Trips</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_days_traveled }}</h4>
+                    <p class="text-gray mb-0">Days Traveled</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card-glass p-3 text-center">
+                    <h4 class="mb-2">{{ total_spent_mmk|intcomma }}</h4>
+                    <p class="text-gray mb-0">Total Spent (MMK)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Info Box -->
+    <div class="card-glass p-4 mb-4 bg-info bg-opacity-10">
+        <div class="d-flex">
+            <div class="me-3">
+                <i class="fas fa-info-circle fa-2x text-info"></i>
+            </div>
+            <div>
+                <h6 class="text-info mb-2">What counts as a visited destination?</h6>
+                <p class="mb-0 text-gray small">
+                    A destination is considered "visited" when a trip to that destination has ended. 
+                    This includes trips marked as <span class="badge bg-success">completed</span> 
+                    or any trip where the end date has passed.
+                    <br><small>Current date: {{ today|date:"F d, Y" }}</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Destination Stats -->
+    <div class="card-glass p-4 mb-4">
+        <h4 class="mb-4">Destination Statistics</h4>
+        
+        {% if destination_stats %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Destination</th>
+                        <th>Region</th>
+                        <th>Visits</th>
+                        <th>Total Days</th>
+                        <th>Last Visit</th>
+                        <th>Total Spent (MMK)</th>
+                        <th>Avg. Cost/Day</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in destination_stats %}
+                    <tr>
+                        <td>
+                            <strong>{{ stat.destination.name }}</strong>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ stat.destination_region }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary rounded-pill">{{ stat.visit_count }}</span>
+                        </td>
+                        <td>{{ stat.total_days }} days</td>
+                        <td>{{ stat.last_visit|date:"M d, Y" }}</td>
+                        <td>{{ stat.total_spent|intcomma }}</td>
+                        <td>
+                            {% if stat.total_days > 0 %}
+                            {{ stat.avg_cost_per_day|intcomma }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-map-marked-alt fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted mb-3">No destinations visited yet</h4>
+            <p class="text-gray mb-4">You haven't completed any trips yet. Plan and complete your first trip to see visited destinations here.</p>
+            <a href="{% url 'planner:plan' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Plan Your First Trip
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Timeline of Visits -->
+    {% if visited_destinations %}
+    <div class="card-glass p-4">
+        <h4 class="mb-4">Visit Timeline</h4>
+        
+        {% for year_month, visits in visited_destinations.items %}
+        <div class="mb-4">
+            <h5 class="text-primary mb-3">
+                <i class="fas fa-calendar me-2"></i>
+                {% with year_month|slice:"5:7" as month_num %}
+                {% if month_num == "01" %}January
+                {% elif month_num == "02" %}February
+                {% elif month_num == "03" %}March
+                {% elif month_num == "04" %}April
+                {% elif month_num == "05" %}May
+                {% elif month_num == "06" %}June
+                {% elif month_num == "07" %}July
+                {% elif month_num == "08" %}August
+                {% elif month_num == "09" %}September
+                {% elif month_num == "10" %}October
+                {% elif month_num == "11" %}November
+                {% else %}December{% endif %}
+                {% endwith %}
+                {{ year_month|slice:"0:4" }}
+            </h5>
+            
+            <div class="row">
+                {% for visit in visits %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card-glass p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">{{ visit.destination.name }}</h6>
+                            <span class="badge {% if visit.status == 'completed' %}bg-success{% else %}bg-info{% endif %}">
+                                {{ visit.status|title }}
+                            </span>
+                        </div>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-calendar me-1"></i>
+                            Visited: {{ visit.visit_date|date:"M d, Y" }}
+                        </p>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-clock me-1"></i>
+                            Duration: {{ visit.duration_days }} day{{ visit.duration_days|pluralize }}
+                        </p>
+                        
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-users me-1"></i>
+                            {{ visit.travelers }} traveler{{ visit.travelers|pluralize }}
+                        </p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="price-tag">{{ visit.total_cost_mmk|intcomma }} MMK</span>
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .price-tag {
+        background: linear-gradient(135deg, #f9c74f, #f8961e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: bold;
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+    }
+    
+    .text-gray {
+        color: #7f8c8d !important;
+    }
+</style>
+{% endblock %}

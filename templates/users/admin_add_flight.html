@@ -1,0 +1,253 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_destination.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Add Destination - Admin - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card-glass p-5">
+                <h2 class="mb-4">Add New Destination</h2>
+                
+                <!-- Tabs for City/Town vs Attraction -->
+                <ul class="nav nav-tabs mb-4" id="destinationTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="city-tab" data-bs-toggle="tab" data-bs-target="#city" 
+                                type="button" role="tab" aria-selected="true">
+                            <i class="fas fa-city me-2"></i>City / Town
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="attraction-tab" data-bs-toggle="tab" data-bs-target="#attraction" 
+                                type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-camera me-2"></i>Attraction / Place
+                        </button>
+                    </li>
+                </ul>
+                
+                <form method="post" enctype="multipart/form-data" id="destinationForm">
+                    {% csrf_token %}
+                    
+                    <!-- Coordinates help text -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>Coordinates Required for Maps</h6>
+                        <p class="mb-0">Please enter accurate latitude and longitude coordinates for the destination center. This is required for proper map display.</p>
+                    </div>
+                    
+                    <div class="tab-content" id="destinationTabsContent">
+                        <!-- City/Town Tab -->
+                        <div class="tab-pane fade show active" id="city" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.name.label }}</label>
+                                    {{ form.name }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.region.label }}</label>
+                                    {{ form.region }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.type.label }}</label>
+                                    {{ form.type }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.parent.label }}</label>
+                                    {{ form.parent }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Latitude</label>
+                                    {{ form.latitude }}
+                                    <div class="form-text">e.g., 16.8409 (Yangon)</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Longitude</label>
+                                    {{ form.longitude }}
+                                    <div class="form-text">e.g., 96.1735 (Yangon)</div>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label fw-bold">Description</label>
+                                    {{ form.description }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Attraction Tab -->
+                        <div class="tab-pane fade" id="attraction" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.name.label }}</label>
+                                    {{ form.name }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.region.label }}</label>
+                                    {{ form.region }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.type.label }}</label>
+                                    {{ form.type }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Parent City/Town</label>
+                                    {{ form.parent }}
+                                    <div class="form-text">Select the city/town where this attraction is located</div>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label fw-bold">Description</label>
+                                    {{ form.description }}
+                                </div>
+                            </div>
+                            
+                            <hr class="my-4">
+                            <h4 class="mb-3">Gallery Images with Captions</h4>
+                            <p class="text-muted mb-4">Add up to 8 photos with descriptions. Each photo will be displayed with its caption.</p>
+                            
+                            {% for i in "12345678"|make_list %}
+                            <div class="card mb-3 border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h5 class="card-title">Photo {{ i }}</h5>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Image {{ i }}</label>
+                                            {% with image_field="image_"|add:i %}
+                                            <input type="file" name="{{ image_field }}" class="form-control" accept="image/*">
+                                            {% endwith %}
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label">Caption for Photo {{ i }}</label>
+                                            {% with caption_field="caption_"|add:i %}
+                                            <textarea name="{{ caption_field }}" class="form-control" rows="2" 
+                                                      placeholder="Describe what's in this photo..."></textarea>
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Common fields for both tabs -->
+                    <hr class="my-4">
+                    <h4 class="mb-3">Additional Information</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">History</label>
+                            {{ form.history }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Main Attractions</label>
+                            {{ form.attractions }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Activities</label>
+                            {{ form.activities }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Cultural Info</label>
+                            {{ form.cultural_info }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Best Time to Visit</label>
+                            {{ form.best_time_to_visit }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Local Cuisine</label>
+                            {{ form.local_cuisine }}
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Travel Tips</label>
+                            {{ form.tips }}
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label fw-bold">Active</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.is_region }}
+                                <label class="form-check-label fw-bold">Is this a Region?</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'users:admin_destinations' %}" class="btn btn-outline-secondary me-md-2">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add Destination
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Form styling */
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px 15px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .form-label {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+    
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        padding: 12px 24px;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #3498db;
+        font-weight: 600;
+        border-bottom: 3px solid #3498db;
+    }
+    
+    .card {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle tab switching
+    const cityTab = document.getElementById('city-tab');
+    const attractionTab = document.getElementById('attraction-tab');
+    
+    cityTab.addEventListener('click', function() {
+        document.getElementById('city').classList.add('show', 'active');
+        document.getElementById('attraction').classList.remove('show', 'active');
+    });
+    
+    attractionTab.addEventListener('click', function() {
+        document.getElementById('attraction').classList.add('show', 'active');
+        document.getElementById('city').classList.remove('show', 'active');
+    });
+});
+</script>
+{% endblock %}

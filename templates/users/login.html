@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Login - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card-glass p-5">
+                <div class="text-center mb-5">
+                    <div class="feature-icon gradient-bg mx-auto mb-4">
+                        <i class="fas fa-sign-in-alt fa-2x text-white"></i>
+                    </div>
+                    <h2 class="fw-bold">Welcome Back!</h2>
+                    <p class="text-gray">Login to your GoMyanmar account</p>
+                </div>
+                
+                <form method="post" action="{% url 'users:login' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Email Address</label>
+                        <input type="email" name="username" class="form-control" 
+                               placeholder="your.email@example.com" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Password</label>
+                        <input type="password" name="password" class="form-control" 
+                               placeholder="Enter your password" required>
+                        <div class="form-text d-flex justify-content-between mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                                <label class="form-check-label text-gray" for="remember">Remember me</label>
+                            </div>
+                            <a href="#" class="text-decoration-none" style="color: #00D2FF;">Forgot password?</a>
+                        </div>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid mb-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Log In
+                        </button>
+                    </div>
+                    
+                    <!-- Demo Credentials -->
+                    <div class="card card-glass mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title text-teal">
+                                <i class="fas fa-key me-2"></i>Demo Credentials
+                            </h6>
+                            <p class="mb-1 small text-gray">
+                                <strong>Regular User:</strong> user@travel.mm / (use signup to create)
+                            </p>
+                            <p class="mb-0 small text-gray">
+                                <strong>Admin:</strong> admin@travel.mm / (use signup to create as admin)
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <p class="mb-0 text-gray">Don't have an account? 
+                            <a href="{% url 'users:signup' %}" class="text-decoration-none fw-bold" style="color: #00D2FF;">
+                                Sign up here
+                            </a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Add New User - Admin - Myanmar Travel Planner{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <!-- Header -->
+    <div class="card-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-2" style="color: #2c3e50;"><i class="fas fa-user-plus me-2 text-primary"></i>Add New User</h2>
+                <p class="mb-0" style="color: #7f8c8d;">Create a new user account</p>
+            </div>
+            <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Users
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Add User Form -->
+    <div class="card-glass p-4">
+        <form method="post" action="{% url 'users:admin_add_user' %}">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="row">
+                <!-- Username -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>Username
+                    </label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.username.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.username.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.username.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Email -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-envelope me-1"></i>Email
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.email.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.email.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.email.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- First Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>First Name
+                    </label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.first_name.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.first_name.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.first_name.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Last Name -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user me-1"></i>Last Name
+                    </label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.last_name.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.last_name.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.last_name.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Password 1 -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Password
+                    </label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password1.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.password1.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.password1.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Password 2 (Confirmation) -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-lock me-1"></i>Confirm Password
+                    </label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.password2.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.password2.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.password2.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- User Type -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-user-tag me-1"></i>User Type
+                    </label>
+                    {{ form.user_type }}
+                    {% if form.user_type.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.user_type.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.user_type.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.user_type.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Phone Number -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold" style="color: #2c3e50;">
+                        <i class="fas fa-phone me-1"></i>Phone Number
+                    </label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.phone_number.errors.0 }}
+                    </div>
+                    {% endif %}
+                    {% if form.phone_number.help_text %}
+                    <div class="form-text">
+                        <small>{{ form.phone_number.help_text }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Active Status -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold d-block" style="color: #2c3e50;">
+                        <i class="fas fa-user-check me-1"></i>Account Status
+                    </label>
+                    <div class="form-check form-switch">
+                        {{ form.is_active }}
+                        <label class="form-check-label ms-2" for="{{ form.is_active.id_for_label }}" style="color: #7f8c8d;">
+                            Active Account
+                        </label>
+                    </div>
+                    {% if form.is_active.errors %}
+                    <div class="text-danger small mt-1">
+                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.is_active.errors.0 }}
+                    </div>
+                    {% endif %}
+                    <div class="form-text">
+                        <small>Designates whether this user can log in.</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between mt-4 pt-4 border-top">
+                <a href="{% url 'users:admin_dashboard_users' %}" class="btn btn-outline-light">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </a>
+                <div class="btn-group" role="group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save User
+                    </button>
+                    <button type="submit" name="add_another" value="true" class="btn btn-outline-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Save & Add Another
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- User Type Information Card -->
+    <div class="card-glass p-4 mt-4">
+        <h5 style="color: #2c3e50;" class="mb-3">
+            <i class="fas fa-info-circle me-2 text-primary"></i>User Types Information
+        </h5>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card border-primary border-1 h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-user me-2"></i>Regular User
+                        </h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can plan trips</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can view destinations</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can participate in community</li>
+                            <li class="mb-1"><i class="fas fa-times text-danger me-2"></i>Cannot access admin dashboard</li>
+                            <li class="mb-1"><i class="fas fa-times text-danger me-2"></i>Cannot manage system content</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card border-danger border-1 h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-danger">
+                            <i class="fas fa-crown me-2"></i>Administrator
+                        </h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Full admin dashboard access</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can manage all users</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can manage trips and content</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can view system analytics</li>
+                            <li class="mb-1"><i class="fas fa-check text-success me-2"></i>Can access admin settings</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(183, 158, 220, 0.3);
+        color: #2c3e50;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #6B47A4;
+        box-shadow: 0 0 0 0.25rem rgba(107, 71, 164, 0.25);
+        background: white;
+    }
+    
+    .form-check-input:checked {
+        background-color: #6B47A4;
+        border-color: #6B47A4;
+    }
+    
+    .form-switch .form-check-input:checked {
+        background-color: #6B47A4;
+    }
+    
+    .card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .card-glass {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add Bootstrap styling to form elements
+        const inputs = document.querySelectorAll('input.form-control, select.form-select');
+        inputs.forEach(input => {
+            input.classList.add('form-control');
+        });
+        
+        // Make password fields show/hide toggle
+        const passwordFields = document.querySelectorAll('input[type="password"]');
+        passwordFields.forEach(field => {
+            const parentDiv = field.parentElement;
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-outline-secondary btn-sm position-absolute end-0 top-50 translate-middle-y me-3';
+            toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            toggleBtn.style.zIndex = '5';
+            
+            parentDiv.style.position = 'relative';
+            field.style.paddingRight = '50px';
+            
+            toggleBtn.addEventListener('click', function() {
+                const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+                field.setAttribute('type', type);
+                this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+            });
+            
+            parentDiv.appendChild(toggleBtn);
+        });
+        
+        // Set placeholder for phone number
+        const phoneField = document.querySelector('input[name="phone_number"]');
+        if (phoneField) {
+            phoneField.placeholder = 'e.g., 09xxxxxxxx';
+        }
+    });
+</script>
+{% endblock %}
