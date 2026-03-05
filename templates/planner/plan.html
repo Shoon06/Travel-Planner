@@ -116,10 +116,11 @@
                         </div>
                     </div>
                     
+                    <!-- HOTEL SELECTION WITH ROOMS DISPLAY - UPDATED -->
                     <div class="row mb-5">
                         <div class="col-md-6">
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Accommodation Type</label>
+                                <label class="form-label fw-bold">Accommodation</label>
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="fas fa-hotel"></i>
@@ -131,19 +132,53 @@
                                                 <i class="fas fa-check-circle text-success me-2"></i>
                                                 <span id="selectedHotelName">{{ selected_hotel_name }}</span>
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changeHotelBtn">
-                                                Change
-                                            </button>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary me-2" id="selectRoomsBtn">
+                                                    <i class="fas fa-bed me-1"></i>Select Rooms
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="changeHotelBtn">
+                                                    Change
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <input type="hidden" id="selected_hotel_id" name="selected_hotel_id" value="{{ selected_hotel_id }}">
+                                    
+                                    <!-- Display Selected Rooms if any - NO HOTEL BASE PRICE -->
+                                    {% if trip.selected_rooms and trip.selected_rooms.room_details %}
+                                    <div class="mt-3 p-3 bg-light rounded">
+                                        <h6 class="fw-bold mb-2">
+                                            <i class="fas fa-bed me-2"></i>Selected Rooms:
+                                        </h6>
+                                        {% for room in trip.selected_rooms.room_details %}
+                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white rounded">
+                                            <div>
+                                                <strong>Room {{ room.room_number }}</strong>
+                                                <span class="badge bg-info ms-2">{{ room.room_type }}</span>
+                                                <div class="small text-gray">
+                                                    {% if room.floor %}Floor {{ room.floor }}{% endif %}
+                                                    {% if room.bed_type %} • {{ room.bed_type }} Bed{% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="fw-bold">{{ room.price_per_night|floatformat:0 }} MMK</span>
+                                                <small class="text-gray d-block">per night</small>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                            <span class="fw-bold">Total for <span id="nightsDisplay">{{ nights }}</span> nights:</span>
+                                            <span class="price-tag small">{{ trip.selected_rooms.total_price|floatformat:0 }} MMK</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
                                     {% else %}
                                     <div class="form-control p-0">
-                                        <a href="#"  id="selectHotelBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
-                                            <i class="fas fa-hotel me-2"></i>Select Hotels
+                                        <a href="#" id="selectHotelBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
+                                            <i class="fas fa-hotel me-2"></i>Select Hotel
                                             <span class="float-end"><i class="fas fa-chevron-right"></i></span>
                                         </a>
-                                      
                                     </div>
                                     <input type="hidden" id="selected_hotel_id" name="selected_hotel_id">
                                     {% endif %}
@@ -151,9 +186,10 @@
                             </div>
                         </div>
                         
+                        <!-- TRANSPORT SELECTION (unchanged) -->
                         <div class="col-md-6">
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Transportation Preference</label>
+                                <label class="form-label fw-bold">Transportation</label>
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="fas fa-bus"></i>
@@ -187,6 +223,7 @@
                         </div>
                     </div>
                     
+                    <!-- Continue Button -->
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg" id="continueBtn" {% if not selected_hotel_id or not selected_transport_id %}disabled{% endif %}>
                             Continue to Plan Selection <i class="fas fa-arrow-right ms-2"></i>
@@ -205,6 +242,86 @@
     </div>
 </div>
 
+<style>
+/* Add to existing styles in plan.html */
+select.form-select option {
+    background-color: rgba(235, 235, 242, 0.95) !important;
+    color: #2c3e50 !important;
+    padding: 10px !important;
+}
+
+select.form-select option:hover,
+select.form-select option:checked {
+    background: linear-gradient(135deg, rgba(183, 158, 220, 0.2), rgba(145, 179, 224, 0.2)) !important;
+    color: #6B47A4 !important;
+}
+
+.suggestions-dropdown {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    margin-top: 2px;
+}
+
+.suggestion-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+    background: #f8f9fa;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.city-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.region-name {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.selection-made {
+    background: #f8f9fa;
+    border-color: #dee2e6 !important;
+}
+
+.price-tag {
+    background: linear-gradient(135deg, #06B6D4, #0891B2);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* Style for form validation */
+.is-valid {
+    border-color: #198754 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(.375em + .1875rem) center;
+    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
+}
+</style>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const originInput = document.getElementById('origin');
@@ -219,6 +336,7 @@
         const endDate = document.getElementById('end_date');
         const travelersSelect = document.getElementById('travelers');
         const selectHotelBtn = document.getElementById('selectHotelBtn');
+        const selectRoomsBtn = document.getElementById('selectRoomsBtn');
         const selectTransportBtn = document.getElementById('selectTransportBtn');
         const changeHotelBtn = document.getElementById('changeHotelBtn');
         const changeTransportBtn = document.getElementById('changeTransportBtn');
@@ -228,6 +346,26 @@
         const continueBtn = document.getElementById('continueBtn');
         const clearFormBtn = document.getElementById('clearFormBtn');
         const tripForm = document.getElementById('tripForm');
+        const nightsDisplay = document.getElementById('nightsDisplay');
+        
+        // Calculate nights for display
+        function calculateNights() {
+            if (startDate.value && endDate.value) {
+                const start = new Date(startDate.value);
+                const end = new Date(endDate.value);
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays;
+            }
+            return 1;
+        }
+        
+        // Update nights display
+        function updateNightsDisplay() {
+            if (nightsDisplay) {
+                nightsDisplay.textContent = calculateNights();
+            }
+        }
         
         // ========== RESTORE FORM VALUES FROM CONTEXT ==========
         if ('{{ origin_input|escapejs }}' && '{{ origin_input|escapejs }}' !== '') {
@@ -283,10 +421,15 @@
             if (endDate.value && endDate.value < this.value) {
                 endDate.value = this.value;
             }
+            updateNightsDisplay();
             updateContinueButton();
         });
         
-        endDate.addEventListener('change', updateContinueButton);
+        endDate.addEventListener('change', function() {
+            updateNightsDisplay();
+            updateContinueButton();
+        });
+        
         travelersSelect.addEventListener('change', updateContinueButton);
         
         // ========== AUTOCOMPLETE FUNCTIONS ==========
@@ -512,6 +655,21 @@
             });
         }
         
+        // Room selection button - NEW
+        if (selectRoomsBtn) {
+            selectRoomsBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                
+                try {
+                    const tripId = await saveTripInfo();
+                    window.location.href = `/planner/select-rooms/${tripId}/`;
+                } catch (error) {
+                    console.error('Save trip error:', error);
+                    alert(error || 'An error occurred. Please try again.');
+                }
+            });
+        }
+        
         // Transport selection button
         if (selectTransportBtn) {
             selectTransportBtn.addEventListener('click', async function(e) {
@@ -569,69 +727,72 @@
         }
         
         // Clear Form button
-        // Clear Form button - UPDATED VERSION
         if (clearFormBtn) {
             clearFormBtn.addEventListener('click', function() {
-                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected transport\n• Clear all saved trip data')) {
-            
-            // Clear all form fields
-                   originInput.value = '';
-                   originIdInput.value = '';
-                   originInput.classList.remove('is-valid');
-            
-                   destinationInput.value = '';
-                   destinationIdInput.value = '';
-                   destinationInput.classList.remove('is-valid');
-            
-            // Reset to default dates
-                   const today = new Date().toISOString().split('T')[0];
-                   const tomorrow = new Date();
-                   tomorrow.setDate(tomorrow.getDate() + 1);
-                   const tomorrowStr = tomorrow.toISOString().split('T')[0];
-            
-                   startDate.value = today;
-                   endDate.value = tomorrowStr;
-            
-                   travelersSelect.value = '2';
-            
-            // Clear hidden hotel and transport fields
-                  if (selectedHotelId) selectedHotelId.value = '';
-                  if (selectedTransportId) selectedTransportId.value = '';
-                  if (selectedTransportType) selectedTransportType.value = '';
-            
-            // Clear displayed hotel and transport
-                 const hotelDisplay = document.getElementById('selectedHotelName');
-                 const transportDisplay = document.getElementById('selectedTransportName');
-            
-                 if (hotelDisplay) hotelDisplay.textContent = '';
-                 if (transportDisplay) transportDisplay.textContent = '';
-            
-            // Update UI
-                 updateContinueButton();
-            
-            // Send request to server to clear session data
-                 fetch('/planner/clear-trip/', {
-                     method: 'GET',
-                     headers: {
-                         'X-Requested-With': 'XMLHttpRequest'
-                     }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log('Trip data cleared on server');
-                   }
-                })
-                .catch(error => {
-                    console.error('Error clearing trip data:', error);
-                });
-            
-            // Show message
-                alert('Form cleared. You can start a new trip.');
+                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data')) {
+                    
+                    // Clear all form fields
+                    originInput.value = '';
+                    originIdInput.value = '';
+                    originInput.classList.remove('is-valid');
+                    
+                    destinationInput.value = '';
+                    destinationIdInput.value = '';
+                    destinationInput.classList.remove('is-valid');
+                    
+                    // Reset to default dates
+                    const today = new Date().toISOString().split('T')[0];
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                    
+                    startDate.value = today;
+                    endDate.value = tomorrowStr;
+                    
+                    travelersSelect.value = '2';
+                    
+                    // Clear hidden hotel and transport fields
+                    if (selectedHotelId) selectedHotelId.value = '';
+                    if (selectedTransportId) selectedTransportId.value = '';
+                    if (selectedTransportType) selectedTransportType.value = '';
+                    
+                    // Clear displayed hotel and transport
+                    const hotelDisplay = document.getElementById('selectedHotelName');
+                    const transportDisplay = document.getElementById('selectedTransportName');
+                    
+                    if (hotelDisplay) hotelDisplay.textContent = '';
+                    if (transportDisplay) transportDisplay.textContent = '';
+                    
+                    // Update UI
+                    updateNightsDisplay();
+                    updateContinueButton();
+                    
+                    // Send request to server to clear session data
+                    fetch('/planner/clear-trip/', {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('Trip data cleared on server');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error clearing trip data:', error);
+                    });
+                    
+                    // Show message
+                    alert('Form cleared. You can start a new trip.');
+                    
+                    // Reload the page to refresh all data
+                    window.location.reload();
+                }
+            });
         }
-    });
-}
         
-        // ========== FORM SUBMISSION - UPDATED FOR PLAN SELECTION ==========
+        // ========== FORM SUBMISSION - FOR PLAN SELECTION ==========
         tripForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -707,79 +868,10 @@
         // Initial validation
         validateLocations();
         updateContinueButton();
+        updateNightsDisplay();
         
         // Call updateContinueButton after a short delay to ensure DOM is ready
         setTimeout(updateContinueButton, 100);
     });
 </script>
-
-<style>
-/* Add to existing styles in plan.html */
-select.form-select option {
-    background-color: rgba(235, 235, 242, 0.95) !important;
-    color: #2c3e50 !important;
-    padding: 10px !important;
-}
-
-select.form-select option:hover,
-select.form-select option:checked {
-    background: linear-gradient(135deg, rgba(183, 158, 220, 0.2), rgba(145, 179, 224, 0.2)) !important;
-    color: #6B47A4 !important;
-}
-.suggestions-dropdown {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    max-height: 300px;
-    overflow-y: auto;
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    z-index: 1000;
-    margin-top: 2px;
-}
-
-.suggestion-item {
-    padding: 10px 15px;
-    border-bottom: 1px solid #f0f0f0;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.suggestion-item:hover {
-    background: #f8f9fa;
-}
-
-.suggestion-item:last-child {
-    border-bottom: none;
-}
-
-.city-name {
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 2px;
-}
-
-.region-name {
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.selection-made {
-    background: #f8f9fa;
-    border-color: #dee2e6 !important;
-}
-
-/* Style for form validation */
-.is-valid {
-    border-color: #198754 !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right calc(.375em + .1875rem) center;
-    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
-}
-</style>
 {% endblock %}

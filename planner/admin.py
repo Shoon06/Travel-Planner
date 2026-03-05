@@ -9,7 +9,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw
 import random
 from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat
-
+from .models_room import RoomType, Room, RoomBooking
 # ==================== FORMS ====================
 class DestinationForm(forms.ModelForm):
     class Meta:
@@ -403,6 +403,32 @@ class HotelAdmin(admin.ModelAdmin):
     deactivate_hotels.short_description = "Deactivate hotels"
 
 # ==================== FLIGHT ADMIN ====================
+
+
+@admin.register(RoomType)
+class RoomTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'max_occupancy', 'base_price_multiplier']
+    search_fields = ['name', 'code']
+
+class RoomInline(admin.TabularInline):
+    model = Room
+    extra = 3
+    fields = ['room_number', 'room_type', 'floor', 'custom_price', 'is_active']
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ['hotel', 'room_number', 'room_type', 'floor', 'is_active']
+    list_filter = ['hotel', 'room_type', 'floor', 'is_active']
+    search_fields = ['room_number', 'hotel__name']
+    autocomplete_fields = ['hotel']
+
+@admin.register(RoomBooking)
+class RoomBookingAdmin(admin.ModelAdmin):
+    list_display = ['room', 'trip', 'booked_by', 'check_in_date', 'check_out_date', 'status']
+    list_filter = ['status', 'check_in_date', 'check_out_date']
+    search_fields = ['room__room_number', 'room__hotel__name', 'booked_by__username']
+    date_hierarchy = 'check_in_date'
+    readonly_fields = ['booking_time', 'total_price']
 @admin.register(Flight)
 class FlightAdmin(admin.ModelAdmin):
     form = FlightForm

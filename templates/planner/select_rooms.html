@@ -1,0 +1,401 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\select_rooms.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select Rooms - {{ hotel.name }} - GoMyanmar{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- CSRF Token -->
+            {% csrf_token %}
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+            <!-- Header with Hotel Info -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-2">Select Rooms at {{ hotel.name }}</h2>
+                        <p class="text-gray mb-0">
+                            <i class="fas fa-calendar me-2"></i>{{ check_in|date:"M d, Y" }} - {{ check_out|date:"M d, Y" }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-users me-2"></i>{{ guests }} guest{{ guests|pluralize }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-moon me-2"></i>{{ nights }} night{{ nights|pluralize }}
+                        </p>
+                    </div>
+                    <a href="{% url 'planner:select_hotel_map' trip.id %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Change Hotel
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Hotel Summary Card -->
+            <div class="card-glass p-4 mb-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold mb-3">{{ hotel.name }}</h5>
+                        <p class="text-gray small mb-2">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ hotel.address }}
+                        </p>
+                        <div class="d-flex align-items-center">
+                            <span class="text-warning me-2">
+                                {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= hotel.rating %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="text-gray small">{{ hotel.rating }} ({{ hotel.review_count }} reviews)</span>
+                            <span class="badge bg-{{ hotel.get_category_color }} ms-3">{{ hotel.get_category_display }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="price-tag mb-1">{{ hotel.price_in_mmk }}</div>
+                        <p class="text-gray small mb-0">Base price per night</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Room Selection -->
+            {% if rooms_by_type %}
+                {% for type_id, type_data in rooms_by_type.items %}
+                <div class="card-glass p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold">{{ type_data.room_type.name }} Rooms</h4>
+                        <div class="text-end">
+                            <span class="price-tag">{{ type_data.price_per_night|floatformat:0 }} MMK</span>
+                            <p class="text-gray small mb-0">per night</p>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray mb-3">
+                        <i class="fas fa-user me-2"></i>Max occupancy: {{ type_data.room_type.max_occupancy }} guests
+                        {% if type_data.room_type.description %}
+                        <span class="mx-2">•</span>{{ type_data.room_type.description }}
+                        {% endif %}
+                    </p>
+                    
+                    <div class="row">
+                        {% for room in type_data.rooms %}
+                        <div class="col-md-4 mb-3">
+                            <div class="room-card p-3 border rounded" data-room-id="{{ room.id }}">
+                                <div class="form-check">
+                                    <input class="form-check-input room-checkbox" type="checkbox" 
+                                           value="{{ room.id }}" 
+                                           id="room_{{ room.id }}"
+                                           data-price="{{ room.get_price_per_night }}">
+                                    <label class="form-check-label fw-bold" for="room_{{ room.id }}">
+                                        Room {{ room.room_number }}
+                                    </label>
+                                </div>
+                                
+                                <div class="mt-2 small">
+                                    <div><i class="fas fa-layer-group me-1"></i>Floor: {{ room.floor }}</div>
+                                    <div><i class="fas fa-bed me-1"></i>{{ room.bed_type }} Bed</div>
+                                    {% if room.has_window %}
+                                    <div><i class="fas fa-window-maximize me-1"></i>Window</div>
+                                    {% endif %}
+                                    {% if room.has_balcony %}
+                                    <div><i class="fas fa-door-open me-1"></i>Balcony</div>
+                                    {% endif %}
+                                    {% if room.square_feet %}
+                                    <div><i class="fas fa-vector-square me-1"></i>{{ room.square_feet }} sq ft</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <span class="badge bg-success">Available</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card-glass p-5 text-center">
+                    <div class="feature-icon gradient-teal mx-auto mb-4">
+                        <i class="fas fa-bed fa-2x text-white"></i>
+                    </div>
+                    <h4 class="mb-3">No rooms available</h4>
+                    <p class="text-gray mb-4">
+                        No rooms are available at {{ hotel.name }} for your selected dates.
+                        Please try different dates or select another hotel.
+                    </p>
+                    <a href="{% url 'planner:select_hotel_map' trip.id %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Choose Another Hotel
+                    </a>
+                </div>
+            {% endif %}
+            
+            <!-- Selection Summary Sticky Bar -->
+            <div class="selection-summary card-glass p-3" id="selectionSummary" style="display: none;">
+                <div class="row align-items-center">
+                    <div class="col-md-7">
+                        <h6 class="mb-1">Selected Rooms: <span id="selectedCount">0</span></h6>
+                        <div class="small text-gray" id="selectedRoomsList"></div>
+                    </div>
+                    <div class="col-md-5 text-end">
+                        <div class="d-flex align-items-center justify-content-end">
+                            <div class="me-3">
+                                <span class="text-gray small">Total for {{ nights }} nights:</span>
+                                <h5 class="mb-0 price-tag" id="totalPrice">0 MMK</h5>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="confirmRoomsBtn">
+                                <i class="fas fa-check me-2"></i>Confirm Rooms
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .room-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(139, 92, 246, 0.2) !important;
+    }
+    
+    .room-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-color: #06B6D4 !important;
+    }
+    
+    .room-card.selected {
+        background: rgba(6, 182, 212, 0.1);
+        border-color: #06B6D4 !important;
+    }
+    
+    .price-tag {
+        background: linear-gradient(135deg, #06B6D4, #0891B2);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .selection-summary {
+        position: sticky;
+        bottom: 20px;
+        z-index: 1000;
+        background: rgba(30, 41, 59, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 20px;
+    }
+    
+    .badge.bg-success {
+        background: linear-gradient(135deg, #10B981, #059669) !important;
+    }
+    
+    .custom-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== ROOM SELECTION INITIALIZED ===');
+    
+    var checkboxes = document.querySelectorAll('.room-checkbox');
+    var roomCards = document.querySelectorAll('.room-card');
+    var selectionSummary = document.getElementById('selectionSummary');
+    var selectedCount = document.getElementById('selectedCount');
+    var selectedRoomsList = document.getElementById('selectedRoomsList');
+    var totalPrice = document.getElementById('totalPrice');
+    var confirmBtn = document.getElementById('confirmRoomsBtn');
+    var nights = {{ nights }};
+    var tripId = '{{ trip.id }}';
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    function updateSelection() {
+        var selected = [];
+        var total = 0;
+        var selectedIds = [];
+        
+        checkboxes.forEach(function(cb) {
+            if (cb.checked) {
+                var roomCard = cb.closest('.room-card');
+                var roomNumber = roomCard ? roomCard.querySelector('.form-check-label').textContent.trim() : 'Room';
+                var price = parseFloat(cb.dataset.price) || 0;
+                
+                selected.push({number: roomNumber, price: price, id: cb.value});
+                selectedIds.push(cb.value);
+                total += price * nights;
+                
+                // Highlight selected room
+                if (roomCard) {
+                    roomCard.classList.add('selected');
+                }
+            } else {
+                var roomCard = cb.closest('.room-card');
+                if (roomCard) {
+                    roomCard.classList.remove('selected');
+                }
+            }
+        });
+        
+        // Update summary
+        if (selected.length > 0) {
+            selectionSummary.style.display = 'block';
+            selectedCount.textContent = selected.length;
+            
+            var roomNumbers = selected.map(function(s) { return s.number; }).join(', ');
+            selectedRoomsList.textContent = roomNumbers;
+            
+            totalPrice.textContent = Math.round(total).toLocaleString() + ' MMK';
+            
+            // Scroll to summary smoothly
+            setTimeout(function() {
+                selectionSummary.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 100);
+        } else {
+            selectionSummary.style.display = 'none';
+        }
+    }
+    
+    // Make entire room card clickable
+    roomCards.forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            // Don't toggle if clicking on the checkbox directly
+            if (e.target.type !== 'checkbox') {
+                var checkbox = this.querySelector('.room-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    updateSelection();
+                }
+            }
+        });
+    });
+    
+    // Update on checkbox change
+    checkboxes.forEach(function(cb) {
+        cb.addEventListener('change', updateSelection);
+    });
+    
+    // Confirm rooms button click
+    confirmBtn.addEventListener('click', function() {
+        var selected = [];
+        document.querySelectorAll('.room-checkbox:checked').forEach(function(cb) {
+            selected.push(cb.value);
+        });
+        
+        if (selected.length === 0) {
+            alert('Please select at least one room.');
+            return;
+        }
+        
+        // Show loading state
+        var originalText = confirmBtn.innerHTML;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+        confirmBtn.disabled = true;
+        
+        // Save room selection via AJAX
+        fetch('/planner/save-room-selection/' + tripId + '/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                room_ids: selected
+            })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('HTTP error! Status: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Save rooms response:', data);
+            
+            if (data.success) {
+                // Show success toast
+                showToast('success', data.message, 'fas fa-check-circle');
+                
+                // Redirect back to plan page
+                setTimeout(function() {
+                    window.location.href = data.redirect_url;
+                }, 1000);
+            } else {
+                showToast('error', data.error || 'Failed to save room selection.', 'fas fa-exclamation-triangle');
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            }
+        })
+        .catch(function(error) {
+            console.error('Error saving rooms:', error);
+            showToast('error', 'Network error. Please try again.', 'fas fa-exclamation-triangle');
+            confirmBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+        });
+    });
+    
+    // Toast notification function
+    function showToast(type, message, icon) {
+        // Remove any existing toasts
+        var existingToasts = document.querySelectorAll('.custom-toast');
+        existingToasts.forEach(function(toast) {
+            toast.remove();
+        });
+        
+        // Create toast element
+        var toast = document.createElement('div');
+        toast.className = 'custom-toast rounded-3 shadow-lg border-0 text-white';
+        if (type === 'success') {
+            toast.classList.add('bg-success');
+        } else {
+            toast.classList.add('bg-danger');
+        }
+        
+        toast.innerHTML = `
+            <div class="d-flex align-items-center p-3">
+                <i class="${icon} fa-lg me-3"></i>
+                <div class="flex-grow-1">
+                    <strong class="d-block">${type === 'success' ? 'Success!' : 'Error!'}</strong>
+                    <small>${message}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto remove after 5 seconds
+        setTimeout(function() {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

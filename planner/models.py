@@ -1,5 +1,5 @@
 # CORRECTED VERSION - WITH PROPER MODEL ORDERING
-
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -261,6 +261,7 @@ class Flight(models.Model):
 # REPLACE ONLY the Hotel model section with this:
 
 # ========== HOTEL MODEL ==========
+# ========== HOTEL MODEL ==========
 class Hotel(models.Model):
     CATEGORY_CHOICES = [
         ('budget', 'Budget (Under 50,000 MMK)'),
@@ -291,7 +292,7 @@ class Hotel(models.Model):
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
-    review_count = models.IntegerField(default=0, blank=True, null=True)  # FIXED: Added blank=True, null=True
+    review_count = models.IntegerField(default=0, blank=True, null=True)
     image = models.ImageField(upload_to='hotels/', blank=True, null=True)
     description = models.TextField(blank=True)
     gallery_images = models.JSONField(default=list, blank=True)
@@ -404,6 +405,7 @@ class Hotel(models.Model):
             'gallery_images': self.gallery_images if isinstance(self.gallery_images, list) else [],
             'description': self.description[:100] + '...' if self.description and len(self.description) > 100 else (self.description or '')
         }
+    
     def get_booking_data(self):
         """Return data for booking"""
         return {
@@ -438,28 +440,234 @@ class Hotel(models.Model):
         maps_query_encoded = urllib.parse.quote(maps_query)
         return f"https://www.google.com/maps/search/?api=1&query={maps_query_encoded}"
     
+    # ===== NEW ROOM BOOKING METHODS =====
+    
+    def get_available_rooms(self, check_in_date, check_out_date, guests=1):
+        """
+        Get all available rooms for given dates.
+        Returns rooms that are not booked during the period.
+        """
+        from .models_room import Room, RoomBooking
+        
+        # Get all active rooms in this hotel
+        all_rooms = Room.objects.filter(hotel=self, is_active=True)
+        
+        # Get rooms that are booked during this period (including temporary bookings)
+        booked_room_ids = RoomBooking.objects.filter(
+            room__hotel=self,
+            check_in_date__lt=check_out_date,
+            check_out_date__gt=check_in_date,
+            is_cancelled=False,
+            status__in=['temporary', 'confirmed', 'checked_in']
+        ).values_list('room_id', flat=True)
+        
+        # Available rooms are those not booked
+        available_rooms = all_rooms.exclude(id__in=booked_room_ids)
+        
+        # Filter by occupancy if needed
+        if guests:
+            available_rooms = available_rooms.filter(room_type__max_occupancy__gte=guests)
+        
+        return available_rooms
+    
+    def check_room_availability(self, room_id, check_in_date, check_out_date):
+        """
+        Check if a specific room is available for given dates.
+        Returns True if available, False if booked.
+        """
+        from .models_room import RoomBooking
+        
+        conflicting_bookings = RoomBooking.objects.filter(
+            room_id=room_id,
+            check_in_date__lt=check_out_date,
+            check_out_date__gt=check_in_date,
+            is_cancelled=False,
+            status__in=['temporary', 'confirmed', 'checked_in']
+        ).exists()
+        
+        return not conflicting_bookings
+    
+    def get_room_types_summary(self):
+        """
+        Get summary of room types available in this hotel.
+        Returns list of dicts with room type info and counts.
+        """
+        from .models_room import Room, RoomType
+        
+        summary = []
+        for room_type in RoomType.objects.all():
+            total_rooms = Room.objects.filter(hotel=self, room_type=room_type, is_active=True).count()
+            available_rooms = Room.objects.filter(
+                hotel=self, 
+                room_type=room_type, 
+                is_active=True
+            ).count()  # This doesn't check dates, just total rooms
+            
+            if total_rooms > 0:
+                base_price = self.price_per_night
+                room_price = int(float(base_price) * float(room_type.base_price_multiplier))
+                
+                summary.append({
+                    'room_type': room_type,
+                    'name': room_type.name,
+                    'code': room_type.code,
+                    'total': total_rooms,
+                    'available': available_rooms,  # Will be filtered by date in view
+                    'base_price': room_price,
+                    'price_display': f"{room_price:,} MMK",
+                    'max_occupancy': room_type.max_occupancy,
+                    'description': room_type.description
+                })
+        
+        return summary
+    
+    def calculate_room_price(self, room_type_code, nights=None):
+        """
+        Calculate price for a room type.
+        If nights provided, returns total price, otherwise returns per night.
+        """
+        from .models_room import RoomType
+        
+        try:
+            room_type = RoomType.objects.get(code=room_type_code)
+            price_per_night = int(float(self.price_per_night) * float(room_type.base_price_multiplier))
+            
+            if nights:
+                return price_per_night * nights
+            return price_per_night
+        except RoomType.DoesNotExist:
+            # Fallback to default prices
+            multipliers = {
+                'SINGLE': 0.8,
+                'DOUBLE': 1.0,
+                'TRIPLE': 1.3,
+                'SUITE': 2.0,
+            }
+            multiplier = multipliers.get(room_type_code, 1.0)
+            price_per_night = int(float(self.price_per_night) * multiplier)
+            
+            if nights:
+                return price_per_night * nights
+            return price_per_night
+    
+    def get_total_rooms_count(self):
+        """Get total number of rooms in this hotel"""
+        from .models_room import Room
+        return Room.objects.filter(hotel=self, is_active=True).count()
+    
+    def get_available_rooms_count(self, check_in_date=None, check_out_date=None):
+        """
+        Get count of available rooms.
+        If dates provided, counts rooms available for those dates.
+        """
+        from .models_room import Room, RoomBooking
+        
+        if check_in_date and check_out_date:
+            # Count rooms not booked during this period
+            booked_room_ids = RoomBooking.objects.filter(
+                room__hotel=self,
+                check_in_date__lt=check_out_date,
+                check_out_date__gt=check_in_date,
+                is_cancelled=False,
+                status__in=['temporary', 'confirmed', 'checked_in']
+            ).values_list('room_id', flat=True)
+            
+            return Room.objects.filter(hotel=self, is_active=True).exclude(id__in=booked_room_ids).count()
+        else:
+            # Just count all rooms
+            return Room.objects.filter(hotel=self, is_active=True).count()
+    
+    def get_booked_rooms_count(self, check_in_date=None, check_out_date=None):
+        """
+        Get count of booked rooms.
+        If dates provided, counts rooms booked for those dates.
+        """
+        from .models_room import RoomBooking
+        
+        if check_in_date and check_out_date:
+            return RoomBooking.objects.filter(
+                room__hotel=self,
+                check_in_date__lt=check_out_date,
+                check_out_date__gt=check_in_date,
+                is_cancelled=False,
+                status__in=['temporary', 'confirmed', 'checked_in']
+            ).count()
+        else:
+            # Count all bookings (not very useful)
+            return RoomBooking.objects.filter(room__hotel=self, is_cancelled=False).count()
+    
     def is_available(self, start_date, end_date, travelers=1):
-        """Check if hotel is available for given dates"""
-        # This is a simplified version - you might want to add real availability checking
-        return self.is_active
+        """
+        Check if hotel has any available rooms for given dates.
+        Overrides the placeholder method.
+        """
+        available_rooms = self.get_available_rooms(start_date, end_date, travelers)
+        return available_rooms.exists()
     
     def calculate_total_price(self, nights, travelers=1):
-        """Calculate total price for stay"""
+        """
+        Calculate total price for stay.
+        This is a base calculation - actual price depends on room type.
+        """
         if not nights or nights <= 0:
             nights = 1
         
         base_price = float(self.price_per_night)
         total = base_price * nights
         
-        # You could add logic for additional travelers here
-        return total
+        return int(total)
     
     def get_total_price_display(self, nights, travelers=1):
         """Get formatted total price"""
         total = self.calculate_total_price(nights, travelers)
-        return f"{int(total):,} MMK"
-
-
+        return f"{total:,} MMK"
+    
+    def get_room_types_for_dates(self, check_in_date, check_out_date, guests=1):
+        """
+        Get available room types with counts for specific dates.
+        Returns list of dicts with room type info and available count.
+        """
+        from .models_room import Room, RoomType, RoomBooking
+        
+        # Get all rooms in this hotel
+        all_rooms = Room.objects.filter(hotel=self, is_active=True)
+        
+        # Get booked room IDs for these dates
+        booked_room_ids = RoomBooking.objects.filter(
+            room__hotel=self,
+            check_in_date__lt=check_out_date,
+            check_out_date__gt=check_in_date,
+            is_cancelled=False,
+            status__in=['temporary', 'confirmed', 'checked_in']
+        ).values_list('room_id', flat=True)
+        
+        # Available rooms are those not booked
+        available_rooms = all_rooms.exclude(id__in=booked_room_ids)
+        
+        # Filter by occupancy if needed
+        if guests:
+            available_rooms = available_rooms.filter(room_type__max_occupancy__gte=guests)
+        
+        # Group by room type
+        result = []
+        for room_type in RoomType.objects.all():
+            rooms_of_type = available_rooms.filter(room_type=room_type)
+            count = rooms_of_type.count()
+            
+            if count > 0:
+                price_per_night = self.calculate_room_price(room_type.code)
+                result.append({
+                    'room_type': room_type,
+                    'name': room_type.name,
+                    'code': room_type.code,
+                    'available_count': count,
+                    'max_occupancy': room_type.max_occupancy,
+                    'price_per_night': price_per_night,
+                    'price_display': f"{price_per_night:,} MMK",
+                    'rooms': list(rooms_of_type.values('id', 'room_number', 'floor', 'bed_type', 'has_window', 'has_balcony'))
+                })
+        
+        return result
 # ========== BUS SERVICE MODEL ==========
 class BusService(models.Model):
     company = models.CharField(max_length=100)
@@ -533,6 +741,16 @@ class CarRental(models.Model):
 
 # ========== TRIP PLAN MODEL ==========
 # ========== TRIP PLAN MODEL ==========
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+
+# ========== TRIP PLAN MODEL ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+
+# ========== TRIP PLAN MODEL ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+
+# ========== TRIP PLAN MODEL ==========
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
     origin = models.ForeignKey(
@@ -556,6 +774,10 @@ class TripPlan(models.Model):
     selected_plan = models.CharField(max_length=100, blank=True, null=True)
     transportation_preference = models.CharField(max_length=20, blank=True)
     selected_transport = models.JSONField(default=dict, blank=True)
+    
+    # ADD THIS FIELD - For storing selected rooms
+    selected_rooms = models.JSONField(default=dict, blank=True, help_text="Selected rooms with details")
+    
     status = models.CharField(max_length=20, default='draft', choices=[
         ('draft', 'Draft'),
         ('planning', 'Planning'),
@@ -578,22 +800,19 @@ class TripPlan(models.Model):
         return 1
     
     def get_total_cost_in_mmk(self):
-        """Calculate total cost in MMK including hotel, transport, and base destination cost"""
+        """Calculate total cost in MMK including rooms and transport ONLY"""
         total = 0
         nights = self.calculate_nights()
         
-        # 1. Hotel cost
-        if self.selected_hotel:
-            hotel_cost = float(self.selected_hotel.price_per_night) * nights
-            total += hotel_cost
+        # 1. Room costs ONLY
+        if self.selected_rooms and self.selected_rooms.get('total_price'):
+            total += float(self.selected_rooms.get('total_price', 0))
         
         # 2. Transport cost
         if self.selected_transport and 'price' in self.selected_transport:
             transport_price = self.selected_transport.get('price', 0)
-            # Handle both string and number formats
             try:
                 if isinstance(transport_price, str):
-                    # Remove any currency symbols and commas
                     import re
                     clean_price = re.sub(r'[^\d.]', '', transport_price)
                     transport_cost = float(clean_price) if clean_price else 0
@@ -603,70 +822,40 @@ class TripPlan(models.Model):
             except (ValueError, TypeError):
                 transport_cost = 0
         
-        # 3. Destination base cost (activities, food, etc.)
-        # Calculate based on destination type, days, and travelers
-        destination_cost = self.calculate_destination_base_cost()
-        total += destination_cost
+        # REMOVED: destination cost
         
         return int(total)
-    
-    def calculate_destination_base_cost(self):
-        """Calculate base cost for destination activities, food, etc."""
-        nights = self.calculate_nights()
-        days = nights + 1 if nights > 0 else 3
-        
-        # Base cost per traveler per day in MMK
-        base_cost_per_day_per_person = {
-            'low': 20000,      # Budget
-            'medium': 40000,   # Medium
-            'high': 70000,     # Luxury
-        }
-        
-        base_rate = base_cost_per_day_per_person.get(self.budget_range, 40000)
-        
-        # Calculate: base rate × days × travelers
-        return int(base_rate * days * self.travelers)
     
     def get_cost_breakdown(self):
         """
         Get detailed cost breakdown (MMK)
-        Total = Hotel + Transport + Destination
+        Total = Rooms + Transport ONLY
         """
-
         nights = self.calculate_nights()
 
         breakdown = {
-            'hotel': 0,
+            'rooms': 0,
             'transport': 0,
-            'destination': 0,
             'total': 0
         }
 
         # -----------------------
-        # HOTEL COST
+        # ROOMS COST ONLY
         # -----------------------
-        if self.selected_hotel:
-           breakdown['hotel'] = int(
-               float(self.selected_hotel.price_per_night) * max(nights, 1)
-           )
+        if self.selected_rooms and self.selected_rooms.get('total_price'):
+            breakdown['rooms'] = int(float(self.selected_rooms.get('total_price', 0)))
 
         # -----------------------
-        # TRANSPORT COST (FIXED VERSION)
+        # TRANSPORT COST
         # -----------------------
         if self.selected_transport:
             try:
                 transport_data = self.selected_transport
                 
-                # CASE 1: Transport is a model object
                 if hasattr(transport_data, 'price'):
                     breakdown['transport'] = float(transport_data.price)
-                
-                # CASE 2: Transport is a dict (JSON)
                 elif isinstance(transport_data, dict):
-                    # Try multiple possible locations for the price
                     price = 0
-                    
-                    # 1. Check direct 'price' key
                     if 'price' in transport_data:
                         price_val = transport_data['price']
                         if isinstance(price_val, (int, float)):
@@ -675,8 +864,6 @@ class TripPlan(models.Model):
                             import re
                             clean_price = re.sub(r'[^\d.]', '', price_val)
                             price = float(clean_price) if clean_price else 0
-                    
-                    # 2. Check booking_details.total_price
                     elif transport_data.get('booking_details'):
                         booking_details = transport_data['booking_details']
                         if 'total_price' in booking_details:
@@ -687,31 +874,19 @@ class TripPlan(models.Model):
                                 import re
                                 clean_price = re.sub(r'[^\d.]', '', price_val)
                                 price = float(clean_price) if clean_price else 0
-                        
-                        # 3. Check booking_details.price_per_seat * travelers
-                        elif 'price_per_seat' in booking_details and self.travelers:
-                            price_per_seat = booking_details['price_per_seat']
-                            if isinstance(price_per_seat, (int, float)):
-                                price = float(price_per_seat) * self.travelers
-                    
                     breakdown['transport'] = price
-                    
             except Exception as e:
                 print(f"Transport cost error for trip {self.id}: {e}")
                 breakdown['transport'] = 0
 
-        # -----------------------
-        # DESTINATION / ACTIVITIES
-        # -----------------------
-        breakdown['destination'] = int(self.calculate_destination_base_cost())
+        # REMOVED: destination cost
 
         # -----------------------
-        # TOTAL (FINAL FIX)
+        # TOTAL
         # -----------------------
         breakdown['total'] = int(
-            breakdown['hotel'] +
-            breakdown['transport'] +
-            breakdown['destination']
+            breakdown['rooms'] +
+            breakdown['transport']
         )
 
         return breakdown

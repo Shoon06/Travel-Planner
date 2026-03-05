@@ -274,6 +274,30 @@ input[type="search"]::-moz-search-clear{
 }
 
 
+/* ================= TOAST NOTIFICATION ================= */
+
+.custom-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+
 /* ================= MOBILE ================= */
 
 @media(max-width:768px){
@@ -338,9 +362,6 @@ input[type="search"]::-moz-search-clear{
                    class="premium-search-input" 
                    placeholder="Search hotels by name, location, or amenities..."
                    value="{{ request.GET.search|default:'' }}">
-            <button class="premium-clear-search" id="clear-search-btn">
-                <i class="fas fa-times"></i>
-            </button>
         </div>
         
         <!-- Results Header -->
@@ -435,10 +456,12 @@ input[type="search"]::-moz-search-clear{
     </div>
     
     <!-- Loading Overlay -->
-    <div class="premium-loading-overlay" id="loading-overlay">
+    <div class="premium-loading-overlay" id="loading-overlay" style="display: none;">
         <div class="text-center">
-            <div class="premium-spinner"></div>
-            <div class="premium-loading-text">Filtering hotels...</div>
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="premium-loading-text mt-2">Filtering hotels...</div>
         </div>
     </div>
     
@@ -498,14 +521,14 @@ input[type="search"]::-moz-search-clear{
                                 <span class="badge bg-info">{{ hotel.amenities|length }} total</span>
                             </div>
                             <div class="d-flex flex-wrap gap-1">
-                                {% for amenity in hotel.amenities|first_n_items:6 %}
-                                <span class="amenity-badge">
-                                    <i class="fas fa-check me-1"></i>{{ amenity|format_amenity }}
+                                {% for amenity in hotel.amenities|slice:":6" %}
+                                <span class="badge bg-light text-dark me-1">
+                                    <i class="fas fa-check me-1"></i>{{ amenity }}
                                 </span>
                                 {% endfor %}
-                                {% if hotel.amenities|list_length > 6 %}
+                                {% if hotel.amenities|length > 6 %}
                                 <span class="badge bg-secondary text-white">
-                                    +{{ hotel.amenities|list_length|subtract:6 }} more
+                                    +{{ hotel.amenities|length|add:"-6" }} more
                                 </span>
                                 {% endif %}
                             </div>
@@ -523,7 +546,7 @@ input[type="search"]::-moz-search-clear{
                             <p class="fw-bold mt-3 mb-0">
                                 <i class="fas fa-calculator me-2"></i>
                                 Total for {{ nights }} night{% if nights > 1 %}s{% endif %}: 
-                                <span class="text-teal">{{ total|mmk_currency }}</span>
+                                <span class="text-teal">{{ total|floatformat:0 }} MMK</span>
                             </p>
                             {% endwith %}
                         </div>
@@ -549,18 +572,18 @@ input[type="search"]::-moz-search-clear{
                             </iframe>
                             
                             <div class="map-loading" id="map-loading-{{ hotel.id }}" 
-                                 style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                                 style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none;">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Loading map...</span>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Action Buttons -->
+                        <!-- Action Buttons - UPDATED with room selection -->
                         <div class="mt-3">
                             <button class="btn btn-primary w-100 select-hotel-btn mb-2" 
                                     data-hotel-id="{{ hotel.id }}">
-                                <i class="fas fa-check-circle me-2"></i>Select This Hotel
+                                <i class="fas fa-bed me-2"></i>Select Hotel 
                             </button>
                             
                             <a href="https://www.google.com/maps/search/?api=1&query={{ hotel.maps_query|urlencode }}"
@@ -593,197 +616,211 @@ input[type="search"]::-moz-search-clear{
         {% endfor %}
     </div>
 </div>
+
+<style>
+    .premium-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .custom-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('=== HOTEL FILTER SYSTEM INITIALIZED ===');
-        
-        const destinationId = '{{ trip.destination.id }}';
-        let currentCategory = '{{ selected_category }}';
-        let currentAmenities = [];
-        let searchQuery = '';
-        let isFiltering = false;
-        let searchTimeout = null;
-        
-        // ============ UI FUNCTIONS ============
-        
-        // Show loading overlay
-        function showLoading() {
-            const overlay = document.getElementById('loading-overlay');
-            if (overlay) {
-                overlay.style.display = 'flex';
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== HOTEL FILTER SYSTEM WITH ROOM SELECTION INITIALIZED ===');
+    
+    var destinationId = '{{ trip.destination.id }}';
+    var currentCategory = '{{ selected_category }}';
+    var currentAmenities = [];
+    var searchQuery = '';
+    var isFiltering = false;
+    var searchTimeout = null;
+    
+    // CSRF token and trip ID for AJAX
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var tripId = '{{ trip.id }}';
+    
+    // ============ UI FUNCTIONS ============
+    
+    // Show loading overlay
+    function showLoading() {
+        var overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
         }
-        
-        // Hide loading overlay
-        function hideLoading() {
-            const overlay = document.getElementById('loading-overlay');
-            if (overlay) {
-                overlay.style.display = 'none';
-            }
+    }
+    
+    // Hide loading overlay
+    function hideLoading() {
+        var overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
         }
+    }
+    
+    // Update filter count badge
+    function updateFilterCount() {
+        var badge = document.getElementById('filter-count-badge');
+        var totalFilters = (currentCategory !== 'all' ? 1 : 0) + currentAmenities.length + (searchQuery ? 1 : 0);
         
-        // Update filter count badge
-        function updateFilterCount() {
-            const badge = document.getElementById('filter-count-badge');
-            const totalFilters = (currentCategory !== 'all' ? 1 : 0) + currentAmenities.length + (searchQuery ? 1 : 0);
+        if (badge) {
+            badge.textContent = totalFilters > 0 ? 
+                totalFilters + ' filter' + (totalFilters !== 1 ? 's' : '') + ' active' : 
+                'All filters';
             
-            if (badge) {
-                badge.textContent = totalFilters > 0 ? 
-                    `${totalFilters} filter${totalFilters !== 1 ? 's' : ''} active` : 
-                    'All filters';
+            // Animate badge on change
+            badge.style.transform = 'scale(1.1)';
+            setTimeout(function() {
+                badge.style.transform = 'scale(1)';
+            }, 300);
+        }
+    }
+    
+    // ============ CORE FILTER FUNCTIONS ============
+    
+    // Parse initial amenities from template
+    try {
+        document.querySelectorAll('.amenity-checkbox').forEach(function(checkbox) {
+            if (checkbox.checked) {
+                currentAmenities.push(checkbox.value);
+            }
+        });
+    } catch (e) {
+        console.error('Error parsing initial amenities:', e);
+    }
+    
+    console.log('Initial filter state:', {
+        category: currentCategory,
+        amenities: currentAmenities,
+        search: searchQuery,
+        destinationId: destinationId
+    });
+    
+    // Hide map loading spinners when iframes are loaded
+    document.querySelectorAll('.hotel-map-iframe').forEach(function(iframe) {
+        iframe.addEventListener('load', function() {
+            var hotelId = this.closest('.hotel-card').dataset.hotelId;
+            var loadingDiv = document.getElementById('map-loading-' + hotelId);
+            if (loadingDiv) {
+                loadingDiv.style.display = 'none';
+            }
+        });
+    });
+    
+    // ============ EVENT LISTENERS ============
+    
+    // Search Box Functionality
+    var searchBox = document.getElementById('hotelSearch');
+    if (searchBox) {
+        // Search input functionality with debounce
+        searchBox.addEventListener('input', function() {
+            // Debounce search
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                searchQuery = searchBox.value.trim();
+                console.log('Search query changed to:', searchQuery);
                 
-                // Animate badge on change
-                badge.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    badge.style.transform = 'scale(1)';
-                }, 300);
-            }
-            
-            // Update clear search button
-            updateClearSearchButton();
-        }
-        
-        // Update clear search button visibility
-        function updateClearSearchButton() {
-            const clearSearchBtn = document.getElementById('clear-search-btn');
-            const searchBox = document.getElementById('hotelSearch');
-            
-            if (clearSearchBtn && searchBox) {
-                if (searchBox.value.trim()) {
-                    clearSearchBtn.classList.add('visible');
-                } else {
-                    clearSearchBtn.classList.remove('visible');
-                }
-            }
-        }
-        
-        // ============ CORE FILTER FUNCTIONS ============
-        
-        // Parse initial amenities from template
-        try {
-            document.querySelectorAll('.amenity-checkbox').forEach(checkbox => {
-                if (checkbox.checked) {
-                    currentAmenities.push(checkbox.value);
-                }
-            });
-        } catch (e) {
-            console.error('Error parsing initial amenities:', e);
-        }
-        
-        console.log('Initial filter state:', {
-            category: currentCategory,
-            amenities: currentAmenities,
-            search: searchQuery,
-            destinationId: destinationId
+                updateFilterCount();
+                applyFilters();
+            }, 500);
         });
         
-        // Hide map loading spinners when iframes are loaded
-        document.querySelectorAll('.hotel-map-iframe').forEach(iframe => {
-            iframe.addEventListener('load', function() {
-                const hotelId = this.closest('.hotel-card').dataset.hotelId;
-                const loadingDiv = document.getElementById(`map-loading-${hotelId}`);
-                if (loadingDiv) {
-                    loadingDiv.style.display = 'none';
-                }
-            });
-        });
-        
-        // ============ EVENT LISTENERS ============
-        
-        // Search Box Functionality
-        const searchBox = document.getElementById('hotelSearch');
-        if (searchBox) {
-            // Initial update of clear button
-            updateClearSearchButton();
-            
-            // Search input functionality with debounce
-            searchBox.addEventListener('input', function() {
-                // Update clear button immediately
-                updateClearSearchButton();
-                
-                // Debounce search
+        // Also trigger on Enter key
+        searchBox.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    searchQuery = this.value.trim();
-                    console.log('Search query changed to:', searchQuery);
-                    
-                    updateFilterCount();
-                    applyFilters();
-                }, 500);
-            });
-            
-            // Also trigger on Enter key
-            searchBox.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    clearTimeout(searchTimeout);
-                    searchQuery = this.value.trim();
-                    console.log('Search query (Enter):', searchQuery);
-                    updateFilterCount();
-                    applyFilters();
-                }
-            });
-        }
-        
-        // Clear search button
-        document.getElementById('clear-search-btn')?.addEventListener('click', function() {
-            if (searchBox) {
-                searchBox.value = '';
-                searchQuery = '';
-                searchBox.focus();
+                searchQuery = searchBox.value.trim();
+                console.log('Search query (Enter):', searchQuery);
                 updateFilterCount();
                 applyFilters();
             }
         });
-        
-        // Category filter buttons
-        document.querySelectorAll('.category-btn[data-category]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                if (isFiltering) return;
-                
-                currentCategory = this.dataset.category;
-                console.log('Category changed to:', currentCategory);
-                
-                // Update active state
-                document.querySelectorAll('.category-btn').forEach(b => {
-                    b.classList.remove('active');
-                });
-                this.classList.add('active');
-                
-                updateFilterCount();
-                applyFilters();
+    }
+    
+    // Category filter buttons
+    document.querySelectorAll('.category-btn[data-category]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (isFiltering) return;
+            
+            currentCategory = this.dataset.category;
+            console.log('Category changed to:', currentCategory);
+            
+            // Update active state
+            document.querySelectorAll('.category-btn').forEach(function(b) {
+                b.classList.remove('active');
             });
+            this.classList.add('active');
+            
+            updateFilterCount();
+            applyFilters();
         });
-        
-        // Amenities checkboxes
-        document.querySelectorAll('.amenity-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                if (isFiltering) return;
-                
-                console.log('Amenity checkbox changed:', this.value, this.checked);
-                updateAmenitiesFilter();
-                updateFilterCount();
-                applyFilters();
-            });
+    });
+    
+    // Amenities checkboxes
+    document.querySelectorAll('.amenity-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            if (isFiltering) return;
+            
+            console.log('Amenity checkbox changed:', this.value, this.checked);
+            updateAmenitiesFilter();
+            updateFilterCount();
+            applyFilters();
         });
-        
-        // Clear filters button
-        document.getElementById('clear-filters')?.addEventListener('click', function() {
+    });
+    
+    // Clear filters button
+    var clearFiltersBtn = document.getElementById('clear-filters');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function() {
             if (isFiltering) return;
             
             console.log('Clearing all filters');
             
             // Reset category to 'all'
             currentCategory = 'all';
-            document.querySelectorAll('.category-btn').forEach(b => {
+            document.querySelectorAll('.category-btn').forEach(function(b) {
                 b.classList.remove('active');
             });
-            document.querySelector('.category-btn[data-category="all"]')?.classList.add('active');
+            var allCategoryBtn = document.querySelector('.category-btn[data-category="all"]');
+            if (allCategoryBtn) {
+                allCategoryBtn.classList.add('active');
+            }
             
             // Clear all amenities checkboxes
-            document.querySelectorAll('.amenity-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.amenity-checkbox').forEach(function(cb) {
+                cb.checked = false;
+            });
             currentAmenities = [];
             
             // Clear search box
@@ -795,191 +832,200 @@ input[type="search"]::-moz-search-clear{
             updateFilterCount();
             applyFilters();
         });
+    }
+    
+    // Clear filters button in empty state
+    var clearFiltersEmpty = document.getElementById('clear-filters-empty');
+    if (clearFiltersEmpty) {
+        clearFiltersEmpty.addEventListener('click', function() {
+            var clearFilters = document.getElementById('clear-filters');
+            if (clearFilters) {
+                clearFilters.click();
+            }
+        });
+    }
+    
+    // ============ FILTER LOGIC FUNCTIONS ============
+    
+    // Update amenities filter array
+    function updateAmenitiesFilter() {
+        currentAmenities = [];
+        document.querySelectorAll('.amenity-checkbox:checked').forEach(function(checkbox) {
+            if (checkbox.value && checkbox.value.trim()) {
+                currentAmenities.push(checkbox.value.trim());
+            }
+        });
+        console.log('Updated amenities:', currentAmenities);
+    }
+    
+    // Apply filters function
+    function applyFilters() {
+        if (isFiltering) {
+            console.log('Already filtering, skipping...');
+            return;
+        }
         
-        // Clear filters button in empty state
-        document.getElementById('clear-filters-empty')?.addEventListener('click', function() {
-            document.getElementById('clear-filters')?.click();
+        isFiltering = true;
+        showLoading();
+        
+        console.log('Applying filters:', {
+            category: currentCategory,
+            amenities: currentAmenities,
+            search: searchQuery,
+            timestamp: new Date().toISOString()
         });
         
-        // ============ FILTER LOGIC FUNCTIONS ============
+        // Build query parameters
+        var params = new URLSearchParams();
+        params.append('category', currentCategory);
         
-        // Update amenities filter array
-        function updateAmenitiesFilter() {
-            currentAmenities = [];
-            document.querySelectorAll('.amenity-checkbox:checked').forEach(checkbox => {
-                if (checkbox.value && checkbox.value.trim()) {
-                    currentAmenities.push(checkbox.value.trim());
+        // Add amenities as array parameters
+        currentAmenities.forEach(function(amenity) {
+            params.append('amenities[]', amenity);
+        });
+        
+        // Add search query
+        if (searchQuery) {
+            params.append('search', searchQuery);
+        }
+        
+        // Make AJAX request
+        var url = '/planner/filter-hotels/' + destinationId + '/?' + params.toString();
+        console.log('Fetching from:', url);
+        
+        fetch(url)
+            .then(function(response) {
+                console.log('Response status:', response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status + ' - ' + response.statusText);
                 }
-            });
-            console.log('Updated amenities:', currentAmenities);
-        }
-        
-        // Apply filters function
-        function applyFilters() {
-            if (isFiltering) {
-                console.log('Already filtering, skipping...');
-                return;
-            }
-            
-            isFiltering = true;
-            showLoading();
-            
-            console.log('Applying filters:', {
-                category: currentCategory,
-                amenities: currentAmenities,
-                search: searchQuery,
-                timestamp: new Date().toISOString()
-            });
-            
-            // Build query parameters
-            const params = new URLSearchParams();
-            params.append('category', currentCategory);
-            
-            // Add amenities as array parameters
-            currentAmenities.forEach(amenity => {
-                params.append('amenities[]', amenity);
-            });
-            
-            // Add search query
-            if (searchQuery) {
-                params.append('search', searchQuery);
-            }
-            
-            // Make AJAX request
-            const url = `/planner/filter-hotels/${destinationId}/?${params.toString()}`;
-            console.log('Fetching from:', url);
-            
-            fetch(url)
-                .then(response => {
-                    console.log('Response status:', response.status, response.statusText);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Received data:', {
-                        success: data.success,
-                        count: data.count,
-                        hotelsCount: data.hotels ? data.hotels.length : 0,
-                        filters: data.filters
-                    });
-                    
-                    if (data.success) {
-                        updateHotelList(data.hotels);
-                        updateHotelCount(data.count);
-                    } else {
-                        showError('Error filtering hotels: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    console.error('Error details:', {
-                        message: error.message,
-                        stack: error.stack
-                    });
-                    showError('Error loading hotels. Please try again. Details: ' + error.message);
-                })
-                .finally(() => {
-                    isFiltering = false;
-                    hideLoading();
-                    updateFilterCount();
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('Received data:', {
+                    success: data.success,
+                    count: data.count,
+                    hotelsCount: data.hotels ? data.hotels.length : 0,
+                    filters: data.filters
                 });
+                
+                if (data.success) {
+                    updateHotelList(data.hotels);
+                    updateHotelCount(data.count);
+                } else {
+                    showError('Error filtering hotels: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(function(error) {
+                console.error('Fetch error:', error);
+                showError('Error loading hotels. Please try again. Details: ' + error.message);
+            })
+            .finally(function() {
+                isFiltering = false;
+                hideLoading();
+                updateFilterCount();
+            });
+    }
+    
+    // Update hotel list with filtered results
+    function updateHotelList(hotels) {
+        var hotelsList = document.getElementById('hotels-list');
+        var tripNights = {{ nights }};
+        
+        console.log('Updating hotel list with', hotels.length, 'hotels');
+        
+        if (!hotels || hotels.length === 0) {
+            hotelsList.innerHTML = `
+                <div class="no-hotels text-center py-5">
+                    <div class="feature-icon gradient-bg mx-auto mb-4" style="width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-search fa-3x text-white"></i>
+                    </div>
+                    <h4 class="mb-3 text-dark">No hotels found</h4>
+                    <p class="text-gray mb-4 fs-5">
+                        No hotels match your filter criteria. Try adjusting your filters.
+                    </p>
+                    <button class="btn btn-primary btn-lg px-4" id="clear-filters-manual">
+                        <i class="fas fa-broom me-2"></i>Clear All Filters
+                    </button>
+                </div>
+            `;
+            return;
         }
         
-        // Update hotel list with filtered results
-        function updateHotelList(hotels) {
-            const hotelsList = document.getElementById('hotels-list');
-            const tripNights = {{ nights }};
+        var hotelsHTML = '';
+        
+        hotels.forEach(function(hotel, index) {
+            // Calculate total price
+            var totalPrice = hotel.price * tripNights;
+            var totalFormatted = new Intl.NumberFormat('en-US').format(totalPrice);
             
-            console.log('Updating hotel list with', hotels.length, 'hotels');
-            
-            if (!hotels || hotels.length === 0) {
-                hotelsList.innerHTML = `
-                    <div class="no-hotels text-center py-5">
-                        <div class="feature-icon gradient-bg mx-auto mb-4" style="width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-search fa-3x text-white"></i>
-                        </div>
-                        <h4 class="mb-3 text-dark">No hotels found</h4>
-                        <p class="text-gray mb-4 fs-5">
-                            No hotels match your filter criteria. Try adjusting your filters.
-                        </p>
-                        <button class="btn btn-primary btn-lg px-4" id="clear-filters-manual">
-                            <i class="fas fa-broom me-2"></i>Clear All Filters
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-            
-            let hotelsHTML = '';
-            
-            hotels.forEach((hotel, index) => {
-                // Calculate total price
-                const totalPrice = hotel.price * tripNights;
-                const totalFormatted = new Intl.NumberFormat('en-US').format(totalPrice);
+            // Format amenities for display
+            var amenitiesHTML = '';
+            if (hotel.amenities && hotel.amenities.length > 0) {
+                var firstAmenities = hotel.amenities.slice(0, 6);
+                var amenitiesList = '';
+                firstAmenities.forEach(function(amenity) {
+                    var displayAmenity = amenity.replace(/_/g, ' ')
+                        .split(' ')
+                        .map(function(word) {
+                            return word.charAt(0).toUpperCase() + word.slice(1);
+                        })
+                        .join(' ');
+                    
+                    amenitiesList += `
+                        <span class="badge bg-light text-dark me-1">
+                            <i class="fas fa-check me-1"></i>${displayAmenity}
+                        </span>
+                    `;
+                });
                 
-                // Format amenities for display
-                let amenitiesHTML = '';
-                if (hotel.amenities && hotel.amenities.length > 0) {
-                    const firstAmenities = hotel.amenities.slice(0, 6);
-                    const amenitiesList = firstAmenities.map(amenity => {
-                        const displayAmenity = amenity.replace(/_/g, ' ')
-                            .split(' ')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
-                        
-                        return `
-                            <span class="amenity-badge">
-                                <i class="fas fa-check me-1"></i>${displayAmenity}
-                            </span>
-                        `;
-                    }).join('');
-                    
-                    let moreBadge = '';
-                    if (hotel.amenities.length > 6) {
-                        moreBadge = `
-                            <span class="badge bg-secondary text-white">
-                                +${hotel.amenities.length - 6} more
-                            </span>
-                        `;
-                    }
-                    
-                    amenitiesHTML = `
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <p class="small text-gray mb-0">
-                                <i class="fas fa-concierge-bell me-1"></i>Amenities (${hotel.amenities.length}):
-                            </p>
-                            <span class="badge bg-info">${hotel.amenities.length} total</span>
-                        </div>
-                        <div class="d-flex flex-wrap gap-1">
-                            ${amenitiesList}
-                            ${moreBadge}
-                        </div>
-                    </div>
+                var moreBadge = '';
+                if (hotel.amenities.length > 6) {
+                    moreBadge = `
+                        <span class="badge bg-secondary text-white">
+                            +${hotel.amenities.length - 6} more
+                        </span>
                     `;
                 }
                 
-                // Category badge
-                let categoryClass = 'budget-badge';
-                let categoryDisplay = 'Budget';
-                if (hotel.category === 'medium') {
-                    categoryClass = 'medium-badge';
-                    categoryDisplay = 'Medium';
-                } else if (hotel.category === 'luxury' || hotel.category === 'high') {
-                    categoryClass = 'luxury-badge';
-                    categoryDisplay = hotel.category === 'high' ? 'High' : 'Luxury';
-                }
-                
-                // Image HTML
-                const imageHTML = hotel.image_url ? `
+                amenitiesHTML = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <p class="small text-gray mb-0">
+                            <i class="fas fa-concierge-bell me-1"></i>Amenities (${hotel.amenities.length}):
+                        </p>
+                        <span class="badge bg-info">${hotel.amenities.length} total</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-1">
+                        ${amenitiesList}
+                        ${moreBadge}
+                    </div>
+                </div>
+                `;
+            }
+            
+            // Category badge
+            var categoryClass = 'budget-badge';
+            var categoryDisplay = 'Budget';
+            if (hotel.category === 'medium') {
+                categoryClass = 'medium-badge';
+                categoryDisplay = 'Medium';
+            } else if (hotel.category === 'luxury' || hotel.category === 'high') {
+                categoryClass = 'luxury-badge';
+                categoryDisplay = hotel.category === 'high' ? 'High' : 'Luxury';
+            }
+            
+            // Image HTML
+            var imageHTML = '';
+            if (hotel.image_url) {
+                imageHTML = `
                     <img src="${hotel.image_url}" 
                          alt="${hotel.name}" 
                          class="img-fluid h-100 w-100" 
-                         style="object-fit: cover; min-height: 300px;"
-                         onerror="this.onerror=null; this.src='#'; this.parentElement.innerHTML='<div class=\"d-flex align-items-center justify-content-center h-100 bg-light\"><div class=\"text-center p-4\"><i class=\"fas fa-hotel fa-3x text-gray mb-3\"></i><p class=\"text-gray fw-bold\">${hotel.name}</p></div></div>';">
-                ` : `
+                         style="object-fit: cover; min-height: 300px;">
+                `;
+            } else {
+                imageHTML = `
                     <div class="d-flex align-items-center justify-content-center h-100 bg-light">
                         <div class="text-center p-4">
                             <i class="fas fa-hotel fa-3x text-gray mb-3"></i>
@@ -987,265 +1033,270 @@ input[type="search"]::-moz-search-clear{
                         </div>
                     </div>
                 `;
-                
-                hotelsHTML += `
-                <div class="hotel-card card mb-4" id="hotel-${hotel.id}" data-hotel-id="${hotel.id}">
-                    <div class="row g-0">
-                        <!-- Hotel Image Column -->
-                        <div class="col-md-4">
-                            ${imageHTML}
-                        </div>
-                        
-                        <!-- Hotel Details Column -->
-                        <div class="col-md-4">
-                            <div class="card-body p-4 h-100 d-flex flex-column">
-                                <h5 class="card-title mb-2">${hotel.name}</h5>
-                                
-                                <div class="d-flex align-items-center mb-3">
-                                    <span class="me-3">
-                                        <i class="fas fa-star text-warning me-1"></i>
-                                        <strong>${hotel.rating}</strong>
-                                        <small class="text-gray">(${hotel.review_count} reviews)</small>
-                                    </span>
-                                    <span class="category-badge ${categoryClass}">
-                                        ${categoryDisplay}
-                                    </span>
+            }
+            
+            hotelsHTML += `
+            <div class="hotel-card card mb-4" id="hotel-${hotel.id}" data-hotel-id="${hotel.id}">
+                <div class="row g-0">
+                    <!-- Hotel Image Column -->
+                    <div class="col-md-4">
+                        ${imageHTML}
+                    </div>
+                    
+                    <!-- Hotel Details Column -->
+                    <div class="col-md-4">
+                        <div class="card-body p-4 h-100 d-flex flex-column">
+                            <h5 class="card-title mb-2">${hotel.name}</h5>
+                            
+                            <div class="d-flex align-items-center mb-3">
+                                <span class="me-3">
+                                    <i class="fas fa-star text-warning me-1"></i>
+                                    <strong>${hotel.rating}</strong>
+                                    <small class="text-gray">(${hotel.review_count} reviews)</small>
+                                </span>
+                                <span class="category-badge ${categoryClass}">
+                                    ${categoryDisplay}
+                                </span>
+                            </div>
+                            
+                            <p class="text-gray small mb-3">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                ${hotel.address}
+                            </p>
+                            
+                            ${amenitiesHTML}
+                            
+                            <!-- Price -->
+                            <div class="mt-auto pt-3">
+                                <div class="price-badge d-inline-block mb-2">
+                                    ${hotel.price_display}
                                 </div>
+                                <small class="text-gray d-block">per night</small>
                                 
-                                <p class="text-gray small mb-3">
-                                    <i class="fas fa-map-marker-alt me-1"></i>
-                                    ${hotel.address}
+                                <p class="fw-bold mt-3 mb-0">
+                                    <i class="fas fa-calculator me-2"></i>
+                                    Total for ${tripNights} night${tripNights > 1 ? 's' : ''}: 
+                                    <span class="text-teal">${totalFormatted} MMK</span>
                                 </p>
-                                
-                                ${amenitiesHTML}
-                                
-                                <!-- Price -->
-                                <div class="mt-auto pt-3">
-                                    <div class="price-badge d-inline-block mb-2">
-                                        ${hotel.price_display}
-                                    </div>
-                                    <small class="text-gray d-block">per night</small>
-                                    
-                                    <p class="fw-bold mt-3 mb-0">
-                                        <i class="fas fa-calculator me-2"></i>
-                                        Total for ${tripNights} night${tripNights > 1 ? 's' : ''}: 
-                                        <span class="text-teal">${totalFormatted} MMK</span>
-                                    </p>
-                                </div>
                             </div>
                         </div>
-                        
-                        <!-- Google Maps Column -->
-                        <div class="col-md-4">
-                            <div class="card-body p-4 h-100 d-flex flex-column">
-                                <h6 class="mb-3">
-                                    <i class="fas fa-map-marked-alt me-2"></i>Location
-                                </h6>
+                    </div>
+                    
+                    <!-- Google Maps Column -->
+                    <div class="col-md-4">
+                        <div class="card-body p-4 h-100 d-flex flex-column">
+                            <h6 class="mb-3">
+                                <i class="fas fa-map-marked-alt me-2"></i>Location
+                            </h6>
+                            
+                            <div class="hotel-map-container mb-3 flex-grow-1" style="position: relative; min-height: 250px;">
+                                <iframe 
+                                    src="${hotel.iframe_url}"
+                                    class="hotel-map-iframe"
+                                    style="width: 100%; height: 100%; border: none; border-radius: 8px;"
+                                    allowfullscreen=""
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer-when-downgrade">
+                                </iframe>
+                            </div>
+                            
+                            <!-- Action Buttons - Room Selection -->
+                            <div class="mt-3">
+                                <button class="btn btn-primary w-100 select-hotel-btn mb-2" 
+                                        data-hotel-id="${hotel.id}">
+                                    <i class="fas fa-hotel me-2"></i>Select Hotel
+                                </button>
                                 
-                                <div class="hotel-map-container mb-3 flex-grow-1" style="position: relative; min-height: 250px;">
-                                    <iframe 
-                                        src="${hotel.iframe_url}"
-                                        class="hotel-map-iframe"
-                                        style="width: 100%; height: 100%; border: none; border-radius: 8px;"
-                                        allowfullscreen=""
-                                        loading="lazy"
-                                        referrerpolicy="no-referrer-when-downgrade">
-                                    </iframe>
-                                    
-                                    <div class="map-loading" id="map-loading-${hotel.id}" 
-                                         style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Loading map...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Action Buttons -->
-                                <div class="mt-3">
-                                    <button class="btn btn-primary w-100 select-hotel-btn mb-2" 
-                                            data-hotel-id="${hotel.id}">
-                                        <i class="fas fa-check-circle me-2"></i>Select This Hotel
-                                    </button>
-                                    
-                                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.maps_query)}"
-                                       target="_blank"
-                                       class="btn btn-outline-secondary w-100">
-                                        <i class="fas fa-external-link-alt me-2"></i>Open in Google Maps
-                                    </a>
-                                </div>
+                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.maps_query)}"
+                                   target="_blank"
+                                   class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-external-link-alt me-2"></i>Open in Google Maps
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
-                `;
-            });
-            
-            hotelsList.innerHTML = hotelsHTML;
-            
-            // Re-attach event listeners to new hotel cards
-            attachHotelEventListeners();
-        }
-        
-        // Update hotel count
-        function updateHotelCount(count) {
-            const countElement = document.getElementById('hotel-count');
-            if (countElement) {
-                countElement.textContent = count;
-                // Animate count change
-                countElement.style.transform = 'scale(1.2)';
-                countElement.style.color = '#10b981';
-                setTimeout(() => {
-                    countElement.style.transform = 'scale(1)';
-                    countElement.style.color = '';
-                }, 300);
-            }
-            console.log('Hotel count updated to:', count);
-        }
-        
-        // Show error message
-        function showError(message) {
-            hideLoading();
-            
-            const hotelsList = document.getElementById('hotels-list');
-            hotelsList.innerHTML = `
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Error:</strong> ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-                <div class="text-center py-4">
-                    <button class="btn btn-primary" onclick="location.reload()">
-                        <i class="fas fa-redo me-2"></i>Reload Page
-                    </button>
-                </div>
+            </div>
             `;
-            updateHotelCount(0);
-        }
+        });
         
-        // Attach event listeners to hotel cards and buttons
-        function attachHotelEventListeners() {
-            // Select hotel button click
-            document.querySelectorAll('.select-hotel-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const hotelId = this.dataset.hotelId;
-                    selectHotel(hotelId);
-                });
-            });
-            
-            // Map iframe load events
-            document.querySelectorAll('.hotel-map-iframe').forEach(iframe => {
-                iframe.addEventListener('load', function() {
-                    const hotelId = this.closest('.hotel-card').dataset.hotelId;
-                    const loadingDiv = document.getElementById(`map-loading-${hotelId}`);
-                    if (loadingDiv) {
-                        loadingDiv.style.display = 'none';
-                    }
-                });
-            });
-        }
+        hotelsList.innerHTML = hotelsHTML;
         
-        // Select hotel function
-        function selectHotel(hotelId) {
-            console.log('Selecting hotel:', hotelId);
-            
-            const selectedCard = document.getElementById(`hotel-${hotelId}`);
-            if (selectedCard) {
-                const hotelName = selectedCard.querySelector('.card-title').textContent;
-                
-                if (confirm(`🏨 Hotel "${hotelName}" selected!\n\nClick OK to confirm selection, or Cancel to keep browsing.`)) {
-                    saveHotelToTrip(hotelId, hotelName);
-                }
-            }
-        }
-        
-        // Save hotel to trip via AJAX
-        function saveHotelToTrip(hotelId, hotelName) {
-            const tripId = '{{ trip.id }}';
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            
-            showLoading();
-            
-            fetch(`/planner/save-hotel/${tripId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: `hotel_id=${hotelId}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                hideLoading();
-                
-                if (data.success) {
-                    showToast('success', 'Hotel selected successfully!', 'fas fa-check-circle');
-                    
-                    setTimeout(() => {
-                        if (data.redirect_url) {
-                            window.location.href = data.redirect_url;
-                        } else {
-                            window.location.href = '/planner/';
-                        }
-                    }, 1500);
-                    
-                } else {
-                    showToast('error', data.error || 'Failed to save hotel selection.', 'fas fa-exclamation-triangle');
-                }
-            })
-            .catch(error => {
-                hideLoading();
-                showToast('error', 'Network error. Please try again.', 'fas fa-exclamation-triangle');
-                console.error('Error saving hotel:', error);
-            });
-        }
-        
-        // Toast notification
-        function showToast(type, message, icon) {
-            const toast = document.createElement('div');
-            toast.className = `position-fixed top-0 end-0 m-3 p-3 rounded-3 shadow-lg border-0 text-white ${
-                type === 'success' ? 'bg-success' : 'bg-danger'
-            }`;
-            toast.style.zIndex = '1060';
-            toast.style.minWidth = '300px';
-            
-            toast.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="${icon} fa-lg me-3"></i>
-                    <div class="flex-grow-1">
-                        <strong class="d-block">${type === 'success' ? 'Success!' : 'Error!'}</strong>
-                        <small>${message}</small>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
-                </div>
-            `;
-            
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 5000);
-        }
-        
-        // ============ INITIALIZATION ============
-        
-        // Initial attachment of event listeners
+        // Re-attach event listeners to new hotel cards
         attachHotelEventListeners();
+    }
+    
+    // Update hotel count
+    function updateHotelCount(count) {
+        var countElement = document.getElementById('hotel-count');
+        if (countElement) {
+            countElement.textContent = count;
+            // Animate count change
+            countElement.style.transform = 'scale(1.2)';
+            countElement.style.color = '#10b981';
+            setTimeout(function() {
+                countElement.style.transform = 'scale(1)';
+                countElement.style.color = '';
+            }, 300);
+        }
+        console.log('Hotel count updated to:', count);
+    }
+    
+    // Show error message
+    function showError(message) {
+        hideLoading();
         
-        // Initial update of UI
-        updateFilterCount();
-        
-        // Auto-hide loading spinners after 3 seconds (fallback)
-        setTimeout(() => {
-            document.querySelectorAll('.map-loading').forEach(div => {
-                div.style.display = 'none';
+        var hotelsList = document.getElementById('hotels-list');
+        hotelsList.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Error:</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <div class="text-center py-4">
+                <button class="btn btn-primary" onclick="location.reload()">
+                    <i class="fas fa-redo me-2"></i>Reload Page
+                </button>
+            </div>
+        `;
+        updateHotelCount(0);
+    }
+    
+    // ============ HOTEL SELECTION FUNCTION ============
+    
+    // Attach event listeners to hotel cards and buttons
+    function attachHotelEventListeners() {
+        // Select hotel button click
+        document.querySelectorAll('.select-hotel-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                var hotelId = this.dataset.hotelId;
+                var hotelCard = this.closest('.hotel-card');
+                var hotelName = hotelCard ? hotelCard.querySelector('.card-title').textContent : 'Hotel';
+                
+                console.log('Selecting hotel ID: ' + hotelId + ' - ' + hotelName);
+                
+                // Show confirmation dialog
+                if (!confirm('🏨 "' + hotelName + '" selected!\n\nClick OK to proceed, or Cancel to keep browsing.')) {
+                    return;
+                }
+                
+                // Show loading state
+                var originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                this.disabled = true;
+                
+                // Save hotel selection via AJAX
+                fetch('/planner/save-hotel/' + tripId + '/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: 'hotel_id=' + hotelId
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP error! Status: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    console.log('Save hotel response:', data);
+                    
+                    if (data.success) {
+                        // Show success toast
+                        showToast('success', 'Hotel selected!', 'fas fa-check-circle');
+                        
+                        // Redirect back to plan page (NOT to room selection)
+                        setTimeout(function() {
+                            window.location.href = data.redirect_url;
+                        }, 1000);
+                    } else {
+                        // Show error
+                        showToast('error', data.error || 'Failed to save hotel selection.', 'fas fa-exclamation-triangle');
+                        this.innerHTML = originalText;
+                        this.disabled = false;
+                    }
+                }.bind(this))
+                .catch(function(error) {
+                    console.error('Error saving hotel:', error);
+                    showToast('error', 'Network error. Please try again.', 'fas fa-exclamation-triangle');
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }.bind(this));
             });
-        }, 3000);
+        });
         
-        console.log('Hotel filter system initialized successfully');
-    });
+        // Map iframe load events
+        document.querySelectorAll('.hotel-map-iframe').forEach(function(iframe) {
+            iframe.addEventListener('load', function() {
+                var hotelId = this.closest('.hotel-card').dataset.hotelId;
+                var loadingDiv = document.getElementById('map-loading-' + hotelId);
+                if (loadingDiv) {
+                    loadingDiv.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Toast notification function
+    function showToast(type, message, icon) {
+        // Remove any existing toasts
+        var existingToasts = document.querySelectorAll('.custom-toast');
+        existingToasts.forEach(function(toast) {
+            toast.remove();
+        });
+        
+        // Create toast element
+        var toast = document.createElement('div');
+        toast.className = 'custom-toast rounded-3 shadow-lg border-0 text-white';
+        if (type === 'success') {
+            toast.classList.add('bg-success');
+        } else {
+            toast.classList.add('bg-danger');
+        }
+        
+        toast.innerHTML = `
+            <div class="d-flex align-items-center p-3">
+                <i class="${icon} fa-lg me-3"></i>
+                <div class="flex-grow-1">
+                    <strong class="d-block">${type === 'success' ? 'Success!' : 'Error!'}</strong>
+                    <small>${message}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto remove after 5 seconds
+        setTimeout(function() {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+    
+    // ============ INITIALIZATION ============
+    
+    // Initial attachment of event listeners
+    attachHotelEventListeners();
+    
+    // Initial update of UI
+    updateFilterCount();
+    
+    // Auto-hide loading spinners after 3 seconds (fallback)
+    setTimeout(function() {
+        document.querySelectorAll('.map-loading').forEach(function(div) {
+            div.style.display = 'none';
+        });
+    }, 3000);
+    
+    console.log('Hotel filter system with room selection initialized successfully');
+});
 </script>
 {% endblock %}
