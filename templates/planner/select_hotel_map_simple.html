@@ -536,20 +536,7 @@ input[type="search"]::-moz-search-clear{
                         {% endif %}
                         
                         <!-- Price -->
-                        <div class="mt-auto pt-3">
-                            <div class="price-badge d-inline-block mb-2">
-                                {{ hotel.price_display }}
-                            </div>
-                            <small class="text-gray d-block">per night</small>
-                            
-                            {% with total=hotel.price|multiply:nights %}
-                            <p class="fw-bold mt-3 mb-0">
-                                <i class="fas fa-calculator me-2"></i>
-                                Total for {{ nights }} night{% if nights > 1 %}s{% endif %}: 
-                                <span class="text-teal">{{ total|floatformat:0 }} MMK</span>
-                            </p>
-                            {% endwith %}
-                        </div>
+                       
                     </div>
                 </div>
                 

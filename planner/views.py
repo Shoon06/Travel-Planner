@@ -1619,6 +1619,8 @@ class DestinationSearchView(View):
 # ========== SELECT HOTEL WITH MAP VIEW ==========
 # ========== SELECT HOTEL WITH MAP VIEW ==========
 # In the same views.py file, update SelectHotelWithMapView
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     """View for selecting hotels with SIMPLE Google Maps iframe embeds (NO API KEY)"""
     template_name = 'planner/select_hotel_map_simple.html'
@@ -1667,7 +1669,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                 hotels = hotels.filter(category__in=['luxury', 'high'])
             print(f"🔍 DEBUG: After category filter: {hotels.count()}")
         
-        # Apply amenities filter - NEW: Use the same logic as FilterHotelsView
+        # Apply amenities filter
         if amenities_filter:
             print(f"🔍 DEBUG: Applying amenities filter: {amenities_filter}")
             
@@ -1713,7 +1715,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         
         print(f"🔍 DEBUG: Final hotel count: {hotels.count()}")
         
-        # Get all unique amenities for this destination - FIXED
+        # Get all unique amenities for this destination
         all_amenities = set()
         for hotel in Hotel.objects.filter(destination=trip.destination, is_active=True):
             if hotel.amenities:
@@ -1726,7 +1728,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         
         print(f"🔍 DEBUG: Total unique amenities found: {len(all_amenities)}")
         
-        # Prepare hotel data with Google Maps embed URL
+        # Prepare hotel data with Google Maps embed URL - REMOVED PRICE DISPLAY
         hotel_data = []
         for hotel in hotels:
             # Get image URL safely
@@ -1759,12 +1761,13 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
                     except:
                         hotel_amenities_display = [hotel.amenities.replace('_', ' ').title()]
             
+            # REMOVED: price, price_display, and total price calculation
             hotel_data.append({
                 'id': hotel.id,
                 'name': hotel.name,
                 'address': hotel.address,
-                'price': float(hotel.price_per_night),
-                'price_display': hotel.price_in_mmk(),
+                # 'price': float(hotel.price_per_night),           ← REMOVED
+                # 'price_display': hotel.price_in_mmk(),           ← REMOVED
                 'rating': float(hotel.rating),
                 'review_count': hotel.review_count,
                 'category': hotel.category,
