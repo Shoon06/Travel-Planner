@@ -3644,6 +3644,8 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         # Determine whether activities should be locked (preset plans) or editable (custom)
         custom_mode = str(request.GET.get('custom', '0')).lower() in ['1', 'true', 'yes']
         activities_locked = not (plan_id == 'custom' or custom_mode)
+        if trip.status == 'booked':
+            activities_locked = True  # lock edits when trip is booked
         
         # Get itinerary based on plan
         days = trip.calculate_nights() + 1
