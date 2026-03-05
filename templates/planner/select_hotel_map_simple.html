@@ -253,6 +253,17 @@ input[type="search"]::-moz-search-clear{
     transition:.2s;
 }
 
+/* Highlight when a hotel is focused from the map */
+.hotel-highlight {
+    animation: hotelPulse 1.4s ease;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.35);
+}
+
+@keyframes hotelPulse {
+    0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.5); }
+    100% { box-shadow: 0 0 0 12px rgba(99,102,241,0); }
+}
+
 .premium-clear-filters:hover{
     background:#dc2626;
 }
@@ -300,6 +311,7 @@ input[type="search"]::-moz-search-clear{
     <!-- Add CSRF token for AJAX requests -->
     {% csrf_token %}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    {{ hotels|json_script:"hotels-json" }}
     
     <!-- Header Section -->
     <div class="card-glass p-4 mb-4">
@@ -323,6 +335,23 @@ input[type="search"]::-moz-search-clear{
             <i class="fas fa-info-circle me-3 fa-lg"></i>
             <div>
                 <strong class="d-block mb-1">Interactive Filters:</strong>
+
+        <!-- Map overview (interactive via iframe) -->
+        <div class="card-glass p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Map View</h5>
+                <span class="text-muted small">Click a marker to select a hotel</span>
+            </div>
+            <div class="ratio ratio-16x9">
+                <iframe
+                    id="hotelMapFrame"
+                    src="{% static 'maps/map_box.html' %}"
+                    title="Hotel map"
+                    style="border:0; width:100%; height:100%; border-radius: 12px;"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
                 Use the category buttons and amenities checkboxes to filter hotels. Checkboxes show amenities exactly as stored in database.
             </div>
         </div>
@@ -606,6 +635,31 @@ input[type="search"]::-moz-search-clear{
         let searchQuery = '';
         let isFiltering = false;
         let searchTimeout = null;
+
+        // Map iframe integration (Leaflet map_box.html)
+        const hotelMapFrame = document.getElementById('hotelMapFrame');
+        const hotelsJsonNode = document.getElementById('hotels-json');
+        const initialHotelsForMap = hotelsJsonNode ? JSON.parse(hotelsJsonNode.textContent || '[]') : [];
+
+        const sendHotelsToMap = (hotelsArray) => {
+            if (!hotelMapFrame || !hotelMapFrame.contentWindow) return;
+            const markers = (hotelsArray || []).filter(h => h.latitude && h.longitude);
+            hotelMapFrame.contentWindow.postMessage({
+                type: 'HOTELS_DATA',
+                payload: markers,
+            }, window.location.origin);
+        };
+
+        hotelMapFrame?.addEventListener('load', () => {
+            sendHotelsToMap(initialHotelsForMap);
+        });
+
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) return;
+            if (event.data?.type === 'HOTEL_SELECTED' && event.data.hotelId) {
+                focusHotelCard(event.data.hotelId);
+            }
+        });
         
         // ============ UI FUNCTIONS ============
         
@@ -895,6 +949,7 @@ input[type="search"]::-moz-search-clear{
             console.log('Updating hotel list with', hotels.length, 'hotels');
             
             if (!hotels || hotels.length === 0) {
+                sendHotelsToMap([]);
                 hotelsList.innerHTML = `
                     <div class="no-hotels text-center py-5">
                         <div class="feature-icon gradient-bg mx-auto mb-4" style="width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -1084,6 +1139,9 @@ input[type="search"]::-moz-search-clear{
             
             // Re-attach event listeners to new hotel cards
             attachHotelEventListeners();
+
+            // Sync updated hotel markers to map iframe
+            sendHotelsToMap(hotels);
         }
         
         // Update hotel count
@@ -1146,17 +1204,19 @@ input[type="search"]::-moz-search-clear{
         }
         
         // Select hotel function
+        function focusHotelCard(hotelId) {
+            const card = document.getElementById(`hotel-${hotelId}`);
+            if (!card) return;
+
+            card.classList.add('hotel-highlight');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => card.classList.remove('hotel-highlight'), 1800);
+        }
+
         function selectHotel(hotelId) {
-            console.log('Selecting hotel:', hotelId);
-            
             const selectedCard = document.getElementById(`hotel-${hotelId}`);
-            if (selectedCard) {
-                const hotelName = selectedCard.querySelector('.card-title').textContent;
-                
-                if (confirm(`🏨 Hotel "${hotelName}" selected!\n\nClick OK to confirm selection, or Cancel to keep browsing.`)) {
-                    saveHotelToTrip(hotelId, hotelName);
-                }
-            }
+            const hotelName = selectedCard?.querySelector('.card-title')?.textContent || '';
+            saveHotelToTrip(hotelId, hotelName);
         }
         
         // Save hotel to trip via AJAX
