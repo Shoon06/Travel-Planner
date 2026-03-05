@@ -414,6 +414,7 @@ class Hotel(models.Model):
     
     def get_map_marker_data(self):
         """Return data for map markers"""
+        primary_image = self.get_primary_image_url()
         return {
             'id': self.id,
             'name': self.name,
@@ -430,8 +431,8 @@ class Hotel(models.Model):
             'amenities': self.get_amenities_list()[:5],
             'is_real': self.is_real_hotel,
             'is_our_hotel': self.created_by_admin,
-            'image_url': self.image.url if self.image else '',
-            'has_image': bool(self.image),
+            'image_url': primary_image,
+            'has_image': bool(primary_image),
             'gallery_images': self.gallery_images if isinstance(self.gallery_images, list) else [],
             'description': self.description[:100] + '...' if self.description and len(self.description) > 100 else (self.description or '')
         }
@@ -459,6 +460,21 @@ class Hotel(models.Model):
         maps_query = f"{self.name} {self.address} {self.destination.name} Myanmar"
         maps_query_encoded = urllib.parse.quote(maps_query)
         return f"https://maps.google.com/maps?width=100%&height=300&hl=en&q={maps_query_encoded}&t=&z=14&ie=UTF8&iwloc=B&output=embed"
+
+    def get_primary_image_url(self):
+        """Return main image URL or first gallery image if available."""
+        if self.image and hasattr(self.image, 'url'):
+            try:
+                return self.image.url
+            except Exception:
+                pass
+
+        if self.gallery_images and isinstance(self.gallery_images, list):
+            for entry in self.gallery_images:
+                if entry:
+                    return str(entry)
+
+        return ''
     
     def get_maps_search_url(self):
         """Generate Google Maps search URL"""

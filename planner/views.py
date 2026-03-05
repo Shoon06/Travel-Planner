@@ -1692,12 +1692,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
 
         for hotel in hotels:
             try:
-                image_url = ''
-                if hotel.image and hasattr(hotel.image, 'url'):
-                    try:
-                        image_url = hotel.image.url
-                    except Exception:
-                        image_url = ''
+                image_url = hotel.get_primary_image_url()
 
                 maps_query = f"{hotel.name} {hotel.address} {trip.destination.name} Myanmar"
                 iframe_url = f"https://www.google.com/maps?q={urllib.parse.quote(maps_query)}&output=embed"
@@ -1884,13 +1879,8 @@ class FilterHotelsView(View):
         # Prepare hotel data for JSON response
         hotel_data = []
         for hotel in hotels:
-            image_url = ''
-            if hotel.image and hasattr(hotel.image, 'url'):
-                try:
-                    image_url = hotel.image.url
-                except:
-                    image_url = ''
-            
+            image_url = hotel.get_primary_image_url()
+
             maps_query = f"{hotel.name} {hotel.address} {destination.name} Myanmar"
             
             # Get amenities as list for display
