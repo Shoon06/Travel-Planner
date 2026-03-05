@@ -4670,6 +4670,10 @@ class GetAvailableRoomsView(LoginRequiredMixin, View):
 # Add these imports at the top
 
 
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class SelectRoomsView(LoginRequiredMixin, View):
     """View for selecting rooms in a hotel"""
     template_name = 'planner/select_rooms.html'
@@ -4687,12 +4691,13 @@ class SelectRoomsView(LoginRequiredMixin, View):
         guests = trip.travelers
         nights = trip.calculate_nights()
         
-        # Get available rooms for these dates
-        available_rooms = self.get_available_rooms(hotel, check_in, check_out, guests)
+        # Get ALL rooms with their availability status
+        all_rooms_with_status = self.get_all_rooms_with_status(hotel, check_in, check_out, guests)
         
         # Group rooms by type
         rooms_by_type = {}
-        for room in available_rooms:
+        for room_data in all_rooms_with_status:
+            room = room_data['room']
             room_type = room.room_type
             if room_type.id not in rooms_by_type:
                 rooms_by_type[room_type.id] = {
@@ -4700,7 +4705,7 @@ class SelectRoomsView(LoginRequiredMixin, View):
                     'rooms': [],
                     'price_per_night': room.get_price_per_night()
                 }
-            rooms_by_type[room_type.id]['rooms'].append(room)
+            rooms_by_type[room_type.id]['rooms'].append(room_data)
         
         context = {
             'trip': trip,
@@ -4714,50 +4719,94 @@ class SelectRoomsView(LoginRequiredMixin, View):
         
         return render(request, self.template_name, context)
     
-    def get_available_rooms(self, hotel, check_in, check_out, guests):
-        """Get all available rooms for given dates"""
-        from django.db.models import Exists, OuterRef
+    def get_all_rooms_with_status(self, hotel, check_in, check_out, guests):
+        """Get ALL rooms with their availability status and booking info"""
+        from .models_room import Room, RoomBooking, RoomAvailability
         
         # Get all active rooms in this hotel that can accommodate guests
         all_rooms = Room.objects.filter(
             hotel=hotel, 
             is_active=True,
             room_type__max_occupancy__gte=guests
-        )
+        ).select_related('room_type')
         
         date_range = [check_in + timedelta(days=x) for x in range((check_out - check_in).days)]
         
-        # Filter out rooms with any booking or unavailable dates
-        available_rooms = []
+        rooms_with_status = []
+        
         for room in all_rooms:
-            is_available = True
+            # Default status
+            status = 'available'
+            status_message = "Available"
+            booked_dates = []
+            booking_info = None
             
-            # Check for bookings
-            if RoomBooking.objects.filter(
+            # Check for CONFIRMED bookings
+            confirmed_bookings = RoomBooking.objects.filter(
                 room=room,
                 check_in_date__lt=check_out,
                 check_out_date__gt=check_in,
                 is_cancelled=False,
-                status__in=['temporary', 'confirmed', 'checked_in']
-            ).exists():
-                is_available = False
+                status__in=['confirmed', 'checked_in']
+            )
             
-            # Check availability records
-            if is_available:
+            if confirmed_bookings.exists():
+                status = 'booked'
+                booking = confirmed_bookings.first()
+                status_message = f"Booked from {booking.check_in_date.strftime('%b %d')} to {booking.check_out_date.strftime('%b %d')}"
+                booking_info = {
+                    'check_in': booking.check_in_date.strftime('%Y-%m-%d'),
+                    'check_out': booking.check_out_date.strftime('%Y-%m-%d'),
+                    'status': booking.status
+                }
+            
+            # Check for TEMPORARY bookings (pending confirmation)
+            if status == 'available':
+                temp_bookings = RoomBooking.objects.filter(
+                    room=room,
+                    check_in_date__lt=check_out,
+                    check_out_date__gt=check_in,
+                    is_cancelled=False,
+                    status='temporary'
+                )
+                
+                if temp_bookings.exists():
+                    status = 'temporary'
+                    booking = temp_bookings.first()
+                    status_message = f"Temporarily held (expires in 1 hour)"
+                    booking_info = {
+                        'check_in': booking.check_in_date.strftime('%Y-%m-%d'),
+                        'check_out': booking.check_out_date.strftime('%Y-%m-%d'),
+                        'status': 'temporary'
+                    }
+            
+            # Check availability records for any blocked dates
+            if status == 'available':
                 unavailable_dates = RoomAvailability.objects.filter(
                     room=room,
                     date__in=date_range,
                     is_available=False
-                ).exists()
-                if unavailable_dates:
-                    is_available = False
+                ).values_list('date', flat=True)
+                
+                if unavailable_dates.exists():
+                    status = 'unavailable'
+                    booked_dates = [date.strftime('%b %d') for date in unavailable_dates]
+                    status_message = f"Unavailable on: {', '.join(booked_dates[:3])}" + ("..." if len(booked_dates) > 3 else "")
             
-            if is_available:
-                available_rooms.append(room)
+            rooms_with_status.append({
+                'room': room,
+                'status': status,
+                'status_message': status_message,
+                'booked_dates': booked_dates,
+                'booking_info': booking_info,
+                'is_available': status == 'available',
+                'checkbox_disabled': status != 'available'
+            })
         
-        return available_rooms
-
+        return rooms_with_status
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
@@ -4784,7 +4833,6 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             check_out = trip.end_date
             nights = trip.calculate_nights()
             
-            # Check room availability
             from .models_room import Room, RoomBooking, RoomAvailability
             date_range = [check_in + timedelta(days=x) for x in range((check_out - check_in).days)]
             
@@ -4792,13 +4840,13 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             for room_id in room_ids:
                 room = Room.objects.get(id=room_id)
                 
-                # Check for bookings
-                has_booking = RoomBooking.objects.filter(
+                # Check for CONFIRMED bookings (not temporary)
+                has_confirmed_booking = RoomBooking.objects.filter(
                     room=room,
                     check_in_date__lt=check_out,
                     check_out_date__gt=check_in,
                     is_cancelled=False,
-                    status__in=['temporary', 'confirmed', 'checked_in']
+                    status__in=['confirmed', 'checked_in']
                 ).exists()
                 
                 # Check availability records
@@ -4808,8 +4856,9 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                     is_available=False
                 ).exists()
                 
-                if has_booking or has_unavailable:
+                if has_confirmed_booking or has_unavailable:
                     invalid_rooms.append(room_id)
+                    print(f"Room {room.room_number} is UNAVAILABLE - cannot book")
             
             if invalid_rooms:
                 return JsonResponse({
@@ -4818,14 +4867,13 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                     'invalid_rooms': invalid_rooms
                 })
             
-            # Calculate price based on room prices ONLY
+            # Calculate price
             rooms = Room.objects.filter(id__in=room_ids)
             total_price = 0
             room_details = []
             
             for room in rooms:
                 price_per_night = room.get_price_per_night()
-                # CORRECT calculation - price_per_night × nights
                 room_total = price_per_night * nights
                 total_price += room_total
                 room_details.append({
@@ -4833,19 +4881,47 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                     'room_number': room.room_number,
                     'room_type': room.room_type.name,
                     'price_per_night': float(price_per_night),
-                    'total': float(room_total),  # This is now correct
+                    'total': float(room_total),
                     'floor': room.floor,
                     'bed_type': room.bed_type
                 })
             
-            # Save to trip
+            # Save to trip (TEMPORARY - not confirmed yet)
             trip.selected_rooms = {
                 'room_ids': room_ids,
-                'total_price': float(total_price),  # Store the correct total
+                'total_price': float(total_price),
                 'room_details': room_details,
-                'is_temporary': True
+                'is_temporary': True  # This is temporary until confirmed
             }
             trip.save()
+            
+            # Create TEMPORARY bookings to lock the rooms
+            from .models_room import RoomBooking
+            for room_id in room_ids:
+                room = Room.objects.get(id=room_id)
+                # Check if there's already a temporary booking
+                existing_temp = RoomBooking.objects.filter(
+                    room=room,
+                    check_in_date=check_in,
+                    check_out_date=check_out,
+                    status='temporary',
+                    is_cancelled=False
+                ).first()
+                
+                if not existing_temp:
+                    # Create temporary booking
+                    RoomBooking.objects.create(
+                        room=room,
+                        trip=trip,
+                        booked_by=request.user,
+                        check_in_date=check_in,
+                        check_out_date=check_out,
+                        guests=trip.travelers,
+                        price_per_night=price_per_night,
+                        total_price=room_total,
+                        status='temporary'  # Temporary until confirmed
+                    )
+                    print(f"Created TEMPORARY booking for room {room.room_number}")
             
             print(f"DEBUG - Saved rooms: {room_details}")
             print(f"DEBUG - Total price: {total_price} for {nights} nights")
@@ -4903,60 +4979,139 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)})
 
-class ConfirmRoomBookingView(LoginRequiredMixin, View):
-    """Confirm room booking (create actual RoomBooking records)"""
-    
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+class ConfirmBookingView(LoginRequiredMixin, View):
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        
-        if not hasattr(trip, 'selected_rooms') or not trip.selected_rooms:
-            messages.error(request, 'No rooms selected to confirm')
+
+        if not trip.selected_plan:
+            messages.error(request, "Select plan first")
             return redirect('planner:plan_selection', trip_id=trip.id)
-        
-        room_data = trip.selected_rooms
-        room_ids = room_data.get('room_ids', [])
-        
-        if not room_ids:
-            messages.error(request, 'No rooms to book')
+
+        if not trip.selected_hotel:
+            messages.error(request, "Select hotel")
             return redirect('planner:plan_selection', trip_id=trip.id)
+
+        if not trip.selected_transport:
+            messages.error(request, "Select transport")
+            return redirect('planner:plan_selection', trip_id=trip.id)
+
+        transport = trip.selected_transport
+
+        # AUTO CONFIRM transport
+        if transport.get("is_temporary"):
+            success = self.auto_confirm(trip, request)
+            if not success:
+                messages.error(request, "Seat confirmation failed")
+                return redirect('planner:plan_selection', trip_id=trip.id)
+
+        # CONFIRM ROOMS (change from temporary to confirmed)
+        if trip.selected_rooms and trip.selected_rooms.get('is_temporary'):
+            self.confirm_rooms(trip, request)
+
+        trip.is_confirmed = True
+        trip.confirmed_at = timezone.now()
+        trip.status = "booked"
+        trip.save()
+
+        # Clear session data for this trip
+        request.session.pop(f'ai_plans_{trip_id}', None)
+        request.session.pop(f'selected_plan_{trip_id}', None)
+        request.session.pop(f'selected_rooms_{trip_id}', None)
         
-        # Double-check availability before confirming
-        hotel = trip.selected_hotel
+        messages.success(request, "Trip booked successfully! You can start planning a new trip.")
+
+        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id="cultural")
+    
+    def confirm_rooms(self, trip, request):
+        """Confirm room bookings (change from temporary to confirmed)"""
+        from .models_room import RoomBooking, RoomAvailability
+        
+        if not trip.selected_rooms:
+            return
+        
+        room_ids = trip.selected_rooms.get('room_ids', [])
         check_in = trip.start_date
         check_out = trip.end_date
-        
-        for room_id in room_ids:
-            if not hotel.check_room_availability(room_id, check_in, check_out):
-                messages.error(request, f'Room {room_id} is no longer available')
-                return redirect('planner:select_rooms', trip_id=trip.id)
-        
-        # Create bookings
         nights = trip.calculate_nights()
-        bookings_created = []
+        
+        date_range = [check_in + timedelta(days=x) for x in range(nights)]
         
         for room_id in room_ids:
-            room = Room.objects.get(id=room_id)
-            price_per_night = room.get_price_per_night()
-            total_price = price_per_night * nights
-            
-            booking = RoomBooking.objects.create(
-                room=room,
+            # Find the temporary booking
+            booking = RoomBooking.objects.filter(
+                room_id=room_id,
                 trip=trip,
-                booked_by=request.user,
                 check_in_date=check_in,
                 check_out_date=check_out,
-                guests=trip.travelers,
-                price_per_night=price_per_night,
-                total_price=total_price,
-                status='confirmed'
-            )
-            bookings_created.append(booking)
+                status='temporary',
+                is_cancelled=False
+            ).first()
+            
+            if booking:
+                # Confirm the booking
+                booking.status = 'confirmed'
+                booking.save()
+                print(f"Room {booking.room.room_number} booking CONFIRMED")
+                
+                # Update availability records to mark dates as unavailable
+                for date in date_range:
+                    RoomAvailability.objects.update_or_create(
+                        room_id=room_id,
+                        date=date,
+                        defaults={'is_available': False}
+                    )
         
-        # Update trip status
+        # Update trip selected_rooms to reflect confirmed status
         trip.selected_rooms['is_temporary'] = False
-        trip.selected_rooms['booking_ids'] = [b.id for b in bookings_created]
-        trip.status = 'booked'
         trip.save()
-        
-        messages.success(request, f'{len(bookings_created)} room(s) booked successfully!')
-        return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id='cultural')
+    
+    def auto_confirm(self, trip, request):
+        try:
+            data = trip.selected_transport
+            t_type = data["type"]
+            t_id = data["id"]
+            seats = data["seats"]
+            date = trip.start_date
+
+            from .models import TransportSchedule, BookedSeat
+            schedule = get_object_or_404(
+                TransportSchedule,
+                transport_type=t_type,
+                transport_id=t_id,
+                travel_date=date,
+                is_active=True
+            )
+
+            for seat in seats:
+                if BookedSeat.objects.filter(
+                    transport_type=t_type,
+                    transport_id=t_id,
+                    schedule_date=date,
+                    seat_number=seat,
+                    is_cancelled=False
+                ).exists():
+                    return False
+
+                BookedSeat.objects.create(
+                    transport_type=t_type,
+                    transport_id=t_id,
+                    schedule_date=date,
+                    seat_number=seat,
+                    trip=trip,
+                    booked_by=request.user
+                )
+
+            schedule.available_seats -= len(seats)
+            schedule.save()
+
+            trip.selected_transport["is_temporary"] = False
+            trip.selected_transport["needs_confirmation"] = False
+            trip.save()
+
+            return True
+
+        except Exception as e:
+            print("AUTO CONFIRM ERROR:", e)
+            return False

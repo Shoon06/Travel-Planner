@@ -59,7 +59,7 @@
                 </div>
             </div>
             
-            <!-- Room Selection -->
+            <!-- Room Selection with Status Indicators -->
             {% if rooms_by_type %}
                 {% for type_id, type_data in rooms_by_type.items %}
                 <div class="card-glass p-4 mb-4">
@@ -79,36 +79,87 @@
                     </p>
                     
                     <div class="row">
-                        {% for room in type_data.rooms %}
+                        {% for room_data in type_data.rooms %}
                         <div class="col-md-4 mb-3">
-                            <div class="room-card p-3 border rounded" data-room-id="{{ room.id }}">
+                            <div class="room-card p-3 border rounded 
+                                        {% if room_data.status == 'booked' %}room-booked
+                                        {% elif room_data.status == 'temporary' %}room-temporary
+                                        {% elif room_data.status == 'unavailable' %}room-unavailable
+                                        {% endif %}" 
+                                 data-room-id="{{ room_data.room.id }}"
+                                 data-status="{{ room_data.status }}"
+                                 {% if room_data.booking_info %}
+                                 data-check-in="{{ room_data.booking_info.check_in }}"
+                                 data-check-out="{{ room_data.booking_info.check_out }}"
+                                 {% endif %}
+                                 title="{% if room_data.status == 'booked' %}Booked from {{ room_data.booking_info.check_in }} to {{ room_data.booking_info.check_out }}{% elif room_data.status == 'temporary' %}Temporarily held by another user (expires in 1 hour){% elif room_data.status == 'unavailable' %}{{ room_data.status_message }}{% endif %}">
+                                
                                 <div class="form-check">
-                                    <input class="form-check-input room-checkbox" type="checkbox" 
-                                           value="{{ room.id }}" 
-                                           id="room_{{ room.id }}"
-                                           data-price="{{ room.get_price_per_night }}">
-                                    <label class="form-check-label fw-bold" for="room_{{ room.id }}">
-                                        Room {{ room.room_number }}
+                                    <input class="form-check-input room-checkbox" 
+                                           type="checkbox" 
+                                           value="{{ room_data.room.id }}" 
+                                           id="room_{{ room_data.room.id }}"
+                                           data-price="{{ room_data.room.get_price_per_night }}"
+                                           {% if not room_data.is_available %}disabled{% endif %}>
+                                    <label class="form-check-label fw-bold" for="room_{{ room_data.room.id }}">
+                                        Room {{ room_data.room.room_number }}
                                     </label>
                                 </div>
                                 
                                 <div class="mt-2 small">
-                                    <div><i class="fas fa-layer-group me-1"></i>Floor: {{ room.floor }}</div>
-                                    <div><i class="fas fa-bed me-1"></i>{{ room.bed_type }} Bed</div>
-                                    {% if room.has_window %}
+                                    <div><i class="fas fa-layer-group me-1"></i>Floor: {{ room_data.room.floor }}</div>
+                                    <div><i class="fas fa-bed me-1"></i>{{ room_data.room.bed_type }} Bed</div>
+                                    {% if room_data.room.has_window %}
                                     <div><i class="fas fa-window-maximize me-1"></i>Window</div>
                                     {% endif %}
-                                    {% if room.has_balcony %}
+                                    {% if room_data.room.has_balcony %}
                                     <div><i class="fas fa-door-open me-1"></i>Balcony</div>
                                     {% endif %}
-                                    {% if room.square_feet %}
-                                    <div><i class="fas fa-vector-square me-1"></i>{{ room.square_feet }} sq ft</div>
+                                    {% if room_data.room.square_feet %}
+                                    <div><i class="fas fa-vector-square me-1"></i>{{ room_data.room.square_feet }} sq ft</div>
                                     {% endif %}
                                 </div>
                                 
+                                <!-- Status Badge with Tooltip -->
                                 <div class="mt-2">
-                                    <span class="badge bg-success">Available</span>
+                                    {% if room_data.status == 'available' %}
+                                        <span class="badge bg-success status-badge" 
+                                              title="This room is available for your selected dates">
+                                            <i class="fas fa-check-circle me-1"></i>Available
+                                        </span>
+                                    {% elif room_data.status == 'booked' %}
+                                        <span class="badge bg-danger status-badge" 
+                                              title="Booked from {{ room_data.booking_info.check_in }} to {{ room_data.booking_info.check_out }}">
+                                            <i class="fas fa-times-circle me-1"></i>Booked
+                                        </span>
+                                    {% elif room_data.status == 'temporary' %}
+                                        <span class="badge bg-warning text-dark status-badge" 
+                                              title="Temporarily held by another user (expires in 1 hour)">
+                                            <i class="fas fa-clock me-1"></i>Temporarily Held
+                                        </span>
+                                    {% elif room_data.status == 'unavailable' %}
+                                        <span class="badge bg-secondary status-badge" 
+                                              title="{{ room_data.status_message }}">
+                                            <i class="fas fa-ban me-1"></i>Unavailable
+                                        </span>
+                                    {% endif %}
                                 </div>
+                                
+                                <!-- Show booked dates if available -->
+                                {% if room_data.booked_dates %}
+                                <div class="mt-2 small text-muted">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    <span class="booked-dates">{{ room_data.status_message }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                {% if room_data.room.features %}
+                                <div class="mt-2 small text-gray">
+                                    {% for feature in room_data.room.features|slice:":3" %}
+                                    <span class="badge bg-light text-dark me-1">{{ feature }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -169,9 +220,74 @@
         border-color: #06B6D4 !important;
     }
     
-    .room-card.selected {
-        background: rgba(6, 182, 212, 0.1);
-        border-color: #06B6D4 !important;
+    /* Room status styles */
+    .room-card.room-booked {
+        background: rgba(239, 68, 68, 0.05);
+        border-color: #ef4444 !important;
+        opacity: 0.8;
+    }
+    
+    .room-card.room-temporary {
+        background: rgba(245, 158, 11, 0.05);
+        border-color: #f59e0b !important;
+    }
+    
+    .room-card.room-unavailable {
+        background: rgba(107, 114, 128, 0.05);
+        border-color: #6b7280 !important;
+        opacity: 0.7;
+    }
+    
+    .room-card.room-booked:hover,
+    .room-card.room-temporary:hover,
+    .room-card.room-unavailable:hover {
+        transform: none;
+        box-shadow: none;
+        cursor: not-allowed;
+    }
+    
+    .status-badge {
+        cursor: help;
+        border-bottom: 1px dotted;
+    }
+    
+    .booked-dates {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    
+    /* Tooltip styles */
+    [title] {
+        position: relative;
+        cursor: help;
+    }
+    
+    [title]:hover:after {
+        content: attr(title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        z-index: 1000;
+        margin-bottom: 5px;
+        pointer-events: none;
+    }
+    
+    /* Disabled checkbox styling */
+    .room-checkbox:disabled + .form-check-label {
+        color: #9ca3af;
+        text-decoration: line-through;
+    }
+    
+    .room-checkbox:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
     
     .price-tag {
@@ -195,6 +311,25 @@
     
     .badge.bg-success {
         background: linear-gradient(135deg, #10B981, #059669) !important;
+    }
+    
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: white !important;
+    }
+    
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+    }
+    
+    .badge.bg-secondary {
+        background: linear-gradient(135deg, #6B7280, #4B5563) !important;
+    }
+    
+    .badge.bg-light {
+        background: white !important;
+        color: #2c3e50 !important;
+        border: 1px solid rgba(139, 92, 246, 0.2);
     }
     
     .custom-toast {
@@ -223,7 +358,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== ROOM SELECTION INITIALIZED ===');
     
-    var checkboxes = document.querySelectorAll('.room-checkbox');
+    var checkboxes = document.querySelectorAll('.room-checkbox:not(:disabled)');
     var roomCards = document.querySelectorAll('.room-card');
     var selectionSummary = document.getElementById('selectionSummary');
     var selectedCount = document.getElementById('selectedCount');
@@ -234,12 +369,40 @@ document.addEventListener('DOMContentLoaded', function() {
     var tripId = '{{ trip.id }}';
     var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
+    // Add tooltip functionality for booked dates
+    document.querySelectorAll('[data-check-in][data-check-out]').forEach(function(card) {
+        var checkIn = card.dataset.checkIn;
+        var checkOut = card.dataset.checkOut;
+        var status = card.dataset.status;
+        
+        if (status === 'booked') {
+            card.setAttribute('title', 'Booked from ' + checkIn + ' to ' + checkOut);
+        } else if (status === 'temporary') {
+            card.setAttribute('title', 'Temporarily held by another user (expires in 1 hour)');
+        }
+    });
+    
+    // Add hover effect for better UX
+    document.querySelectorAll('.room-card').forEach(function(card) {
+        card.addEventListener('mouseenter', function() {
+            var status = this.dataset.status;
+            if (status === 'booked' || status === 'temporary' || status === 'unavailable') {
+                this.style.transform = 'scale(1.01)';
+                this.style.transition = 'transform 0.2s';
+            }
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
     function updateSelection() {
         var selected = [];
         var total = 0;
         var selectedIds = [];
         
-        checkboxes.forEach(function(cb) {
+        document.querySelectorAll('.room-checkbox:not(:disabled)').forEach(function(cb) {
             if (cb.checked) {
                 var roomCard = cb.closest('.room-card');
                 var roomNumber = roomCard ? roomCard.querySelector('.form-check-label').textContent.trim() : 'Room';
@@ -280,22 +443,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Make entire room card clickable
+    // Make available room cards clickable
     roomCards.forEach(function(card) {
-        card.addEventListener('click', function(e) {
-            // Don't toggle if clicking on the checkbox directly
-            if (e.target.type !== 'checkbox') {
-                var checkbox = this.querySelector('.room-checkbox');
-                if (checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    updateSelection();
+        if (card.dataset.status === 'available') {
+            card.addEventListener('click', function(e) {
+                // Don't toggle if clicking on the checkbox directly
+                if (e.target.type !== 'checkbox') {
+                    var checkbox = this.querySelector('.room-checkbox');
+                    if (checkbox && !checkbox.disabled) {
+                        checkbox.checked = !checkbox.checked;
+                        updateSelection();
+                    }
                 }
-            }
-        });
+            });
+        }
     });
     
     // Update on checkbox change
-    checkboxes.forEach(function(cb) {
+    document.querySelectorAll('.room-checkbox:not(:disabled)').forEach(function(cb) {
         cb.addEventListener('change', updateSelection);
     });
     
@@ -396,6 +561,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 5000);
     }
+    
+    // Initialize selection summary
+    updateSelection();
 });
 </script>
 {% endblock %}

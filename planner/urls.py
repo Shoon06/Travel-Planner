@@ -104,8 +104,5 @@ urlpatterns = [
     path('select-rooms/<int:trip_id>/', views.SelectRoomsView.as_view(), name='select_rooms'),
     path('get-available-rooms/<int:hotel_id>/', views.GetAvailableRoomsView.as_view(), name='get_available_rooms'),
     path('save-room-selection/<int:trip_id>/', views.SaveRoomSelectionView.as_view(), name='save_room_selection'),
-    path('confirm-room-booking/<int:trip_id>/', views.ConfirmRoomBookingView.as_view(), name='confirm_room_booking'),
-   
-
-    path('confirm-room-booking/<int:trip_id>/', views.ConfirmRoomBookingView.as_view(), name='confirm_room_booking'),
+    path('confirm-room-booking/<int:trip_id>/', views.ConfirmBookingView.as_view(), name='confirm_room_booking'),
 ]

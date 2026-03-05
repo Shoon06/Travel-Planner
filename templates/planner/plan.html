@@ -116,7 +116,7 @@
                         </div>
                     </div>
                     
-                    <!-- HOTEL SELECTION WITH ROOMS DISPLAY - UPDATED -->
+                    <!-- HOTEL SELECTION WITH COMPACT DESIGN - NO ROOM DISPLAY -->
                     <div class="row mb-5">
                         <div class="col-md-6">
                             <div class="mb-4">
@@ -126,50 +126,30 @@
                                         <i class="fas fa-hotel"></i>
                                     </span>
                                     {% if selected_hotel_id %}
-                                    <div class="form-control p-3 selection-made">
+                                    <div class="form-control p-2 selection-made">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <div>
+                                            <div class="d-flex align-items-center">
                                                 <i class="fas fa-check-circle text-success me-2"></i>
-                                                <span id="selectedHotelName">{{ selected_hotel_name }}</span>
+                                                <span id="selectedHotelName" class="fw-bold">{{ selected_hotel_name }}</span>
                                             </div>
                                             <div>
-                                                <button type="button" class="btn btn-sm btn-outline-primary me-2" id="selectRoomsBtn">
-                                                    <i class="fas fa-bed me-1"></i>Select Rooms
+                                                <button type="button" class="btn btn-sm btn-outline-primary me-1" id="selectRoomsBtn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
+                                                    <i class="fas fa-bed me-1"></i>Rooms
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="changeHotelBtn">
-                                                    Change
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="changeHotelBtn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
+                                                    <i class="fas fa-edit me-1"></i>Change
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
                                     <input type="hidden" id="selected_hotel_id" name="selected_hotel_id" value="{{ selected_hotel_id }}">
                                     
-                                    <!-- Display Selected Rooms if any - NO HOTEL BASE PRICE -->
+                                    <!-- Simple indicator that rooms are selected (without showing details) -->
                                     {% if trip.selected_rooms and trip.selected_rooms.room_details %}
-                                    <div class="mt-3 p-3 bg-light rounded">
-                                        <h6 class="fw-bold mb-2">
-                                            <i class="fas fa-bed me-2"></i>Selected Rooms:
-                                        </h6>
-                                        {% for room in trip.selected_rooms.room_details %}
-                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white rounded">
-                                            <div>
-                                                <strong>Room {{ room.room_number }}</strong>
-                                                <span class="badge bg-info ms-2">{{ room.room_type }}</span>
-                                                <div class="small text-gray">
-                                                    {% if room.floor %}Floor {{ room.floor }}{% endif %}
-                                                    {% if room.bed_type %} • {{ room.bed_type }} Bed{% endif %}
-                                                </div>
-                                            </div>
-                                            <div class="text-end">
-                                                <span class="fw-bold">{{ room.price_per_night|floatformat:0 }} MMK</span>
-                                                <small class="text-gray d-block">per night</small>
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                                            <span class="fw-bold">Total for <span id="nightsDisplay">{{ nights }}</span> nights:</span>
-                                            <span class="price-tag small">{{ trip.selected_rooms.total_price|floatformat:0 }} MMK</span>
-                                        </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-bed me-1"></i>{{ trip.selected_rooms.room_details|length }} room(s) selected
+                                        </span>
                                     </div>
                                     {% endif %}
                                     
@@ -186,7 +166,7 @@
                             </div>
                         </div>
                         
-                        <!-- TRANSPORT SELECTION (unchanged) -->
+                        <!-- TRANSPORT SELECTION - COMPACT DESIGN -->
                         <div class="col-md-6">
                             <div class="mb-4">
                                 <label class="form-label fw-bold">Transportation</label>
@@ -195,14 +175,14 @@
                                         <i class="fas fa-bus"></i>
                                     </span>
                                     {% if selected_transport_id %}
-                                    <div class="form-control p-3 selection-made">
+                                    <div class="form-control p-2 selection-made">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <div>
+                                            <div class="d-flex align-items-center">
                                                 <i class="fas fa-check-circle text-primary me-2"></i>
-                                                <span id="selectedTransportName">{{ selected_transport_name }}</span>
+                                                <span id="selectedTransportName" class="fw-bold">{{ selected_transport_name }}</span>
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changeTransportBtn">
-                                                Change
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changeTransportBtn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
+                                                <i class="fas fa-edit me-1"></i>Change
                                             </button>
                                         </div>
                                     </div>
@@ -320,6 +300,22 @@ select.form-select option:checked {
     background-position: right calc(.375em + .1875rem) center;
     background-size: calc(.75em + .375rem) calc(.75em + .375rem);
 }
+
+/* Compact button styles */
+.btn-sm {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.selection-made {
+    padding: 0.5rem !important;
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #06B6D4, #0891B2) !important;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
 </style>
 
 <script>
@@ -346,7 +342,6 @@ select.form-select option:checked {
         const continueBtn = document.getElementById('continueBtn');
         const clearFormBtn = document.getElementById('clearFormBtn');
         const tripForm = document.getElementById('tripForm');
-        const nightsDisplay = document.getElementById('nightsDisplay');
         
         // Calculate nights for display
         function calculateNights() {
@@ -358,13 +353,6 @@ select.form-select option:checked {
                 return diffDays;
             }
             return 1;
-        }
-        
-        // Update nights display
-        function updateNightsDisplay() {
-            if (nightsDisplay) {
-                nightsDisplay.textContent = calculateNights();
-            }
         }
         
         // ========== RESTORE FORM VALUES FROM CONTEXT ==========
@@ -421,15 +409,10 @@ select.form-select option:checked {
             if (endDate.value && endDate.value < this.value) {
                 endDate.value = this.value;
             }
-            updateNightsDisplay();
             updateContinueButton();
         });
         
-        endDate.addEventListener('change', function() {
-            updateNightsDisplay();
-            updateContinueButton();
-        });
-        
+        endDate.addEventListener('change', updateContinueButton);
         travelersSelect.addEventListener('change', updateContinueButton);
         
         // ========== AUTOCOMPLETE FUNCTIONS ==========
@@ -655,7 +638,7 @@ select.form-select option:checked {
             });
         }
         
-        // Room selection button - NEW
+        // Room selection button
         if (selectRoomsBtn) {
             selectRoomsBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
@@ -726,10 +709,10 @@ select.form-select option:checked {
             });
         }
         
-        // ========== FIXED CLEAR FORM BUTTON ==========
+        // Clear Form button
         if (clearFormBtn) {
             clearFormBtn.addEventListener('click', function() {
-                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data\n• Start fresh with empty form')) {
+                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data')) {
                     
                     // Clear all form fields
                     originInput.value = '';
@@ -756,82 +739,30 @@ select.form-select option:checked {
                     if (selectedTransportId) selectedTransportId.value = '';
                     if (selectedTransportType) selectedTransportType.value = '';
                     
-                    // Clear displayed hotel and transport - COMPLETELY RESET THE UI
-                    const hotelParent = document.querySelector('.selection-made');
-                    if (hotelParent) {
-                        // Find the accommodation container and reset it
-                        const accommodationDiv = hotelParent.closest('.col-md-6').querySelector('.input-group');
-                        if (accommodationDiv) {
-                            // Replace the entire selection-made div with the original select hotel link
-                            accommodationDiv.innerHTML = `
-                                <span class="input-group-text">
-                                    <i class="fas fa-hotel"></i>
-                                </span>
-                                <div class="form-control p-0">
-                                    <a href="#" id="selectHotelBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
-                                        <i class="fas fa-hotel me-2"></i>Select Hotel
-                                        <span class="float-end"><i class="fas fa-chevron-right"></i></span>
-                                    </a>
-                                </div>
-                                <input type="hidden" id="selected_hotel_id" name="selected_hotel_id">
-                            `;
-                        }
-                    }
-                    
-                    // Reset transport similarly
-                    const transportParent = document.querySelectorAll('.selection-made')[1];
-                    if (transportParent) {
-                        const transportDiv = transportParent.closest('.col-md-6').querySelector('.input-group');
-                        if (transportDiv) {
-                            transportDiv.innerHTML = `
-                                <span class="input-group-text">
-                                    <i class="fas fa-bus"></i>
-                                </span>
-                                <div class="form-control p-0">
-                                    <a href="#" id="selectTransportBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
-                                        <i class="fas fa-car me-2"></i>Select Transport
-                                        <span class="float-end"><i class="fas fa-chevron-right"></i></span>
-                                    </a>
-                                </div>
-                                <input type="hidden" id="selected_transport_type" name="selected_transport_type">
-                                <input type="hidden" id="selected_transport_id" name="selected_transport_id">
-                            `;
-                        }
-                    }
-                    
-                    // Remove any room display section
-                    const roomDisplay = document.querySelector('.mt-3.p-3.bg-light.rounded');
-                    if (roomDisplay) {
-                        roomDisplay.remove();
-                    }
-                    
                     // Update UI
-                    updateNightsDisplay();
                     updateContinueButton();
                     
-                    // Send request to server to clear ALL session data and delete draft trips
-                    fetch('/planner/clear-trip/?full_clear=true', {
+                    // Send request to server to clear session data
+                    fetch('/planner/clear-trip/', {
                         method: 'GET',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
+                    .then(response => {
+                        if (response.ok) {
                             console.log('Trip data cleared on server');
-                            // Show success message
-                            alert('Form cleared. You can start a new trip.');
-                            
-                            // Redirect to clean URL without parameters
-                            window.location.href = '/planner/';
                         }
                     })
                     .catch(error => {
                         console.error('Error clearing trip data:', error);
-                        // Still redirect even if server request fails
-                        window.location.href = '/planner/';
                     });
+                    
+                    // Show message
+                    alert('Form cleared. You can start a new trip.');
+                    
+                    // Reload the page to refresh all data
+                    window.location.reload();
                 }
             });
         }
@@ -909,48 +840,9 @@ select.form-select option:checked {
         });
         
         // ========== INITIALIZATION ==========
-        // Re-attach event listeners for newly created buttons
-        function reattachButtonListeners() {
-            // Re-attach selectHotelBtn if it was recreated
-            const newSelectHotelBtn = document.getElementById('selectHotelBtn');
-            if (newSelectHotelBtn && !newSelectHotelBtn.hasAttribute('data-listener')) {
-                newSelectHotelBtn.setAttribute('data-listener', 'true');
-                newSelectHotelBtn.addEventListener('click', async function(e) {
-                    e.preventDefault();
-                    try {
-                        const tripId = await saveTripInfo();
-                        window.location.href = `/planner/select-hotel-map/${tripId}/`;
-                    } catch (error) {
-                        console.error('Save trip error:', error);
-                        alert(error || 'An error occurred. Please try again.');
-                    }
-                });
-            }
-            
-            // Re-attach selectTransportBtn if it was recreated
-            const newSelectTransportBtn = document.getElementById('selectTransportBtn');
-            if (newSelectTransportBtn && !newSelectTransportBtn.hasAttribute('data-listener')) {
-                newSelectTransportBtn.setAttribute('data-listener', 'true');
-                newSelectTransportBtn.addEventListener('click', async function(e) {
-                    e.preventDefault();
-                    try {
-                        const tripId = await saveTripInfo();
-                        window.location.href = `/planner/select-transport-category/${tripId}/`;
-                    } catch (error) {
-                        console.error('Save trip error:', error);
-                        alert(error || 'An error occurred. Please try again.');
-                    }
-                });
-            }
-        }
-        
         // Initial validation
         validateLocations();
         updateContinueButton();
-        updateNightsDisplay();
-        
-        // Call reattachButtonListeners after a short delay
-        setTimeout(reattachButtonListeners, 100);
         
         // Call updateContinueButton after a short delay to ensure DOM is ready
         setTimeout(updateContinueButton, 100);
