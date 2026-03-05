@@ -31,16 +31,17 @@
                        class="btn btn-outline-light btn-lg">
                         <i class="fas fa-download me-2"></i>Download PDF
                     </a>
-                    {% if plan_id == 'custom' and not activities_locked %}
-                    <form id="customConfirmForm" method="post" action="{% url 'planner:confirm_booking' trip.id %}" class="d-none">
-                        {% csrf_token %}
-                        <input type="hidden" name="plan_id" value="custom">
-                    </form>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Hidden confirm booking form (used by confirm button) -->
+    <form id="confirmBookingForm" method="post" action="{% url 'planner:confirm_booking' trip.id %}" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="plan_id" value="{{ plan_id|default:'custom' }}">
+        <input type="hidden" name="activities" id="confirmActivitiesField">
+    </form>
     
     <!-- Main Content -->
     <div class="container py-5">
@@ -290,15 +291,22 @@
                                 <span class="fw-bold">Total Estimated Cost</span>
                                 <span class="fw-bold fs-5 text-primary">${{ cost_estimate.total }}</span>
                             </div>
-                            {% if plan_id == 'custom' and not activities_locked %}
+                            {% if trip.status == 'booked' %}
+                                <div class="alert alert-success mt-3 mb-0">
+                                    <i class="fas fa-check-circle me-2"></i>Trip booked{% if trip.confirmed_at %} on {{ trip.confirmed_at|date:"M d, Y" }}{% endif %}.
+                                </div>
+                            {% elif plan_id == 'custom' and not activities_locked %}
                                 <button type="button"
                                     class="btn w-100 mt-3 text-white"
                                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;"
                                     id="customConfirmBtnCost"
                                     data-confirm-custom="true"
-                                    form="customConfirmForm">
-                                <i class="fas fa-check-circle me-2"></i>Confirm Booking
-                            </button>
+                                    form="confirmBookingForm">
+                                    <i class="fas fa-check-circle me-2"></i>Confirm Booking
+                                </button>
+                                <div id="confirmSuccessInline" class="alert alert-success mt-3 mb-0 d-none">
+                                    <i class="fas fa-check-circle me-2"></i>Booking submitted, finalizing...
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -1185,26 +1193,44 @@ document.addEventListener('DOMContentLoaded', function() {
         window.print();
     });
 
-    // Custom plan booking confirm: select custom plan, then submit booking
+    // Ensure confirm form carries plan id and activities (works for custom + preset)
+    const confirmBookingForm = document.getElementById('confirmBookingForm');
+    const confirmActivitiesField = document.getElementById('confirmActivitiesField');
+    const customConfirmBtnCost = document.getElementById('customConfirmBtnCost');
+    const confirmSuccessInline = document.getElementById('confirmSuccessInline');
+
+    if (confirmBookingForm) {
+        confirmBookingForm.addEventListener('submit', () => {
+            const planInput = confirmBookingForm.querySelector('input[name="plan_id"]');
+            if (planInput) {
+                planInput.value = planId || 'custom';
+            }
+
+            const allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            if (confirmActivitiesField) {
+                confirmActivitiesField.value = JSON.stringify(allActivities);
+            }
+
+            // Immediately hide/disable the confirm button and show inline success to avoid double submission
+            if (customConfirmBtnCost) {
+                customConfirmBtnCost.disabled = true;
+                customConfirmBtnCost.classList.add('d-none');
+            }
+            if (confirmSuccessInline) {
+                confirmSuccessInline.classList.remove('d-none');
+            }
+        });
+    }
+
     const customConfirmButtons = document.querySelectorAll('[data-confirm-custom="true"]');
-    const customConfirmForm = document.getElementById('customConfirmForm');
-    if (customConfirmButtons.length && customConfirmForm) {
+    if (customConfirmButtons.length && confirmBookingForm) {
         customConfirmButtons.forEach((btn) => {
-            btn.addEventListener('click', async () => {
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-                try {
-                    await fetch("{% url 'planner:select_plan' trip_id=trip.id %}", {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: new URLSearchParams({ plan_id: 'custom' })
-                    });
-                } catch (err) {
-                    console.warn('Select custom plan failed', err);
+            btn.addEventListener('click', () => {
+                if (typeof confirmBookingForm.requestSubmit === 'function') {
+                    confirmBookingForm.requestSubmit();
+                } else {
+                    confirmBookingForm.submit();
                 }
-                customConfirmForm.submit();
             });
         });
     }

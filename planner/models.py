@@ -764,6 +764,39 @@ class TripPlan(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
+# ========== TRIP ACTIVITY MODEL ==========
+class TripActivity(models.Model):
+    """Persisted activities for a trip plan"""
+
+    trip = models.ForeignKey(
+        TripPlan,
+        on_delete=models.CASCADE,
+        related_name='activities'
+    )
+    day_number = models.IntegerField()
+    time = models.CharField(max_length=50, blank=True)
+    title = models.CharField(max_length=255)
+    location = models.CharField(max_length=255, blank=True)
+    duration = models.CharField(max_length=50, blank=True)
+    description = models.TextField(blank=True)
+    type = models.CharField(max_length=50, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    icon = models.CharField(max_length=100, default='fas fa-star')
+    is_custom = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['trip', 'day_number', 'time', 'id']
+        indexes = [
+            models.Index(fields=['trip', 'day_number']),
+        ]
+
+    def __str__(self):
+        return f"Day {self.day_number}: {self.title}"
+
 # ========== TRANSPORT SCHEDULE MODEL ==========
 class TransportSchedule(models.Model):
     """Schedule for transportation on specific dates"""

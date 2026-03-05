@@ -6,6 +6,7 @@ from django.views.generic import TemplateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.http import JsonResponse
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.urls import reverse
@@ -30,7 +31,7 @@ from .models import TripPlan
 
 import random
 from django.conf import settings
-from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat,TransportSchedule 
+from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat,TransportSchedule, TripActivity 
 from .real_hotels_service import real_hotels_service
 import urllib.parse  # Add this import for URL encoding
 from .weather_service import WeatherService
@@ -1579,7 +1580,7 @@ class DestinationSearchView(View):
 # In the same views.py file, update SelectHotelWithMapView
 class SelectHotelWithMapView(LoginRequiredMixin, View):
     """View for selecting hotels with SIMPLE Google Maps iframe embeds (NO API KEY)"""
-    template_name = 'planner/select_hotel_map_real.html'
+    template_name = 'planner/select_hotel_map_simple.html'
     
     def get(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
@@ -1684,49 +1685,74 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         
         print(f"🔍 DEBUG: Total unique amenities found: {len(all_amenities)}")
         
-        # Prepare hotel data with Google Maps embed URL
-        # Use the actual hotel queryset in the template so price/name/amenities stay intact
+        # Build hotel payloads for template (with maps_query/map embeds) and markers for map widget
         print(f"🔍 DEBUG: Prepared {hotels.count()} hotels for display")
-        # Prepare hotel markers for map (JSON format) with better data
         hotel_markers = []
-        hotels_with_coords = hotels.filter(latitude__isnull=False, longitude__isnull=False)
-        print(f"DEBUG: Found {hotels_with_coords.count()} hotels with coordinates out of {hotels.count()} total")
-        
-        for hotel in hotels_with_coords:
+        hotels_data = []
+
+        for hotel in hotels:
             try:
-                # Get image URL safely
                 image_url = ''
                 if hotel.image and hasattr(hotel.image, 'url'):
                     try:
                         image_url = hotel.image.url
-                    except:
+                    except Exception:
                         image_url = ''
-                
-                marker_data = {
+
+                maps_query = f"{hotel.name} {hotel.address} {trip.destination.name} Myanmar"
+                iframe_url = f"https://www.google.com/maps?q={urllib.parse.quote(maps_query)}&output=embed"
+
+                hotel_payload = {
                     'id': hotel.id,
                     'name': hotel.name,
                     'address': hotel.address,
-                    'latitude': float(hotel.latitude),
-                    'longitude': float(hotel.longitude),
                     'price': float(hotel.price_per_night),
                     'price_display': hotel.price_in_mmk(),
                     'rating': float(hotel.rating),
                     'review_count': hotel.review_count,
                     'category': hotel.category,
                     'category_display': hotel.get_category_display(),
-                    'amenities': hotel.amenities[:5] if hotel.amenities else [],
-                    'is_real': hotel.is_real_hotel,
-                    'is_our_hotel': hotel.created_by_admin,
+                    'amenities': hotel.amenities if hotel.amenities else [],
+                    'amenities_count': len(hotel.amenities) if hotel.amenities else 0,
                     'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
                     'image_url': image_url,
+                    'latitude': float(hotel.latitude) if hotel.latitude is not None else None,
+                    'longitude': float(hotel.longitude) if hotel.longitude is not None else None,
+                    'maps_query': maps_query,
+                    'iframe_url': iframe_url,
                     'phone': hotel.phone_number or '',
-                    'website': hotel.website or '',
-                    'gallery_images': hotel.gallery_images if hasattr(hotel, 'gallery_images') else []
+                    'has_image': bool(image_url),
                 }
-                hotel_markers.append(marker_data)
-                print(f"DEBUG: Added marker for {hotel.name} at {hotel.latitude}, {hotel.longitude}")
+                hotels_data.append(hotel_payload)
+
+                if hotel.latitude is not None and hotel.longitude is not None:
+                    hotel_markers.append({
+                        'id': hotel.id,
+                        'name': hotel.name,
+                        'address': hotel.address,
+                        'latitude': float(hotel.latitude),
+                        'longitude': float(hotel.longitude),
+                        'price': float(hotel.price_per_night),
+                        'price_display': hotel.price_in_mmk(),
+                        'rating': float(hotel.rating),
+                        'review_count': hotel.review_count,
+                        'category': hotel.category,
+                        'category_display': hotel.get_category_display(),
+                        'amenities': hotel.amenities[:5] if hotel.amenities else [],
+                        'is_real': hotel.is_real_hotel,
+                        'is_our_hotel': hotel.created_by_admin,
+                        'description': hotel.description[:100] + '...' if hotel.description and len(hotel.description) > 100 else (hotel.description or ''),
+                        'image_url': image_url,
+                        'phone': hotel.phone_number or '',
+                        'website': hotel.website or '',
+                        'gallery_images': hotel.gallery_images if hasattr(hotel, 'gallery_images') else []
+                    })
+                    print(f"DEBUG: Added marker for {hotel.name} at {hotel.latitude}, {hotel.longitude}")
             except Exception as e:
-                print(f"ERROR adding marker for hotel {hotel.id}: {e}")
+                print(f"ERROR preparing hotel {hotel.id}: {e}")
+
+        hotels_with_coords = [h for h in hotels_data if h.get('latitude') is not None and h.get('longitude') is not None]
+        print(f"DEBUG: Found {len(hotels_with_coords)} hotels with coordinates out of {len(hotels_data)} total")
         
         # Sort amenities alphabetically for display
         sorted_amenities = sorted(list(all_amenities))
@@ -1737,17 +1763,17 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
         if trip.destination.latitude and trip.destination.longitude:
             center_lat = float(trip.destination.latitude)
             center_lng = float(trip.destination.longitude)
-        elif hotels_with_coords.exists():
-            sample_hotel = hotels_with_coords.first()
-            center_lat = float(sample_hotel.latitude)
-            center_lng = float(sample_hotel.longitude)
+        elif hotels_with_coords:
+            sample_hotel = hotels_with_coords[0]
+            center_lat = float(sample_hotel['latitude'])
+            center_lng = float(sample_hotel['longitude'])
         else:
             center_lat = 21.9588
             center_lng = 96.0891
         
         context = {
             'trip': trip,
-            'hotels': hotels,
+            'hotels': hotels_data,
             'hotel_markers': json.dumps(hotel_markers),
             'nights': nights,
             'destination_name': trip.destination.name,
@@ -3610,6 +3636,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
     
     def get(self, request, trip_id, plan_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        start_date = trip.start_date or timezone.now().date()
 
         # Determine whether activities should be locked (preset plans) or editable (custom)
         custom_mode = str(request.GET.get('custom', '0')).lower() in ['1', 'true', 'yes']
@@ -3649,7 +3676,6 @@ class ItineraryDetailView(LoginRequiredMixin, View):
 
         # Ensure custom/empty plans still render day tabs and panes
         if not days_data:
-            start_date = trip.start_date or timezone.now().date()
             days_data = [
                 {
                     'day_number': idx + 1,
@@ -3658,6 +3684,34 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 }
                 for idx in range(days)
             ]
+
+        # If activities were already saved for this trip, prefer persisted data
+        saved_activities = TripActivity.objects.filter(trip=trip).order_by('day_number', 'time', 'id')
+        if saved_activities.exists():
+            activities_by_day = {day: [] for day in range(1, days + 1)}
+
+            for activity in saved_activities:
+                activities_by_day.setdefault(activity.day_number, []).append({
+                    'time': activity.time or '12:00 PM',
+                    'title': activity.title,
+                    'location': activity.location or '',
+                    'duration': activity.duration or '',
+                    'description': activity.description or '',
+                    'type': activity.type or 'other',
+                    'lat': float(activity.latitude) if activity.latitude is not None else None,
+                    'lng': float(activity.longitude) if activity.longitude is not None else None,
+                    'icon': activity.icon or 'fas fa-star',
+                    'is_custom': activity.is_custom,
+                })
+
+            days_data = []
+            for idx in range(days):
+                day_number = idx + 1
+                days_data.append({
+                    'day_number': day_number,
+                    'date': (start_date + timedelta(days=idx)).strftime('%Y-%m-%d'),
+                    'activities': activities_by_day.get(day_number, []),
+                })
         
         # Get weather forecast
         weather_forecast = self.get_weather_forecast_for_trip(trip)
@@ -4593,25 +4647,36 @@ class VisitedDestinationsView(LoginRequiredMixin, TemplateView):
 class ConfirmBookingView(LoginRequiredMixin, View):
 
     def post(self, request, trip_id):
-
         trip = get_object_or_404(
             TripPlan,
             id=trip_id,
             user=request.user
         )
 
-        if not trip.selected_plan:
-            messages.error(request, "Select plan first")
-            return redirect('planner:plan_selection', trip_id=trip.id)
+        payload = {}
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                payload = json.loads(request.body or '{}')
+            except json.JSONDecodeError:
+                payload = {}
+
+        plan_id = payload.get('plan_id') or request.POST.get('plan_id') or trip.selected_plan
+        activities_payload = payload.get('activities') or request.POST.get('activities')
+
+        if isinstance(activities_payload, str):
+            try:
+                activities_payload = json.loads(activities_payload)
+            except Exception:
+                activities_payload = None
+
+        if not plan_id:
+            return self._error_response(request, trip, "Select plan first")
 
         if not trip.selected_hotel:
-            messages.error(request, "Select hotel")
-            return redirect('planner:plan_selection', trip_id=trip.id)
+            return self._error_response(request, trip, "Select hotel")
 
         if not trip.selected_transport:
-            messages.error(request, "Select transport")
-            return redirect('planner:plan_selection', trip_id=trip.id)
-
+            return self._error_response(request, trip, "Select transport")
 
         transport = trip.selected_transport
 
@@ -4621,23 +4686,39 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             success = self.auto_confirm(trip, request)
 
             if not success:
-                messages.error(request, "Seat confirmation failed")
-                return redirect('planner:plan_selection', trip_id=trip.id)
+                return self._error_response(request, trip, "Seat confirmation failed")
 
+        try:
+            with transaction.atomic():
+                if plan_id and plan_id != trip.selected_plan:
+                    trip.selected_plan = plan_id
 
-        trip.is_confirmed = True
-        trip.confirmed_at = timezone.now()
-        trip.status = "booked"
+                if activities_payload is not None:
+                    self.save_activities(trip, activities_payload)
 
-        trip.save()
+                trip.is_confirmed = True
+                trip.confirmed_at = timezone.now()
+                trip.status = "booked"
+
+                trip.save()
+
+        except Exception as exc:
+            return self._error_response(request, trip, f"Booking failed: {exc}")
+
+        redirect_url = reverse(
+            "planner:itinerary_detail",
+            kwargs={"trip_id": trip.id, "plan_id": plan_id or "cultural"}
+        )
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or (request.content_type and 'application/json' in request.content_type):
+            return JsonResponse({
+                'success': True,
+                'redirect_url': redirect_url
+            })
 
         messages.success(request, "Trip booked successfully")
 
-        return redirect(
-            "planner:itinerary_detail",
-            trip_id=trip.id,
-            plan_id="cultural"
-        )
+        return redirect(redirect_url)
 
 
     def auto_confirm(self, trip, request):
@@ -4693,6 +4774,70 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         except Exception as e:
             print("AUTO CONFIRM ERROR:", e)
             return False
+
+    def save_activities(self, trip, activities_payload):
+        """Persist activities for this trip, replacing any existing ones."""
+        if activities_payload is None:
+            TripActivity.objects.filter(trip=trip).delete()
+            return
+
+        if isinstance(activities_payload, str):
+            try:
+                activities_payload = json.loads(activities_payload)
+            except Exception:
+                activities_payload = {}
+
+        # Normalize payload to a dictionary keyed by day_number
+        normalized = {}
+        if isinstance(activities_payload, dict):
+            normalized = activities_payload
+        elif isinstance(activities_payload, list):
+            # Accept list of objects that include day_number
+            for item in activities_payload:
+                day_num = item.get('day_number') or item.get('day')
+                try:
+                    day_num = int(day_num)
+                except Exception:
+                    continue
+                normalized.setdefault(day_num, []).append(item)
+
+        TripActivity.objects.filter(trip=trip).delete()
+
+        to_create = []
+        for day_key, items in normalized.items():
+            try:
+                day_number = int(day_key)
+            except Exception:
+                continue
+
+            for activity in items or []:
+                to_create.append(
+                    TripActivity(
+                        trip=trip,
+                        day_number=day_number,
+                        time=activity.get('time') or '',
+                        title=activity.get('title') or activity.get('name') or 'Activity',
+                        location=activity.get('location') or '',
+                        duration=activity.get('duration') or '',
+                        description=activity.get('description') or '',
+                        type=activity.get('type') or '',
+                        latitude=activity.get('lat') or activity.get('latitude'),
+                        longitude=activity.get('lng') or activity.get('longitude'),
+                        icon=activity.get('icon') or 'fas fa-star',
+                        is_custom=bool(activity.get('is_custom', True)),
+                    )
+                )
+
+        if to_create:
+            TripActivity.objects.bulk_create(to_create)
+
+    def _error_response(self, request, trip, message):
+        """Send error response for JSON or standard form submissions."""
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or (request.content_type and 'application/json' in request.content_type):
+            return JsonResponse({'success': False, 'message': message}, status=400)
+
+        messages.error(request, message)
+        return redirect('planner:plan_selection', trip_id=trip.id)
 def how_it_works(request):
      """Render the How It Works page"""
      return render(request, 'how_it_works.html')
