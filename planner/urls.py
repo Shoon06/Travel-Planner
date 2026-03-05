@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import how_it_works
+from users.views import admin_how_it_works as how_it_works
 from .views import (
     PlanTripView,
     DashboardView,

@@ -726,10 +726,10 @@ select.form-select option:checked {
             });
         }
         
-        // Clear Form button
+        // ========== FIXED CLEAR FORM BUTTON ==========
         if (clearFormBtn) {
             clearFormBtn.addEventListener('click', function() {
-                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data')) {
+                if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data\n• Start fresh with empty form')) {
                     
                     // Clear all form fields
                     originInput.value = '';
@@ -756,38 +756,82 @@ select.form-select option:checked {
                     if (selectedTransportId) selectedTransportId.value = '';
                     if (selectedTransportType) selectedTransportType.value = '';
                     
-                    // Clear displayed hotel and transport
-                    const hotelDisplay = document.getElementById('selectedHotelName');
-                    const transportDisplay = document.getElementById('selectedTransportName');
+                    // Clear displayed hotel and transport - COMPLETELY RESET THE UI
+                    const hotelParent = document.querySelector('.selection-made');
+                    if (hotelParent) {
+                        // Find the accommodation container and reset it
+                        const accommodationDiv = hotelParent.closest('.col-md-6').querySelector('.input-group');
+                        if (accommodationDiv) {
+                            // Replace the entire selection-made div with the original select hotel link
+                            accommodationDiv.innerHTML = `
+                                <span class="input-group-text">
+                                    <i class="fas fa-hotel"></i>
+                                </span>
+                                <div class="form-control p-0">
+                                    <a href="#" id="selectHotelBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
+                                        <i class="fas fa-hotel me-2"></i>Select Hotel
+                                        <span class="float-end"><i class="fas fa-chevron-right"></i></span>
+                                    </a>
+                                </div>
+                                <input type="hidden" id="selected_hotel_id" name="selected_hotel_id">
+                            `;
+                        }
+                    }
                     
-                    if (hotelDisplay) hotelDisplay.textContent = '';
-                    if (transportDisplay) transportDisplay.textContent = '';
+                    // Reset transport similarly
+                    const transportParent = document.querySelectorAll('.selection-made')[1];
+                    if (transportParent) {
+                        const transportDiv = transportParent.closest('.col-md-6').querySelector('.input-group');
+                        if (transportDiv) {
+                            transportDiv.innerHTML = `
+                                <span class="input-group-text">
+                                    <i class="fas fa-bus"></i>
+                                </span>
+                                <div class="form-control p-0">
+                                    <a href="#" id="selectTransportBtn" class="btn btn-link w-100 text-start p-3 text-decoration-none" style="pointer-events: none; opacity: 0.5;">
+                                        <i class="fas fa-car me-2"></i>Select Transport
+                                        <span class="float-end"><i class="fas fa-chevron-right"></i></span>
+                                    </a>
+                                </div>
+                                <input type="hidden" id="selected_transport_type" name="selected_transport_type">
+                                <input type="hidden" id="selected_transport_id" name="selected_transport_id">
+                            `;
+                        }
+                    }
+                    
+                    // Remove any room display section
+                    const roomDisplay = document.querySelector('.mt-3.p-3.bg-light.rounded');
+                    if (roomDisplay) {
+                        roomDisplay.remove();
+                    }
                     
                     // Update UI
                     updateNightsDisplay();
                     updateContinueButton();
                     
-                    // Send request to server to clear session data
-                    fetch('/planner/clear-trip/', {
+                    // Send request to server to clear ALL session data and delete draft trips
+                    fetch('/planner/clear-trip/?full_clear=true', {
                         method: 'GET',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => {
-                        if (response.ok) {
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
                             console.log('Trip data cleared on server');
+                            // Show success message
+                            alert('Form cleared. You can start a new trip.');
+                            
+                            // Redirect to clean URL without parameters
+                            window.location.href = '/planner/';
                         }
                     })
                     .catch(error => {
                         console.error('Error clearing trip data:', error);
+                        // Still redirect even if server request fails
+                        window.location.href = '/planner/';
                     });
-                    
-                    // Show message
-                    alert('Form cleared. You can start a new trip.');
-                    
-                    // Reload the page to refresh all data
-                    window.location.reload();
                 }
             });
         }
@@ -865,10 +909,48 @@ select.form-select option:checked {
         });
         
         // ========== INITIALIZATION ==========
+        // Re-attach event listeners for newly created buttons
+        function reattachButtonListeners() {
+            // Re-attach selectHotelBtn if it was recreated
+            const newSelectHotelBtn = document.getElementById('selectHotelBtn');
+            if (newSelectHotelBtn && !newSelectHotelBtn.hasAttribute('data-listener')) {
+                newSelectHotelBtn.setAttribute('data-listener', 'true');
+                newSelectHotelBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    try {
+                        const tripId = await saveTripInfo();
+                        window.location.href = `/planner/select-hotel-map/${tripId}/`;
+                    } catch (error) {
+                        console.error('Save trip error:', error);
+                        alert(error || 'An error occurred. Please try again.');
+                    }
+                });
+            }
+            
+            // Re-attach selectTransportBtn if it was recreated
+            const newSelectTransportBtn = document.getElementById('selectTransportBtn');
+            if (newSelectTransportBtn && !newSelectTransportBtn.hasAttribute('data-listener')) {
+                newSelectTransportBtn.setAttribute('data-listener', 'true');
+                newSelectTransportBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    try {
+                        const tripId = await saveTripInfo();
+                        window.location.href = `/planner/select-transport-category/${tripId}/`;
+                    } catch (error) {
+                        console.error('Save trip error:', error);
+                        alert(error || 'An error occurred. Please try again.');
+                    }
+                });
+            }
+        }
+        
         // Initial validation
         validateLocations();
         updateContinueButton();
         updateNightsDisplay();
+        
+        // Call reattachButtonListeners after a short delay
+        setTimeout(reattachButtonListeners, 100);
         
         // Call updateContinueButton after a short delay to ensure DOM is ready
         setTimeout(updateContinueButton, 100);

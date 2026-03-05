@@ -1,6 +1,8 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 # COMPLETE CORRECTED VERSION
 import json
+from django.utils import timezone
+from datetime import datetime, timedelta
 from .models_room import Room, RoomType, RoomAvailability, RoomBooking
 from django.db.models import Q, Count, Prefetch
 from datetime import datetime, timedelta
@@ -1098,38 +1100,44 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
 
 # ========== PLAN TRIP VIEW ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# ========== PLAN TRIP VIEW ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# Make sure these imports are at the top of your file
+from django.utils import timezone
+from datetime import datetime, timedelta
+
+# ========== PLAN TRIP VIEW ==========
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# Make sure these imports are at the top of your file
+from django.utils import timezone
+from datetime import datetime, timedelta
+
+# ========== PLAN TRIP VIEW ==========
 class PlanTripView(LoginRequiredMixin, View):
     template_name = 'planner/plan.html'
     
     def get(self, request):
-        # Check if we're coming from clear action
+        # Check if we need to clear ALL data (new session, first visit)
         clear_action = request.GET.get('clear', False)
-        if clear_action:
-            # Clear session data
-            session_keys = list(request.session.keys())
-            for key in session_keys:
-                if any(term in key for term in ['hotel', 'transport', 'selected', 'trip']):
-                    del request.session[key]
-            request.session.modified = True
         
+        # Check if this is a first-time visit (no parameters and no clear action)
+        # AND there's an existing draft trip
+        has_params = any([
+            request.GET.get('origin_id'),
+            request.GET.get('destination_id'),
+            request.GET.get('hotel_id'),
+            request.GET.get('transport_id')
+        ])
+        
+        # Get today's date
         today = timezone.now().date()
         tomorrow = today + timedelta(days=1)
         
-        # ALWAYS GET URL PARAMETERS FIRST
-        origin_id = request.GET.get('origin_id')
-        origin_name = request.GET.get('origin_name')
-        destination_id = request.GET.get('destination_id')
-        destination_name = request.GET.get('destination_name')
-        start_date_param = request.GET.get('start_date')
-        end_date_param = request.GET.get('end_date')
-        travelers_param = request.GET.get('travelers')
-        hotel_id = request.GET.get('hotel_id')
-        hotel_name = request.GET.get('hotel_name')
-        transport_id = request.GET.get('transport_id')
-        transport_type = request.GET.get('transport_type')
-        transport_name = request.GET.get('transport_name')
-        
-        # Initialize context with empty/default values
+        # Initialize context with EMPTY values (ALWAYS start with empty form)
         context = {
             'today': today.strftime('%Y-%m-%d'),
             'tomorrow': tomorrow.strftime('%Y-%m-%d'),
@@ -1143,46 +1151,74 @@ class PlanTripView(LoginRequiredMixin, View):
             'selected_transport_type': '',
             'selected_transport_name': '',
             'travelers': 2,
-            'trip': None,  # Initialize trip as None
+            'trip': None,
+            'nights': 1,
         }
         
-        # If clear action was performed, don't restore any previous data
+        # If clear action was performed, return empty form
         if clear_action:
+            # Clear ALL session data related to trips
+            session_keys = list(request.session.keys())
+            for key in session_keys:
+                if any(term in key for term in ['hotel', 'transport', 'selected', 'trip', 'room']):
+                    del request.session[key]
+            request.session.modified = True
+            
+            # Delete ALL draft/planning trips for this user
+            TripPlan.objects.filter(
+                user=request.user,
+                status__in=['draft', 'planning']
+            ).delete()
+            
             return render(request, self.template_name, context)
         
-        # 1. FIRST PRIORITY: URL parameters
-        if origin_id and origin_name:
-            context['selected_origin_id'] = origin_id
-            context['origin_input'] = origin_name
-        if destination_id and destination_name:
-            context['selected_destination_id'] = destination_id
-            context['destination_input'] = destination_name
-        if start_date_param:
-            context['today'] = start_date_param
-        if end_date_param:
-            context['tomorrow'] = end_date_param
-        if travelers_param:
-            context['travelers'] = int(travelers_param)
-        if hotel_id and hotel_name:
-            context['selected_hotel_id'] = hotel_id
-            context['selected_hotel_name'] = hotel_name
-        if transport_id and transport_name:
-            context['selected_transport_id'] = transport_id
-            context['selected_transport_type'] = transport_type
-            context['selected_transport_name'] = transport_name
-        
-        # 2. SECOND PRIORITY: Session data
-        if not context['selected_hotel_id']:
-            context['selected_hotel_id'] = request.session.get('selected_hotel_id', '')
-            context['selected_hotel_name'] = request.session.get('selected_hotel_name', '')
-        
-        if not context['selected_transport_id']:
-            context['selected_transport_id'] = request.session.get('selected_transport_id', '')
-            context['selected_transport_type'] = request.session.get('selected_transport_type', '')
-            context['selected_transport_name'] = request.session.get('selected_transport_name', '')
-        
-        # 3. THIRD PRIORITY: Existing trip in database
-        if not (origin_id and destination_id):
+        # ONLY load existing trip if there are URL parameters
+        # This prevents loading old trips on first visit
+        if has_params:
+            # 1. FIRST PRIORITY: URL parameters
+            origin_id = request.GET.get('origin_id')
+            origin_name = request.GET.get('origin_name')
+            destination_id = request.GET.get('destination_id')
+            destination_name = request.GET.get('destination_name')
+            start_date_param = request.GET.get('start_date')
+            end_date_param = request.GET.get('end_date')
+            travelers_param = request.GET.get('travelers')
+            hotel_id = request.GET.get('hotel_id')
+            hotel_name = request.GET.get('hotel_name')
+            transport_id = request.GET.get('transport_id')
+            transport_type = request.GET.get('transport_type')
+            transport_name = request.GET.get('transport_name')
+            
+            if origin_id and origin_name:
+                context['selected_origin_id'] = origin_id
+                context['origin_input'] = origin_name
+            if destination_id and destination_name:
+                context['selected_destination_id'] = destination_id
+                context['destination_input'] = destination_name
+            if start_date_param:
+                context['today'] = start_date_param
+            if end_date_param:
+                context['tomorrow'] = end_date_param
+            if travelers_param:
+                context['travelers'] = int(travelers_param)
+            if hotel_id and hotel_name:
+                context['selected_hotel_id'] = hotel_id
+                context['selected_hotel_name'] = hotel_name
+            if transport_id and transport_name:
+                context['selected_transport_id'] = transport_id
+                context['selected_transport_type'] = transport_type
+                context['selected_transport_name'] = transport_name
+            
+            # Calculate nights if we have dates
+            if context['today'] and context['tomorrow']:
+                try:
+                    start = datetime.strptime(context['today'], '%Y-%m-%d').date()
+                    end = datetime.strptime(context['tomorrow'], '%Y-%m-%d').date()
+                    context['nights'] = max(1, (end - start).days)
+                except:
+                    context['nights'] = 1
+            
+            # Try to get existing trip ONLY if we have URL parameters
             existing_trip = TripPlan.objects.filter(
                 user=request.user,
                 status__in=['draft', 'planning']
@@ -1192,7 +1228,7 @@ class PlanTripView(LoginRequiredMixin, View):
                 # Add trip to context
                 context['trip'] = existing_trip
                 
-                # Restore data from existing trip
+                # Restore data from existing trip ONLY if fields are empty
                 if not context['origin_input'] and existing_trip.origin:
                     context['origin_input'] = existing_trip.origin.name
                     context['selected_origin_id'] = existing_trip.origin.id
@@ -1212,23 +1248,22 @@ class PlanTripView(LoginRequiredMixin, View):
                     context['tomorrow'] = existing_trip.end_date.strftime('%Y-%m-%d')
                 if not travelers_param and existing_trip.travelers:
                     context['travelers'] = existing_trip.travelers
-        
-        # 4. FOURTH PRIORITY: Individual GET parameters
-        if not hotel_id and request.GET.get('hotel_id'):
-            try:
-                hotel = Hotel.objects.get(id=request.GET.get('hotel_id'))
-                context['selected_hotel_id'] = hotel.id
-                context['selected_hotel_name'] = hotel.name
-            except Hotel.DoesNotExist:
-                pass
-        
-        if not transport_id and request.GET.get('transport_id'):
-            context['selected_transport_id'] = request.GET.get('transport_id')
-            context['selected_transport_type'] = request.GET.get('transport_type', '')
-            context['selected_transport_name'] = request.GET.get('transport_name', '')
+        else:
+            # NO URL parameters - this is a fresh page load
+            # Delete any existing draft trips to start fresh
+            TripPlan.objects.filter(
+                user=request.user,
+                status__in=['draft', 'planning']
+            ).delete()
+            
+            # Clear session data
+            session_keys = list(request.session.keys())
+            for key in session_keys:
+                if any(term in key for term in ['hotel', 'transport', 'selected', 'trip', 'room']):
+                    del request.session[key]
+            request.session.modified = True
         
         return render(request, self.template_name, context)
-    
     def post(self, request):
         """Handle both regular form submission and AJAX requests"""
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1339,13 +1374,12 @@ class PlanTripView(LoginRequiredMixin, View):
                     try:
                         transport = Flight.objects.get(id=transport_id)
                         transport_name = f"{transport.airline} Flight {transport.flight_number}"
-                        # FIX: Convert Decimal to float for JSON serialization
                         price = float(getattr(transport, 'price', 0))
                         trip.selected_transport = {
                             'type': transport_type,
                             'id': transport_id,
                             'name': transport_name,
-                            'price': price  # Now it's a float
+                            'price': price
                         }
                     except Flight.DoesNotExist:
                         pass
@@ -1353,13 +1387,12 @@ class PlanTripView(LoginRequiredMixin, View):
                     try:
                         transport = BusService.objects.get(id=transport_id)
                         transport_name = f"{transport.company} Bus"
-                        # FIX: Convert Decimal to float for JSON serialization
                         price = float(getattr(transport, 'price', 0))
                         trip.selected_transport = {
                             'type': transport_type,
                             'id': transport_id,
                             'name': transport_name,
-                            'price': price  # Now it's a float
+                            'price': price
                         }
                     except BusService.DoesNotExist:
                         pass
@@ -1367,13 +1400,12 @@ class PlanTripView(LoginRequiredMixin, View):
                     try:
                         transport = CarRental.objects.get(id=transport_id)
                         transport_name = f"{transport.company} - {transport.car_model}"
-                        # FIX: Convert Decimal to float for JSON serialization
                         price = float(getattr(transport, 'price_per_day', 0))
                         trip.selected_transport = {
                             'type': transport_type,
                             'id': transport_id,
                             'name': transport_name,
-                            'price': price  # Now it's a float
+                            'price': price
                         }
                     except CarRental.DoesNotExist:
                         pass
@@ -1458,7 +1490,7 @@ class PlanTripView(LoginRequiredMixin, View):
                     status='planning'
                 )
             
-            # Save transport details - FIXED: Convert Decimal to float
+            # Save transport details
             if transport_id:
                 if transport_type == 'flight':
                     transport = Flight.objects.get(id=transport_id)
@@ -1480,7 +1512,7 @@ class PlanTripView(LoginRequiredMixin, View):
                     'type': transport_type,
                     'id': transport_id,
                     'name': transport_name,
-                    'price': transport_price  # Now it's a float
+                    'price': transport_price
                 }
             
             trip.save()
@@ -1508,7 +1540,7 @@ class PlanTripView(LoginRequiredMixin, View):
                 })
             else:
                 messages.error(request, f'Error saving trip: {str(e)}')
-                return redirect('planner:plan')        
+                return redirect('planner:plan')   
 # ========== DESTINATION SEARCH (AUTO-COMPLETE) ==========
 # ========== DESTINATION SEARCH (AUTO-COMPLETE) - FIXED ==========
 class DestinationSearchView(View):
@@ -2757,9 +2789,18 @@ class BookRealHotelView(LoginRequiredMixin, View):
 
 
 # ========== CLEAR TRIP VIEW ==========
+
+# In C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# Update the PlanSelectionView class:
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class ClearTripDataView(LoginRequiredMixin, View):
     def get(self, request):
-        # Clear ANY trip-related data from session
+        # Check if we need full clear
+        full_clear = request.GET.get('full_clear', False)
+        
+        # Clear ALL trip-related data from session
         session_keys = list(request.session.keys())
         
         # List of session keys to clear
@@ -2787,30 +2828,27 @@ class ClearTripDataView(LoginRequiredMixin, View):
             if (key.startswith('ai_plans_') or 
                 key.startswith('selected_plan_') or
                 key.startswith('plan_details_') or
+                key.startswith('selected_rooms_') or
                 key in keys_to_clear):
                 del request.session[key]
         
-        # Clear any draft trips from database
-        TripPlan.objects.filter(
+        # Delete ALL draft/planning trips for this user
+        deleted_count = TripPlan.objects.filter(
             user=request.user,
             status__in=['draft', 'planning']
-        ).delete()
+        ).delete()[0]
         
         request.session.modified = True
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True, 
+                'message': 'All trip data cleared successfully',
+                'deleted_trips': deleted_count
+            })
+        
         messages.success(request, 'All trip data has been cleared. You can start a new trip.')
         return redirect('planner:plan')
-
-
-# ========== NEW VIEWS FOR PLAN SELECTION ==========
-
-# ========== NEW VIEWS FOR PLAN SELECTION ==========
-
-# ========== NEW VIEWS FOR PLAN SELECTION ==========
-
-# In C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# Update the PlanSelectionView class:
-
-
 from django.views import View
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -4500,15 +4538,12 @@ class VisitedDestinationsView(LoginRequiredMixin, TemplateView):
 # ========== CONFIRM BOOKING VIEW ==========
 # ========== CONFIRM BOOKING VIEW ==========
 # ========== CONFIRM BOOKING VIEW ==========
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class ConfirmBookingView(LoginRequiredMixin, View):
-
     def post(self, request, trip_id):
-
-        trip = get_object_or_404(
-            TripPlan,
-            id=trip_id,
-            user=request.user
-        )
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
 
         if not trip.selected_plan:
             messages.error(request, "Select plan first")
@@ -4522,40 +4557,32 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             messages.error(request, "Select transport")
             return redirect('planner:plan_selection', trip_id=trip.id)
 
-
         transport = trip.selected_transport
 
         # AUTO CONFIRM
         if transport.get("is_temporary"):
-
             success = self.auto_confirm(trip, request)
-
             if not success:
                 messages.error(request, "Seat confirmation failed")
                 return redirect('planner:plan_selection', trip_id=trip.id)
 
-
         trip.is_confirmed = True
         trip.confirmed_at = timezone.now()
         trip.status = "booked"
-
         trip.save()
 
-        messages.success(request, "Trip booked successfully")
+        # Clear session data for this trip
+        request.session.pop(f'ai_plans_{trip_id}', None)
+        request.session.pop(f'selected_plan_{trip_id}', None)
+        request.session.pop(f'selected_rooms_{trip_id}', None)
+        
+        messages.success(request, "Trip booked successfully! You can start planning a new trip.")
 
-        return redirect(
-            "planner:itinerary_detail",
-            trip_id=trip.id,
-            plan_id="cultural"
-        )
-
-
+        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id="cultural")
+    
     def auto_confirm(self, trip, request):
-
         try:
-
             data = trip.selected_transport
-
             t_type = data["type"]
             t_id = data["id"]
             seats = data["seats"]
@@ -4570,7 +4597,6 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             )
 
             for seat in seats:
-
                 if BookedSeat.objects.filter(
                     transport_type=t_type,
                     transport_id=t_id,
@@ -4579,7 +4605,6 @@ class ConfirmBookingView(LoginRequiredMixin, View):
                     is_cancelled=False
                 ).exists():
                     return False
-
 
                 BookedSeat.objects.create(
                     transport_type=t_type,
@@ -4595,7 +4620,6 @@ class ConfirmBookingView(LoginRequiredMixin, View):
 
             trip.selected_transport["is_temporary"] = False
             trip.selected_transport["needs_confirmation"] = False
-
             trip.save()
 
             return True
@@ -4603,15 +4627,6 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         except Exception as e:
             print("AUTO CONFIRM ERROR:", e)
             return False
-def how_it_works(request):
-     """Render the How It Works page"""
-     return render(request, 'how_it_works.html')
-# ========== ROOM SELECTION VIEWS ==========
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# Add these imports at the top
-
-
 
 
 class GetAvailableRoomsView(LoginRequiredMixin, View):
