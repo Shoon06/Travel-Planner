@@ -278,6 +278,8 @@ class Hotel(models.Model):
     price_per_night = models.DecimalField(
         max_digits=10, 
         decimal_places=0,
+        null=True,  # MUST have this
+        blank=True, # MUST have this
         validators=[MinValueValidator(0)],
         help_text="Price in MMK (Myanmar Kyat)"
     )

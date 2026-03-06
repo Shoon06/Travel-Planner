@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
+from planner.models_room import Room, RoomType, RoomBooking
 from django.http import JsonResponse
 from django import forms
 from datetime import datetime
@@ -466,14 +467,70 @@ def admin_hotels(request):
     
     return render(request, 'users/admin_hotels.html', context)
 
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+
 @user_passes_test(is_admin)
 def admin_add_hotel(request):
-    """Add new hotel with manual coordinate input"""
+    """Add new hotel with manual coordinate input and rooms"""
     if request.method == 'POST':
         form = AdminAddHotelForm(request.POST, request.FILES)
         if form.is_valid():
             hotel = form.save()
-            messages.success(request, f'Hotel "{hotel.name}" added successfully!')
+            
+            # Handle room creation (same as in admin_add_hotel_with_map)
+            room_numbers = request.POST.getlist('room_number')
+            room_types = request.POST.getlist('room_type')
+            floors = request.POST.getlist('floor')
+            custom_prices = request.POST.getlist('custom_price')
+            bed_types = request.POST.getlist('bed_type')
+            square_feets = request.POST.getlist('square_feet')
+            features_list = request.POST.getlist('features')
+            has_windows = request.POST.getlist('has_window')
+            has_balconies = request.POST.getlist('has_balcony')
+            
+            from planner.models_room import Room, RoomType
+            from decimal import Decimal
+            
+            rooms_created = 0
+            for i in range(len(room_numbers)):
+                if room_numbers[i].strip():
+                    try:
+                        room_type = RoomType.objects.get(code=room_types[i])
+                        
+                        features = []
+                        if features_list[i].strip():
+                            features = [f.strip() for f in features_list[i].split(',') if f.strip()]
+                        
+                        custom_price = None
+                        if custom_prices[i] and custom_prices[i].strip():
+                            custom_price = Decimal(custom_prices[i])
+                        
+                        floor = 1
+                        if floors[i] and floors[i].strip():
+                            floor = int(floors[i])
+                        
+                        square_feet = None
+                        if square_feets[i] and square_feets[i].strip():
+                            square_feet = int(square_feets[i])
+                        
+                        Room.objects.create(
+                            hotel=hotel,
+                            room_type=room_type,
+                            room_number=room_numbers[i],
+                            floor=floor,
+                            custom_price=custom_price,
+                            features=features,
+                            bed_type=bed_types[i] if i < len(bed_types) and bed_types[i] else 'Queen',
+                            has_window=(has_windows[i] == 'yes') if i < len(has_windows) else True,
+                            has_balcony=(has_balconies[i] == 'yes') if i < len(has_balconies) else False,
+                            square_feet=square_feet,
+                            is_active=True
+                        )
+                        rooms_created += 1
+                    except Exception as e:
+                        print(f"Error creating room: {e}")
+            
+            messages.success(request, f'Hotel "{hotel.name}" added successfully with {rooms_created} rooms!')
             return redirect('users:admin_hotels')
         else:
             messages.error(request, 'Please correct the errors below.')
@@ -522,14 +579,78 @@ def admin_edit_user(request, user_id):
 # C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
 # Update the admin_add_hotel_with_map function (around line 100):
 
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+
 @user_passes_test(is_admin)
 def admin_add_hotel_with_map(request):
-    """Add new hotel with map location picker"""
+    """Add new hotel with map location picker and rooms"""
     if request.method == 'POST':
-        form = AdminAddHotelFormWithMap(request.POST, request.FILES)  # Use the simple form
+        form = AdminAddHotelFormWithMap(request.POST, request.FILES)
         if form.is_valid():
             hotel = form.save()
-            messages.success(request, f'Hotel "{hotel.name}" added successfully with location!')
+            
+            # Handle room creation
+            room_numbers = request.POST.getlist('room_number')
+            room_types = request.POST.getlist('room_type')
+            floors = request.POST.getlist('floor')
+            custom_prices = request.POST.getlist('custom_price')
+            bed_types = request.POST.getlist('bed_type')
+            square_feets = request.POST.getlist('square_feet')
+            features_list = request.POST.getlist('features')
+            has_windows = request.POST.getlist('has_window')
+            has_balconies = request.POST.getlist('has_balcony')
+            
+            from planner.models_room import Room, RoomType
+            from decimal import Decimal
+            
+            rooms_created = 0
+            for i in range(len(room_numbers)):
+                if room_numbers[i].strip():
+                    try:
+                        room_type = RoomType.objects.get(code=room_types[i])
+                        
+                        # Parse features
+                        features = []
+                        if features_list[i].strip():
+                            features = [f.strip() for f in features_list[i].split(',') if f.strip()]
+                        
+                        # Parse custom price
+                        custom_price = None
+                        if custom_prices[i] and custom_prices[i].strip():
+                            custom_price = Decimal(custom_prices[i])
+                        
+                        # Parse floor
+                        floor = 1
+                        if floors[i] and floors[i].strip():
+                            floor = int(floors[i])
+                        
+                        # Parse square feet
+                        square_feet = None
+                        if square_feets[i] and square_feets[i].strip():
+                            square_feet = int(square_feets[i])
+                        
+                        Room.objects.create(
+                            hotel=hotel,
+                            room_type=room_type,
+                            room_number=room_numbers[i],
+                            floor=floor,
+                            custom_price=custom_price,
+                            features=features,
+                            bed_type=bed_types[i] if i < len(bed_types) and bed_types[i] else 'Queen',
+                            has_window=(has_windows[i] == 'yes') if i < len(has_windows) else True,
+                            has_balcony=(has_balconies[i] == 'yes') if i < len(has_balconies) else False,
+                            square_feet=square_feet,
+                            is_active=True
+                        )
+                        rooms_created += 1
+                    except RoomType.DoesNotExist:
+                        print(f"Room type {room_types[i]} not found")
+                    except Exception as e:
+                        print(f"Error creating room: {e}")
+            
+            messages.success(request, f'Hotel "{hotel.name}" added successfully with {rooms_created} rooms!')
             return redirect('users:admin_hotels')
         else:
             print("Form errors:", form.errors)
@@ -543,10 +664,11 @@ def admin_add_hotel_with_map(request):
         'destinations': destinations,
     }
     return render(request, 'users/admin_add_hotel_maps.html', context)
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
 
 @user_passes_test(is_admin)
 def admin_edit_hotel(request, hotel_id):
-    """Edit hotel view"""
+    """Edit hotel view - WITHOUT rooms displayed"""
     hotel = get_object_or_404(Hotel, id=hotel_id)
     
     if request.method == 'POST':
@@ -557,12 +679,19 @@ def admin_edit_hotel(request, hotel_id):
             return redirect('users:admin_hotels')
         else:
             messages.error(request, 'Please correct the errors below.')
+            # Print form errors for debugging
+            print("Form errors:", form.errors)
     else:
         form = AdminEditHotelForm(instance=hotel)
+    
+    # Get room count for display
+    from planner.models_room import Room
+    room_count = Room.objects.filter(hotel=hotel).count()
     
     context = {
         'form': form,
         'hotel': hotel,
+        'room_count': room_count,
     }
     return render(request, 'users/admin_edit_hotel.html', context)
 
@@ -2050,3 +2179,171 @@ def admin_add_attraction(request):
         'destination_type': 'attraction'  # Flag for template
     }
     return render(request, 'users/admin_add_destination.html', context)
+# C:\Users\ASUS\MyanmarTravelPlanner\users\views_admin.py
+# Add these new views for room management
+
+
+
+@user_passes_test(is_admin)
+def admin_hotel_rooms(request, hotel_id):
+    """Manage rooms for a specific hotel"""
+    hotel = get_object_or_404(Hotel, id=hotel_id)
+    rooms = Room.objects.filter(hotel=hotel).order_by('floor', 'room_number')
+    
+    # Get all room types for the form
+    room_types = RoomType.objects.all()
+    
+    context = {
+        'hotel': hotel,
+        'rooms': rooms,
+        'room_types': room_types,
+    }
+    return render(request, 'users/admin_hotel_rooms.html', context)
+
+@user_passes_test(is_admin)
+def admin_add_room(request, hotel_id):
+    """Add a new room to hotel (AJAX)"""
+    if request.method == 'POST':
+        try:
+            hotel = get_object_or_404(Hotel, id=hotel_id)
+            
+            room_number = request.POST.get('room_number')
+            room_type_code = request.POST.get('room_type')
+            floor = request.POST.get('floor', 1)
+            custom_price = request.POST.get('custom_price')
+            bed_type = request.POST.get('bed_type', 'Queen')
+            square_feet = request.POST.get('square_feet')
+            features = request.POST.get('features', '')
+            has_window = request.POST.get('has_window') == 'yes'
+            has_balcony = request.POST.get('has_balcony') == 'yes'
+            
+            # Get room type
+            room_type = RoomType.objects.get(code=room_type_code)
+            
+            # Parse features
+            features_list = [f.strip() for f in features.split(',') if f.strip()] if features else []
+            
+            # Parse custom price
+            custom_price_value = None
+            if custom_price and custom_price.strip():
+                from decimal import Decimal
+                custom_price_value = Decimal(custom_price)
+            
+            # Check if room number already exists
+            if Room.objects.filter(hotel=hotel, room_number=room_number).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Room {room_number} already exists in this hotel'
+                })
+            
+            # Create room
+            room = Room.objects.create(
+                hotel=hotel,
+                room_type=room_type,
+                room_number=room_number,
+                floor=int(floor) if floor else 1,
+                custom_price=custom_price_value,
+                features=features_list,
+                bed_type=bed_type,
+                has_window=has_window,
+                has_balcony=has_balcony,
+                square_feet=int(square_feet) if square_feet and square_feet.strip() else None,
+                is_active=True
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Room {room_number} added successfully',
+                'room': {
+                    'id': room.id,
+                    'room_number': room.room_number,
+                    'room_type': room.room_type.name,
+                    'floor': room.floor,
+                    'bed_type': room.bed_type,
+                    'custom_price': str(room.custom_price) if room.custom_price else '',
+                    'has_window': room.has_window,
+                    'has_balcony': room.has_balcony,
+                }
+            })
+            
+        except RoomType.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid room type'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@user_passes_test(is_admin)
+def admin_edit_room(request, room_id):
+    """Edit an existing room (AJAX)"""
+    if request.method == 'POST':
+        try:
+            room = get_object_or_404(Room, id=room_id)
+            
+            room.room_number = request.POST.get('room_number', room.room_number)
+            room_type_code = request.POST.get('room_type')
+            if room_type_code:
+                room.room_type = RoomType.objects.get(code=room_type_code)
+            
+            room.floor = int(request.POST.get('floor', room.floor))
+            
+            custom_price = request.POST.get('custom_price')
+            if custom_price and custom_price.strip():
+                from decimal import Decimal
+                room.custom_price = Decimal(custom_price)
+            else:
+                room.custom_price = None
+            
+            room.bed_type = request.POST.get('bed_type', room.bed_type)
+            
+            square_feet = request.POST.get('square_feet')
+            if square_feet and square_feet.strip():
+                room.square_feet = int(square_feet)
+            
+            features = request.POST.get('features', '')
+            room.features = [f.strip() for f in features.split(',') if f.strip()] if features else []
+            
+            room.has_window = request.POST.get('has_window') == 'yes'
+            room.has_balcony = request.POST.get('has_balcony') == 'yes'
+            room.is_active = request.POST.get('is_active') == 'yes'
+            
+            room.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Room {room.room_number} updated successfully'
+            })
+            
+        except RoomType.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Invalid room type'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@user_passes_test(is_admin)
+def admin_delete_room(request, room_id):
+    """Delete a room (AJAX)"""
+    if request.method == 'POST':
+        try:
+            room = get_object_or_404(Room, id=room_id)
+            room_number = room.room_number
+            
+            # Check if room has any bookings
+            if RoomBooking.objects.filter(room=room).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot delete room with existing bookings'
+                })
+            
+            room.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Room {room_number} deleted successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})

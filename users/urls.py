@@ -53,7 +53,14 @@ urlpatterns = [
     # Content Actions
     path('admin/delete/<str:content_type>/<int:content_id>/', delete_content, name='admin_delete_content'),
     path('admin/update-status/<str:content_type>/<int:content_id>/', update_content_status, name='admin_update_content_status'),
-    
+    # C:\Users\ASUS\MyanmarTravelPlanner\users\urls.py
+# Add these URL patterns
+
+# Room Management URLs
+    path('admin/hotels/<int:hotel_id>/rooms/', views_admin.admin_hotel_rooms, name='admin_hotel_rooms'),
+    path('admin/hotels/<int:hotel_id>/rooms/add/', views_admin.admin_add_room, name='admin_add_room'),
+    path('admin/rooms/<int:room_id>/edit/', views_admin.admin_edit_room, name='admin_edit_room'),
+    path('admin/rooms/<int:room_id>/delete/', views_admin.admin_delete_room, name='admin_delete_room'),
     # Content Management
     path('admin/content/', views_admin.admin_content, name='admin_content'),
     path('admin/destinations/', views_admin.admin_destinations, name='admin_destinations'),

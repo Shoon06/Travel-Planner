@@ -89,9 +89,8 @@ class AdminUserCreationForm(UserCreationForm):
 # ADD HOTEL (WITH MAP)
 # ============================
 class AdminAddHotelFormWithMap(forms.ModelForm):
-    """Simple form for adding hotels with map"""
-
-    # 🔥 OVERRIDE JSONField → CharField
+    """Form for adding hotels with map - WITHOUT price_per_night"""
+    
     amenities = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={
@@ -99,7 +98,7 @@ class AdminAddHotelFormWithMap(forms.ModelForm):
             'rows': 2,
             'placeholder': 'wifi, pool, spa, restaurant, gym'
         }),
-        help_text='Enter amenities separated by commas or as JSON array'
+        help_text='Enter amenities separated by commas'
     )
 
     class Meta:
@@ -107,11 +106,10 @@ class AdminAddHotelFormWithMap(forms.ModelForm):
         fields = [
             'name', 'destination', 'address',
             'latitude', 'longitude',
-            'price_per_night', 'category',
-            'rating', 'amenities',
+            'category', 'rating', 'amenities',
             'description', 'image',
             'is_real_hotel', 'is_active'
-        ]
+        ]  # REMOVED: price_per_night
 
         widgets = {
             'name': forms.TextInput(attrs={
@@ -126,11 +124,6 @@ class AdminAddHotelFormWithMap(forms.ModelForm):
             }),
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
-            'price_per_night': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '1000',
-                'placeholder': '50000 (MMK per night)'
-            }),
             'category': forms.Select(attrs={'class': 'form-select'}),
             'rating': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -222,10 +215,13 @@ class AdminAddHotelFormWithMap(forms.ModelForm):
 # ============================
 # EDIT HOTEL FORM
 # ============================
-class AdminEditHotelForm(forms.ModelForm):
-    """Form for editing hotels"""
 
-    # 🔥 OVERRIDE JSONField → CharField
+# C:\Users\ASUS\MyanmarTravelPlanner\users\forms_admin.py
+
+# Update the AdminEditHotelForm - REMOVE price_per_night
+class AdminEditHotelForm(forms.ModelForm):
+    """Form for editing hotels - WITHOUT price_per_night"""
+
     amenities = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={
@@ -241,8 +237,7 @@ class AdminEditHotelForm(forms.ModelForm):
         fields = [
             'name', 'destination', 'address',
             'latitude', 'longitude',
-            'price_per_night', 'category',
-            'rating', 'review_count',
+            'category', 'rating', 'review_count',  # REMOVED: price_per_night
             'amenities', 'description',
             'image', 'phone_number',
             'website', 'is_real_hotel',
@@ -255,7 +250,6 @@ class AdminEditHotelForm(forms.ModelForm):
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'latitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
             'longitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
-            'price_per_night': forms.NumberInput(attrs={'class': 'form-control', 'step': '1000'}),
             'category': forms.Select(attrs={'class': 'form-select'}),
             'rating': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -277,55 +271,34 @@ class AdminEditHotelForm(forms.ModelForm):
         # If editing an existing instance, convert amenities list to string for display
         if self.instance and self.instance.pk and self.instance.amenities:
             if isinstance(self.instance.amenities, list):
-                # Convert list to comma-separated string for the form field
                 self.initial['amenities'] = ', '.join(self.instance.amenities)
             elif isinstance(self.instance.amenities, str):
-                # If it's already a string (maybe from old data), use it as is
                 self.initial['amenities'] = self.instance.amenities
 
     def clean_amenities(self):
-        """
-        Accepts both formats:
-        1. Comma-separated: wifi, pool, spa
-        2. JSON array: ["wifi", "pool", "spa"]
-        Stores: list[str]
-        """
+        """Convert amenities to list"""
         raw = self.cleaned_data.get('amenities', '')
-
         if not raw:
             return []
-
         raw = raw.strip()
-
-        # Handle JSON array input like ["wifi", "pool"]
+        
+        # Handle JSON array
         if raw.startswith('[') and raw.endswith(']'):
             try:
                 data = json.loads(raw)
                 if isinstance(data, list):
-                    return [
-                        str(a).strip().lower()
-                        for a in data
-                        if str(a).strip()
-                    ]
-                else:
-                    # If JSON is valid but not a list, wrap it in a list
-                    return [str(data).strip().lower()]
+                    return [str(a).strip().lower() for a in data if str(a).strip()]
             except json.JSONDecodeError:
-                # If JSON parsing fails, fall back to comma-separated parsing
                 pass
-
-        # Handle comma-separated input like "wifi, pool, spa"
-        return [
-            a.strip().lower()
-            for a in raw.split(',')
-            if a.strip()
-        ]
+        
+        # Handle comma-separated
+        return [a.strip().lower() for a in raw.split(',') if a.strip()]
 
     def clean(self):
-        """Add any additional form-wide validation"""
+        """Validate form data"""
         cleaned_data = super().clean()
         
-        # Validate coordinates if provided
+        # Validate coordinates
         latitude = cleaned_data.get('latitude')
         longitude = cleaned_data.get('longitude')
         
@@ -334,24 +307,13 @@ class AdminEditHotelForm(forms.ModelForm):
                 lat = float(latitude)
                 lng = float(longitude)
                 
-                # Validate Myanmar coordinates
                 if not (9.0 <= lat <= 28.0):
-                    self.add_error('latitude', 
-                        "Latitude must be within Myanmar (9.0 – 28.0)"
-                    )
-                
+                    self.add_error('latitude', "Latitude must be within Myanmar (9.0 – 28.0)")
                 if not (92.0 <= lng <= 101.0):
-                    self.add_error('longitude',
-                        "Longitude must be within Myanmar (92.0 – 101.0)"
-                    )
+                    self.add_error('longitude', "Longitude must be within Myanmar (92.0 – 101.0)")
             except (ValueError, TypeError):
                 self.add_error('latitude', "Please provide valid numeric coordinates")
                 self.add_error('longitude', "Please provide valid numeric coordinates")
-        
-        # Validate price
-        price = cleaned_data.get('price_per_night')
-        if price is not None and price < 0:
-            self.add_error('price_per_night', "Price cannot be negative")
         
         # Validate rating
         rating = cleaned_data.get('rating')
@@ -359,7 +321,6 @@ class AdminEditHotelForm(forms.ModelForm):
             self.add_error('rating', "Rating must be between 0 and 5")
         
         return cleaned_data
-
 # ============================
 # ADD HOTEL (MANUAL COORDINATES)
 # ============================
@@ -381,7 +342,7 @@ class AdminAddHotelForm(forms.ModelForm):
         model = Hotel
         fields = [
             'name', 'destination', 'address', 'latitude', 'longitude',
-            'price_per_night', 'category', 'rating', 'amenities',
+             'category', 'rating', 'amenities',
             'description', 'image', 'phone_number', 'website',
             'is_real_hotel', 'is_active'
         ]
@@ -406,11 +367,7 @@ class AdminAddHotelForm(forms.ModelForm):
                 'step': '0.000001',
                 'placeholder': '96.0891 (Mandalay longitude)'
             }),
-            'price_per_night': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '1000',
-                'placeholder': '50000 (MMK per night)'
-            }),
+            
             'category': forms.Select(attrs={'class': 'form-select'}),
             'rating': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -499,6 +456,7 @@ class AdminAddHotelForm(forms.ModelForm):
     
     def save(self, commit=True):
         hotel = super().save(commit=False)
+        hotel.price_per_night = 0
         hotel.created_by_admin = True
         if commit:
             hotel.save()

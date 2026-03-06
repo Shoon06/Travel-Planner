@@ -1,0 +1,406 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_hotel_rooms.html -->
+{% extends 'base.html' %}
+{% block title %}Manage Rooms - {{ hotel.name }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <!-- Header -->
+            <div class="card-glass p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-2">Manage Rooms: {{ hotel.name }}</h2>
+                        <p class="text-gray mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>{{ hotel.address }}
+                        </p>
+                    </div>
+                    <a href="{% url 'users:admin_edit_hotel' hotel.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Hotel
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Add Room Form -->
+            <div class="card-glass p-4 mb-4">
+                <h4 class="mb-3"><i class="fas fa-plus-circle me-2"></i>Add New Room</h4>
+                
+                <form id="addRoomForm" class="row g-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="hotel_id" value="{{ hotel.id }}">
+                    
+                    <div class="col-md-3">
+                        <label class="form-label">Room Number *</label>
+                        <input type="text" class="form-control" name="room_number" required>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label">Room Type *</label>
+                        <select class="form-select" name="room_type" required>
+                            {% for type in room_types %}
+                            <option value="{{ type.code }}">{{ type.name }} (Max {{ type.max_occupancy }} persons)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label class="form-label">Floor</label>
+                        <input type="number" class="form-control" name="floor" value="1" min="1">
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label">Custom Price (Optional)</label>
+                        <input type="number" class="form-control" name="custom_price" step="1000" placeholder="Leave empty for default">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label">Bed Type</label>
+                        <select class="form-select" name="bed_type">
+                            <option value="King">King</option>
+                            <option value="Queen">Queen</option>
+                            <option value="Double">Double</option>
+                            <option value="Twin">Twin</option>
+                            <option value="Single">Single</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label">Square Feet</label>
+                        <input type="number" class="form-control" name="square_feet">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Features</label>
+                        <input type="text" class="form-control" name="features" placeholder="wifi, tv, ac, view">
+                    </div>
+                    
+                    <div class="col-12">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="has_window" value="yes" checked>
+                            <label class="form-check-label">Has Window</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="has_balcony" value="yes">
+                            <label class="form-check-label">Has Balcony</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary" id="addRoomBtn">
+                            <i class="fas fa-plus me-2"></i>Add Room
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Rooms List -->
+            <div class="card-glass p-4">
+                <h4 class="mb-3"><i class="fas fa-list me-2"></i>Rooms ({{ rooms|length }})</h4>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Room #</th>
+                                <th>Type</th>
+                                <th>Floor</th>
+                                <th>Bed Type</th>
+                                <th>Price/Night</th>
+                                <th>Features</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roomsTableBody">
+                            {% for room in rooms %}
+                            <tr id="room-row-{{ room.id }}" class="room-row">
+                                <td><strong>{{ room.room_number }}</strong></td>
+                                <td>{{ room.room_type.name }}</td>
+                                <td>{{ room.floor }}</td>
+                                <td>{{ room.bed_type }}</td>
+                                <td>
+                                    {% if room.custom_price %}
+                                        {{ room.custom_price|floatformat:0 }} MMK
+                                    {% else %}
+                                        <span class="text-muted">Default</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if room.features %}
+                                        {% for feature in room.features|slice:":3" %}
+                                            <span class="badge bg-light text-dark me-1">{{ feature }}</span>
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if room.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary edit-room-btn" 
+                                            data-room-id="{{ room.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-room-btn" 
+                                            data-room-id="{{ room.id }}"
+                                            data-room-number="{{ room.room_number }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="fas fa-bed fa-3x text-gray mb-3"></i>
+                                    <h5>No rooms added yet</h5>
+                                    <p class="text-gray">Add your first room using the form above</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div class="modal fade" id="editRoomModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRoomForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="edit_room_id" name="room_id">
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Room Number</label>
+                            <input type="text" class="form-control" id="edit_room_number" name="room_number" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Room Type</label>
+                            <select class="form-select" id="edit_room_type" name="room_type" required>
+                                {% for type in room_types %}
+                                <option value="{{ type.code }}">{{ type.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Floor</label>
+                            <input type="number" class="form-control" id="edit_floor" name="floor" min="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Custom Price</label>
+                            <input type="number" class="form-control" id="edit_custom_price" name="custom_price" step="1000">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Bed Type</label>
+                            <select class="form-select" id="edit_bed_type" name="bed_type">
+                                <option value="King">King</option>
+                                <option value="Queen">Queen</option>
+                                <option value="Double">Double</option>
+                                <option value="Twin">Twin</option>
+                                <option value="Single">Single</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Square Feet</label>
+                            <input type="number" class="form-control" id="edit_square_feet" name="square_feet">
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Features</label>
+                            <input type="text" class="form-control" id="edit_features" name="features" placeholder="wifi, tv, ac">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="edit_has_window" name="has_window" value="yes">
+                                <label class="form-check-label">Has Window</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="edit_has_balcony" name="has_balcony" value="yes">
+                                <label class="form-check-label">Has Balcony</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active" value="yes">
+                                <label class="form-check-label">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRoomEdit">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const hotelId = '{{ hotel.id }}';
+    
+    // Add Room Form
+    document.getElementById('addRoomForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const addBtn = document.getElementById('addRoomBtn');
+        const originalText = addBtn.innerHTML;
+        
+        addBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Adding...';
+        addBtn.disabled = true;
+        
+        fetch(`/users/admin/hotels/${hotelId}/rooms/add/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload page to show new room
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                addBtn.innerHTML = originalText;
+                addBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error. Please try again.');
+            addBtn.innerHTML = originalText;
+            addBtn.disabled = false;
+        });
+    });
+    
+    // Delete Room
+    document.querySelectorAll('.delete-room-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const roomId = this.dataset.roomId;
+            const roomNumber = this.dataset.roomNumber;
+            
+            if (confirm(`Are you sure you want to delete Room ${roomNumber}?`)) {
+                const row = document.getElementById(`room-row-${roomId}`);
+                
+                fetch(`/users/admin/rooms/${roomId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        row.remove();
+                        showToast('success', data.message);
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Network error. Please try again.');
+                });
+            }
+        });
+    });
+    
+    // Edit Room - Populate Modal
+    document.querySelectorAll('.edit-room-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const roomId = this.dataset.roomId;
+            const row = document.getElementById(`room-row-${roomId}`);
+            
+            // Get room data from row
+            const cells = row.cells;
+            
+            document.getElementById('edit_room_id').value = roomId;
+            document.getElementById('edit_room_number').value = cells[0].textContent.trim();
+            
+            // Set room type
+            const roomTypeText = cells[1].textContent.trim();
+            const roomTypeSelect = document.getElementById('edit_room_type');
+            for (let option of roomTypeSelect.options) {
+                if (option.text.includes(roomTypeText)) {
+                    option.selected = true;
+                    break;
+                }
+            }
+            
+            document.getElementById('edit_floor').value = cells[2].textContent.trim();
+            document.getElementById('edit_bed_type').value = cells[3].textContent.trim();
+            
+            // Parse custom price
+            const priceText = cells[4].textContent.trim();
+            if (priceText !== 'Default') {
+                document.getElementById('edit_custom_price').value = priceText.replace(' MMK', '');
+            }
+            
+            // Parse features
+            const features = [];
+            cells[5].querySelectorAll('.badge').forEach(badge => {
+                features.push(badge.textContent.trim());
+            });
+            document.getElementById('edit_features').value = features.join(', ');
+            
+            // Open modal
+            new bootstrap.Modal(document.getElementById('editRoomModal')).show();
+        });
+    });
+    
+    // Save Room Edit
+    document.getElementById('saveRoomEdit').addEventListener('click', function() {
+        const roomId = document.getElementById('edit_room_id').value;
+        const formData = new FormData(document.getElementById('editRoomForm'));
+        
+        fetch(`/users/admin/rooms/${roomId}/edit/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error. Please try again.');
+        });
+    });
+    
+    // Toast notification function
+    function showToast(type, message) {
+        const toast = document.createElement('div');
+        toast.className = `position-fixed top-0 end-0 m-3 p-3 rounded-3 shadow text-white ${type === 'success' ? 'bg-success' : 'bg-danger'}`;
+        toast.style.zIndex = '9999';
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.remove(), 3000);
+    }
+});
+</script>
+{% endblock %}

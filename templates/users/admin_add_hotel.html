@@ -1,4 +1,4 @@
-<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_hotel_maps.html -->
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\admin_add_hotel.html -->
 {% extends 'base.html' %}
 {% block title %}Add Hotel with Map - Admin - GoMyanmar{% endblock %}
 
@@ -60,6 +60,34 @@
         margin-bottom: 0;
         padding-left: 20px;
     }
+    
+    /* Room management styles */
+    .room-section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 2px dashed #dee2e6;
+    }
+    
+    .room-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .room-card:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .remove-room-btn {
+        transition: all 0.3s ease;
+    }
+    
+    .remove-room-btn:hover {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
 </style>
 {% endblock %}
 
@@ -73,7 +101,7 @@
                         <i class="fas fa-map-marked-alt fa-2x text-white"></i>
                     </div>
                     <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Map Location</h2>
-                    <p class="text-gray">Add a new hotel and select its location on the map</p>
+                    <p class="text-gray">Add a new hotel and manage its rooms</p>
                 </div>
                 
                 <!-- Display form errors -->
@@ -111,7 +139,7 @@
                     
                     <!-- Destination -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Destination *</label>
+                        <label class="form-label fw-bold" style="color: #2c3e50;">Location *</label>
                         {{ form.destination }}
                         {% if form.destination.errors %}
                         <div class="text-danger small">{{ form.destination.errors }}</div>
@@ -187,15 +215,10 @@
                         <div id="coordStatus" class="mt-2"></div>
                     </div>
                     
-                    <!-- Price and Rating -->
+                    <!-- REMOVED: Price field completely -->
+                    
+                    <!-- Rating and Category -->
                     <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold" style="color: #2c3e50;">Price Per Night (MMK) *</label>
-                            {{ form.price_per_night }}
-                            {% if form.price_per_night.errors %}
-                            <div class="text-danger small">{{ form.price_per_night.errors }}</div>
-                            {% endif %}
-                        </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold" style="color: #2c3e50;">Rating (0-5) *</label>
                             {{ form.rating }}
@@ -203,15 +226,15 @@
                             <div class="text-danger small">{{ form.rating.errors }}</div>
                             {% endif %}
                         </div>
-                    </div>
-                    
-                    <!-- Category -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
-                        {{ form.category }}
-                        {% if form.category.errors %}
-                        <div class="text-danger small">{{ form.category.errors }}</div>
-                        {% endif %}
+                        
+                        <!-- Category -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="color: #2c3e50;">Category *</label>
+                            {{ form.category }}
+                            {% if form.category.errors %}
+                            <div class="text-danger small">{{ form.category.errors }}</div>
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <!-- Amenities -->
@@ -250,12 +273,42 @@
                         </label>
                     </div>
                     
+                    <!-- Active Checkbox -->
+                    <div class="form-check mb-4">
+                        {{ form.is_active }}
+                        <label class="form-check-label fw-bold" style="color: #2c3e50;" for="{{ form.is_active.id_for_label }}">
+                            Active
+                        </label>
+                    </div>
+                    
+                    <!-- ===== ROOM MANAGEMENT SECTION ===== -->
+                    <div class="room-section">
+                        <h4 class="fw-bold mb-4" style="color: #2c3e50;">
+                            <i class="fas fa-bed me-2"></i>Add Rooms
+                        </h4>
+                        <p class="text-gray mb-3">Add rooms to this hotel. Each room's price is determined by its type.</p>
+                        
+                       
+                        <div id="roomsContainer">
+                            <!-- Rooms will be added here dynamically -->
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-outline-primary" id="addRoomBtn">
+                                    <i class="fas fa-plus me-2"></i>Add Room
+                                </button>
+                                <small class="text-muted ms-3">You can add multiple rooms</small>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{% url 'users:admin_hotels' %}" class="btn btn-outline-secondary me-md-2">
                             Cancel
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-plus me-2"></i>Add Hotel with Location
+                            <i class="fas fa-plus me-2"></i>Add Hotel with Rooms
                         </button>
                     </div>
                 </form>
@@ -263,6 +316,79 @@
         </div>
     </div>
 </div>
+
+<!-- Room Template (Hidden) -->
+<template id="roomTemplate">
+    <div class="room-card mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0 fw-bold">
+                <i class="fas fa-bed me-2"></i>Room <span class="room-number-placeholder"></span>
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-room-btn">
+                <i class="fas fa-trash me-1"></i>Remove
+            </button>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Room Number *</label>
+                <input type="text" class="form-control" name="room_number" 
+                       placeholder="e.g., 101, 102A" required>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Room Type *</label>
+                <select class="form-select" name="room_type" required>
+                    <option value="SINGLE">Single (1 person)</option>
+                    <option value="DOUBLE" selected>Double (2 persons)</option>
+                    <option value="TRIPLE">Triple (3 persons)</option>
+                    <option value="SUITE">Suite (4+ persons)</option>
+                </select>
+            </div>
+            <div class="col-md-2 mb-3">
+                <label class="form-label">Floor</label>
+                <input type="number" class="form-control" name="floor" 
+                       placeholder="Floor" min="1" value="1">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Custom Price (Optional)</label>
+                <input type="number" class="form-control" name="custom_price" 
+                       placeholder="Leave empty for default" step="1000">
+                <small class="text-muted">If empty, uses room type multiplier</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Bed Type</label>
+                <select class="form-select" name="bed_type">
+                    <option value="King">King</option>
+                    <option value="Queen">Queen</option>
+                    <option value="Double">Double</option>
+                    <option value="Twin">Twin</option>
+                    <option value="Single">Single</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Square Feet</label>
+                <input type="number" class="form-control" name="square_feet" 
+                       placeholder="e.g., 350">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Features (comma separated)</label>
+                <input type="text" class="form-control" name="features" 
+                       placeholder="e.g., sea view, balcony, wifi">
+            </div>
+            <div class="col-12">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="has_window" value="yes" checked>
+                    <label class="form-check-label">Has Window</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="has_balcony" value="yes">
+                    <label class="form-check-label">Has Balcony</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -274,6 +400,14 @@
         const longitudeField = document.getElementById('id_longitude');
         const coordStatus = document.getElementById('coordStatus');
         const hotelForm = document.getElementById('hotelForm');
+        
+        // Room management
+        const roomsContainer = document.getElementById('roomsContainer');
+        const addRoomBtn = document.getElementById('addRoomBtn');
+        const roomTemplate = document.getElementById('roomTemplate');
+        let roomCount = 0;
+        
+        // ========== COORDINATE FUNCTIONS ==========
         
         // Set coordinates button
         document.getElementById('btnSetCoords').addEventListener('click', function() {
@@ -298,7 +432,40 @@
             showCoordStatus('Coordinates set successfully!', 'success');
         });
         
-        // Form validation
+        // ========== ROOM MANAGEMENT FUNCTIONS ==========
+        
+        // Add room function
+        function addRoom() {
+            roomCount++;
+            
+            // Clone the template content
+            const template = roomTemplate.content.cloneNode(true);
+            
+            // Update room number placeholder
+            const roomNumberSpan = template.querySelector('.room-number-placeholder');
+            if (roomNumberSpan) {
+                roomNumberSpan.textContent = roomCount;
+            }
+            
+            // Add remove functionality
+            const removeBtn = template.querySelector('.remove-room-btn');
+            removeBtn.addEventListener('click', function() {
+                this.closest('.room-card').remove();
+                roomCount--;
+            });
+            
+            // Append to container
+            roomsContainer.appendChild(template);
+        }
+        
+        // Add first room by default (optional - remove if you want empty start)
+        addRoom();
+        
+        // Add room button click handler
+        addRoomBtn.addEventListener('click', addRoom);
+        
+        // ========== FORM VALIDATION ==========
+        
         hotelForm.addEventListener('submit', function(e) {
             // Check if coordinates are set
             if (!latitudeField.value || !longitudeField.value) {
@@ -315,10 +482,22 @@
                 return false;
             }
             
+            // Validate room numbers are filled for added rooms
+            const roomNumbers = document.querySelectorAll('input[name="room_number"]');
+            for (let i = 0; i < roomNumbers.length; i++) {
+                if (!roomNumbers[i].value.trim()) {
+                    e.preventDefault();
+                    alert('Please fill in all room numbers or remove empty room entries.');
+                    roomNumbers[i].focus();
+                    return false;
+                }
+            }
+            
             return true;
         });
         
-        // Helper functions
+        // ========== HELPER FUNCTIONS ==========
+        
         function isValidCoordinate(value, isLatitude) {
             const num = parseFloat(value);
             if (isNaN(num)) return false;
