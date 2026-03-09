@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
+from django.views.generic.base import RedirectView
 from users.views import admin_how_it_works as how_it_works
+from .views import ItineraryBuilderView, SaveItineraryView
 from .views import (
     PlanTripView,
     DashboardView,
@@ -105,4 +107,10 @@ urlpatterns = [
     path('get-available-rooms/<int:hotel_id>/', views.GetAvailableRoomsView.as_view(), name='get_available_rooms'),
     path('save-room-selection/<int:trip_id>/', views.SaveRoomSelectionView.as_view(), name='save_room_selection'),
     path('confirm-room-booking/<int:trip_id>/', views.ConfirmBookingView.as_view(), name='confirm_room_booking'),
+    path('trip/<int:trip_id>/itinerary-builder/', views.ItineraryBuilderView.as_view(), name='itinerary_builder'),
+    path('trip/<int:trip_id>/save-itinerary/', views.SaveItineraryView.as_view(), name='save_itinerary'),
+    path('trip/<int:trip_id>/plans/', RedirectView.as_view(pattern_name='planner:itinerary_builder', permanent=False), name='plan_selection'),
+    path('test-map/', lambda request: render(request, 'planner/test_map.html'), name='test_map'), 
+    path('trip/<int:trip_id>/itinerary-builder/', ItineraryBuilderView.as_view(), name='itinerary_builder'),
+    path('trip/<int:trip_id>/save-itinerary/', SaveItineraryView.as_view(), name='save_itinerary'),
 ]

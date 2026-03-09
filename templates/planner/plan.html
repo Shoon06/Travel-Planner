@@ -206,7 +206,7 @@
                     <!-- Continue Button -->
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg" id="continueBtn" {% if not selected_hotel_id or not selected_transport_id %}disabled{% endif %}>
-                            Continue to Plan Selection <i class="fas fa-arrow-right ms-2"></i>
+                            Build Your Itinerary <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
                 </form>
@@ -821,7 +821,8 @@ select.form-select option:checked {
                 
                 if (data.success && data.trip_id) {
                     // Success! Redirect to plan selection page
-                    window.location.href = `/planner/trip/${data.trip_id}/plans/`;
+                    // Success! Redirect to the new itinerary builder
+                    window.location.href = `/planner/trip/${data.trip_id}/itinerary-builder/`;
                 } else {
                     // Handle error
                     alert(data.error || 'An error occurred. Please try again.');

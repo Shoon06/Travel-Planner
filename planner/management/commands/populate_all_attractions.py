@@ -1,12 +1,11 @@
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\management\commands\populate_all_attractions.py
-
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 from planner.models import Destination
 import random
+from decimal import Decimal
 
 class Command(BaseCommand):
-    help = 'Populate attractions for all cities and towns with researched data'
+    help = 'Populate attractions for all cities and towns with researched data including coordinates'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS('Starting to populate attractions with researched data...'))
@@ -69,10 +68,15 @@ class Command(BaseCommand):
                         if 'features' in attr_data:
                             full_description += f"\nFeatures: {', '.join(attr_data['features'])}"
                         
-                        # NOTE: Photos will be added later through Django Admin
-                        # You can upload photos to each attraction after creation
+                        # Convert coordinates to Decimal if they exist
+                        lat = None
+                        lng = None
+                        if attr_data.get('latitude') is not None:
+                            lat = Decimal(str(attr_data['latitude']))
+                        if attr_data.get('longitude') is not None:
+                            lng = Decimal(str(attr_data['longitude']))
                         
-                        # Create the attraction
+                        # Create the attraction with coordinates
                         attraction = Destination.objects.create(
                             name=attr_data['name'],
                             type='attraction',
@@ -80,28 +84,62 @@ class Command(BaseCommand):
                             region=city.region,
                             parent=city,
                             is_region=False,
-                            is_active=True
+                            is_active=True,
+                            latitude=lat,
+                            longitude=lng
                         )
                         attractions_created += 1
-                        self.stdout.write(f"  ✅ Created: {attr_data['name']}")
-                        
-                        # Add placeholder comment for photos
-                        self.stdout.write(f"     📷 Add photos via Django Admin for: {attr_data['name']}")
+                        self.stdout.write(f"  ✅ Created: {attr_data['name']} with coordinates: {lat}, {lng}")
                     else:
-                        attractions_updated += 1
-                        self.stdout.write(f"  ⏩ Already exists: {attr_data['name']}")
+                        update_needed = False
+                        
+                        # Check if coordinates need update
+                        new_lat = attr_data.get('latitude')
+                        new_lng = attr_data.get('longitude')
+                        
+                        # Case 1: Missing coordinates in DB but available in data
+                        if (not existing.latitude or not existing.longitude) and (new_lat is not None and new_lng is not None):
+                            existing.latitude = Decimal(str(new_lat))
+                            existing.longitude = Decimal(str(new_lng))
+                            update_needed = True
+                            self.stdout.write(f"  🔄 Updated missing coordinates for: {attr_data['name']}")
+                        
+                        # Case 2: Coordinates exist but need correction (only if both exist)
+                        elif (existing.latitude and existing.longitude and 
+                              new_lat is not None and new_lng is not None):
+                            # Convert to float for comparison (handle Decimal vs float)
+                            try:
+                                existing_lat_float = float(existing.latitude)
+                                existing_lng_float = float(existing.longitude)
+                                
+                                if abs(existing_lat_float - new_lat) > 0.01 or abs(existing_lng_float - new_lng) > 0.01:
+                                    existing.latitude = Decimal(str(new_lat))
+                                    existing.longitude = Decimal(str(new_lng))
+                                    update_needed = True
+                                    self.stdout.write(f"  🔄 Corrected coordinates for: {attr_data['name']} ({existing_lat_float}->{new_lat}, {existing_lng_float}->{new_lng})")
+                            except (ValueError, TypeError):
+                                # If conversion fails, just update
+                                existing.latitude = Decimal(str(new_lat))
+                                existing.longitude = Decimal(str(new_lng))
+                                update_needed = True
+                                self.stdout.write(f"  🔄 Updated coordinates for: {attr_data['name']}")
+                        
+                        if update_needed:
+                            existing.save()
+                            attractions_updated += 1
+                        else:
+                            self.stdout.write(f"  ⏩ Already exists with correct coordinates: {attr_data['name']}")
             else:
                 self.stdout.write(f"  ⚠️ No attractions data available for {city.name}")
         
         # Summary
         self.stdout.write(self.style.SUCCESS(f"\n{'='*50}"))
-        self.stdout.write(self.style.SUCCESS(f"COMPLETE: {attractions_created} attractions created, {attractions_updated} already existed"))
+        self.stdout.write(self.style.SUCCESS(f"COMPLETE: {attractions_created} attractions created"))
+        self.stdout.write(self.style.SUCCESS(f"         {attractions_updated} attractions updated"))
         self.stdout.write(self.style.SUCCESS(f"\n📷 To add photos:"))
         self.stdout.write(self.style.SUCCESS(f"   1. Go to Django Admin: http://127.0.0.1:8000/admin/"))
         self.stdout.write(self.style.SUCCESS(f"   2. Click on 'Destinations'"))
-        self.stdout.write(self.style.SUCCESS(f"   3. Find each attraction and upload photos to:"))
-        self.stdout.write(self.style.SUCCESS(f"      - Main Image: main_image"))
-        self.stdout.write(self.style.SUCCESS(f"      - Gallery Images: gallery_image1 to gallery_image4"))
+        self.stdout.write(self.style.SUCCESS(f"   3. Find each attraction and upload photos"))
         self.stdout.write(f"{'='*50}")
     
     def get_attractions_for_city(self, city):
@@ -134,7 +172,7 @@ class Command(BaseCommand):
             'cultural_center': ['Cultural', 'Traditional', 'Performances', 'Art']
         }
         
-        # Complete attractions database based on your researched data
+        # Complete attractions database with CORRECTED coordinates
         attractions_db = {
             # 1. AMARAPURA
             'amarapura': [
@@ -145,7 +183,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 523,
                     'entry_fee': 'Free entry',
-                    'distance': 'Central Amarapura'
+                    'distance': 'Central Amarapura',
+                    'latitude': 21.8919,
+                    'longitude': 96.0558
                 },
                 {
                     'name': 'Maha Gandhayon Monastery',
@@ -154,7 +194,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from U Bein Bridge'
+                    'distance': '1km from U Bein Bridge',
+                    'latitude': 21.8925,
+                    'longitude': 96.0565
                 },
                 {
                     'name': 'Bagaya Monastery',
@@ -163,7 +205,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 87,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.8930,
+                    'longitude': 96.0570
                 },
                 {
                     'name': 'Taungthaman Lake',
@@ -172,7 +216,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 156,
                     'entry_fee': 'Free entry',
-                    'distance': 'Adjacent to U Bein Bridge'
+                    'distance': 'Adjacent to U Bein Bridge',
+                    'latitude': 21.8905,
+                    'longitude': 96.0545
                 },
                 {
                     'name': 'Kyauktawgyi Pagoda',
@@ -181,7 +227,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '1.5km from downtown'
+                    'distance': '1.5km from downtown',
+                    'latitude': 21.8940,
+                    'longitude': 96.0580
                 }
             ],
             
@@ -194,7 +242,9 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 856,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Central Bagan'
+                    'distance': 'Central Bagan',
+                    'latitude': 21.1708,
+                    'longitude': 94.8683
                 },
                 {
                     'name': 'Shwezigon Pagoda',
@@ -203,7 +253,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 567,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Nyaung U'
+                    'distance': 'Nyaung U',
+                    'latitude': 21.1917,
+                    'longitude': 94.8875
                 },
                 {
                     'name': 'Dhammayangyi Temple',
@@ -212,7 +264,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 423,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Central Bagan'
+                    'distance': 'Central Bagan',
+                    'latitude': 21.1625,
+                    'longitude': 94.8736
                 },
                 {
                     'name': 'Sulamani Temple',
@@ -221,7 +275,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 345,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Central Bagan'
+                    'distance': 'Central Bagan',
+                    'latitude': 21.1667,
+                    'longitude': 94.8833
                 },
                 {
                     'name': 'Thatbyinnyu Temple',
@@ -230,7 +286,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 289,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Central Bagan'
+                    'distance': 'Central Bagan',
+                    'latitude': 21.1708,
+                    'longitude': 94.8639
                 },
                 {
                     'name': 'Htilominlo Temple',
@@ -239,7 +297,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 198,
                     'entry_fee': 'Included in Archaeological Zone pass',
-                    'distance': 'Central Bagan'
+                    'distance': 'Central Bagan',
+                    'latitude': 21.1750,
+                    'longitude': 94.8861
                 },
                 {
                     'name': 'Hot Air Balloon Ride over Bagan',
@@ -248,7 +308,9 @@ class Command(BaseCommand):
                     'rating': 5.0,
                     'review_count': 1243,
                     'entry_fee': '$320-380 per person',
-                    'distance': 'Various launch sites'
+                    'distance': 'Various launch sites',
+                    'latitude': 21.1667,
+                    'longitude': 94.8667
                 }
             ],
             
@@ -261,7 +323,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 17.3369,
+                    'longitude': 96.4795
                 },
                 {
                     'name': 'Shwethalyaung Buddha',
@@ -270,7 +334,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 312,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 17.3350,
+                    'longitude': 96.4800
                 },
                 {
                     'name': 'Kyaik Pun Pagoda',
@@ -279,7 +345,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 167,
                     'entry_fee': 'Free entry',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 17.3400,
+                    'longitude': 96.4850
                 },
                 {
                     'name': 'Kanbawzathadi Palace',
@@ -288,7 +356,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 98,
                     'entry_fee': '5,000 MMK',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 17.3375,
+                    'longitude': 96.4815
                 },
                 {
                     'name': 'Mahazedi Pagoda',
@@ -297,7 +367,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 76,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 17.3360,
+                    'longitude': 96.4820
                 }
             ],
             
@@ -310,7 +382,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 45,
                     'entry_fee': '5,000 MMK',
-                    'distance': '15km from town'
+                    'distance': '15km from town',
+                    'latitude': 16.0333,
+                    'longitude': 95.3833
                 },
                 {
                     'name': 'Ga Do Ga Ni Village',
@@ -319,7 +393,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '10km from town'
+                    'distance': '10km from town',
+                    'latitude': 16.0350,
+                    'longitude': 95.3850
                 },
                 {
                     'name': 'Natchaung Bridge & Seikma Bridge',
@@ -328,7 +404,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from town'
+                    'distance': '5km from town',
+                    'latitude': 16.0360,
+                    'longitude': 95.3860
                 }
             ],
             
@@ -341,7 +419,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 87,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 14.0833,
+                    'longitude': 98.1833
                 },
                 {
                     'name': 'Shin Maw Pagoda',
@@ -350,7 +430,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '16km from downtown'
+                    'distance': '16km from downtown',
+                    'latitude': 14.0825,
+                    'longitude': 98.1838
                 },
                 {
                     'name': 'Grandfather Beach',
@@ -359,7 +441,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '18km from downtown'
+                    'distance': '18km from downtown',
+                    'latitude': 14.0820,
+                    'longitude': 98.1840
                 },
                 {
                     'name': 'Myaw Yit Pagoda',
@@ -368,7 +452,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 14.0850,
+                    'longitude': 98.1850
                 },
                 {
                     'name': 'Lawka Tharaphu Pagoda',
@@ -377,7 +463,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 14.0865,
+                    'longitude': 98.1865
                 },
                 {
                     'name': 'Nabule Beach',
@@ -386,7 +474,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 14.0815,
+                    'longitude': 98.1870
                 },
                 {
                     'name': 'Pa Nyit Beach',
@@ -395,7 +485,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '22km from downtown'
+                    'distance': '22km from downtown',
+                    'latitude': 14.0805,
+                    'longitude': 98.1880
                 },
                 {
                     'name': 'Tizit Beach',
@@ -404,7 +496,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '20km from downtown'
+                    'distance': '20km from downtown',
+                    'latitude': 14.0795,
+                    'longitude': 98.1890
                 },
                 {
                     'name': 'Shwe Taung Zar Pagoda',
@@ -413,7 +507,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 14.0875,
+                    'longitude': 98.1900
                 },
                 {
                     'name': 'Sandawshin Pagoda Tavoy',
@@ -422,7 +518,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 14.0885,
+                    'longitude': 98.1910
                 }
             ],
             
@@ -435,7 +533,9 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 134,
                     'entry_fee': 'Free entry',
-                    'distance': '60km from Hakha'
+                    'distance': '60km from Hakha',
+                    'latitude': 21.2333,
+                    'longitude': 93.9167
                 },
                 {
                     'name': 'Chin State Cultural Museum',
@@ -444,7 +544,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 89,
                     'entry_fee': '3,000 MMK',
-                    'distance': 'Downtown Hakha'
+                    'distance': 'Downtown Hakha',
+                    'latitude': 22.6500,
+                    'longitude': 93.6167
                 },
                 {
                     'name': 'Rik Lake (Rih Dil)',
@@ -453,7 +555,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 112,
                     'entry_fee': 'Free entry',
-                    'distance': '80km from Hakha'
+                    'distance': '80km from Hakha',
+                    'latitude': 23.2833,
+                    'longitude': 93.7333
                 },
                 {
                     'name': 'Mount Zion (Zion Tlang)',
@@ -462,7 +566,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 22.6510,
+                    'longitude': 93.6170
                 },
                 {
                     'name': 'Bungtla Waterfall',
@@ -471,7 +577,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '40km from Hakha'
+                    'distance': '40km from Hakha',
+                    'latitude': 22.6520,
+                    'longitude': 93.6180
                 },
                 {
                     'name': 'Hiking the Chin Hills',
@@ -480,7 +588,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 156,
                     'entry_fee': 'Guide fees vary',
-                    'distance': 'Various starting points'
+                    'distance': 'Various starting points',
+                    'latitude': 22.6530,
+                    'longitude': 93.6190
                 }
             ],
             
@@ -493,7 +603,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from airport'
+                    'distance': '2km from airport',
+                    'latitude': 20.7333,
+                    'longitude': 96.7833
                 },
                 {
                     'name': 'Inle Lake',
@@ -502,7 +614,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 1243,
                     'entry_fee': '12,500 MMK',
-                    'distance': '30km from Heho'
+                    'distance': '30km from Heho',
+                    'latitude': 20.5500,
+                    'longitude': 96.9167
                 },
                 {
                     'name': 'Pindaya Caves',
@@ -511,7 +625,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': '5,000 MMK',
-                    'distance': '45km from Heho'
+                    'distance': '45km from Heho',
+                    'latitude': 20.9333,
+                    'longitude': 96.6667
                 }
             ],
             
@@ -524,7 +640,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 17.6500,
+                    'longitude': 95.4667
                 },
                 {
                     'name': 'Kyauk Taw Gyi Monastery',
@@ -533,7 +651,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 17.6510,
+                    'longitude': 95.4670
                 },
                 {
                     'name': 'Hinthada Kayin Baptist Church',
@@ -542,7 +662,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 15,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 17.6520,
+                    'longitude': 95.4680
                 }
             ],
             
@@ -555,7 +677,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 156,
                     'entry_fee': '3,000 MMK',
-                    'distance': '5km from Hmawbi'
+                    'distance': '5km from Hmawbi',
+                    'latitude': 17.0833,
+                    'longitude': 96.0667
                 },
                 {
                     'name': 'Allied War Cemetery (Hmawbi)',
@@ -564,7 +688,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from Hmawbi'
+                    'distance': '3km from Hmawbi',
+                    'latitude': 17.0840,
+                    'longitude': 96.0670
                 },
                 {
                     'name': 'Hmawbi Market',
@@ -573,7 +699,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 17.0850,
+                    'longitude': 96.0680
                 }
             ],
             
@@ -586,7 +714,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 16.8833,
+                    'longitude': 97.6333
                 },
                 {
                     'name': 'Saddan Cave',
@@ -595,7 +725,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 178,
                     'entry_fee': '2,000 MMK',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 16.8850,
+                    'longitude': 97.6350
                 },
                 {
                     'name': 'Kawgun Cave',
@@ -604,7 +736,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 145,
                     'entry_fee': '2,000 MMK',
-                    'distance': '10km from downtown'
+                    'distance': '10km from downtown',
+                    'latitude': 16.8900,
+                    'longitude': 97.6400
                 },
                 {
                     'name': 'Kyauk Kalap Pagoda',
@@ -613,7 +747,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 312,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.8860,
+                    'longitude': 97.6360
                 },
                 {
                     'name': 'Bat Cave',
@@ -622,7 +758,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 167,
                     'entry_fee': 'Free entry',
-                    'distance': '12km from downtown'
+                    'distance': '12km from downtown',
+                    'latitude': 16.8870,
+                    'longitude': 97.6370
                 }
             ],
             
@@ -635,7 +773,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 134,
                     'entry_fee': '3,000 MMK',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 22.6167,
+                    'longitude': 97.3000
                 },
                 {
                     'name': 'Little Bagan (Myauk Myo)',
@@ -644,7 +784,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 22.6170,
+                    'longitude': 97.3010
                 },
                 {
                     'name': 'Bawgyo Pagoda',
@@ -653,7 +795,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 22.6180,
+                    'longitude': 97.3020
                 },
                 {
                     'name': 'Madahya Monastery',
@@ -662,7 +806,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 22.6190,
+                    'longitude': 97.3030
                 },
                 {
                     'name': 'Bamboo Buddha Monastery (Maha Nanda Kantha)',
@@ -671,7 +817,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 22.6200,
+                    'longitude': 97.3040
                 },
                 {
                     'name': 'Hsipaw Nam-Doke Waterfall',
@@ -680,7 +828,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 78,
                     'entry_fee': '2,000 MMK',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 22.6210,
+                    'longitude': 97.3050
                 },
                 {
                     'name': 'Hsipaw Hot Springs',
@@ -689,11 +839,13 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 56,
                     'entry_fee': '2,000 MMK',
-                    'distance': '12km from downtown'
+                    'distance': '12km from downtown',
+                    'latitude': 22.6220,
+                    'longitude': 97.3060
                 }
             ],
             
-            # 12. KALAW
+            # 12. KALAW - COMPLETELY CORRECTED COORDINATES
             'kalaw': [
                 {
                     'name': 'FairyLand Kalaw',
@@ -702,7 +854,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.6345,
+                    'longitude': 96.5567
                 },
                 {
                     'name': 'Green Hill Valley Elephant Camp',
@@ -711,7 +865,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 145,
                     'entry_fee': '20,000 MMK',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 20.6285,
+                    'longitude': 96.5480
                 },
                 {
                     'name': 'Hnee Pagoda',
@@ -720,7 +876,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.6390,
+                    'longitude': 96.5610
                 },
                 {
                     'name': 'Kalaw City View',
@@ -729,7 +887,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.6375,
+                    'longitude': 96.5585
                 },
                 {
                     'name': 'Kalaw Clock Tower',
@@ -738,7 +898,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.6348,
+                    'longitude': 96.5565
                 },
                 {
                     'name': 'Kalaw Myoma Market',
@@ -747,7 +909,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.6352,
+                    'longitude': 96.5568
                 },
                 {
                     'name': 'Kalaw Railway Station',
@@ -756,7 +920,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.6358,
+                    'longitude': 96.5575
                 },
                 {
                     'name': 'Shwe Oo Min Pagoda (Natural Cave)',
@@ -765,7 +931,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 123,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.6410,
+                    'longitude': 96.5630
                 },
                 {
                     'name': 'Thein Taung Pagoda Monastery',
@@ -774,7 +942,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 20.6425,
+                    'longitude': 96.5645
                 },
                 {
                     'name': 'Byite Mountain (ဗျိုက်တောင်)',
@@ -783,7 +953,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '6km from downtown'
+                    'distance': '6km from downtown',
+                    'latitude': 20.6450,
+                    'longitude': 96.5680
                 }
             ],
             
@@ -796,7 +968,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '40km from downtown'
+                    'distance': '40km from downtown',
+                    'latitude': 23.1833,
+                    'longitude': 94.0500
                 },
                 {
                     'name': 'Tahan Market',
@@ -805,7 +979,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 23.1840,
+                    'longitude': 94.0510
                 },
                 {
                     'name': 'Taungphila Hill',
@@ -814,7 +990,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 23.1850,
+                    'longitude': 94.0520
                 },
                 {
                     'name': 'Myatheintan Pagoda',
@@ -823,7 +1001,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 23.1860,
+                    'longitude': 94.0530
                 },
                 {
                     'name': 'Thang Pagoda',
@@ -832,7 +1012,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 23.1870,
+                    'longitude': 94.0540
                 },
                 {
                     'name': 'Myitsone & Panmon Creek',
@@ -841,7 +1023,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 15,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 23.1880,
+                    'longitude': 94.0550
                 },
                 {
                     'name': 'Manipura Dam',
@@ -850,7 +1034,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 23.1890,
+                    'longitude': 94.0560
                 },
                 {
                     'name': 'Hand Washing Lake',
@@ -859,7 +1045,9 @@ class Command(BaseCommand):
                     'rating': 3.9,
                     'review_count': 8,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 23.1900,
+                    'longitude': 94.0570
                 }
             ],
             
@@ -872,7 +1060,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 67,
                     'entry_fee': 'Boat trip required',
-                    'distance': '30 minutes by boat'
+                    'distance': '30 minutes by boat',
+                    'latitude': 9.9833,
+                    'longitude': 98.5500
                 },
                 {
                     'name': 'Cockburn Island (Kanae Island)',
@@ -881,7 +1071,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 45,
                     'entry_fee': 'Boat trip required',
-                    'distance': '45 minutes by boat'
+                    'distance': '45 minutes by boat',
+                    'latitude': 9.9840,
+                    'longitude': 98.5510
                 },
                 {
                     'name': 'Parker Beach',
@@ -890,7 +1082,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '20 minutes by boat'
+                    'distance': '20 minutes by boat',
+                    'latitude': 9.9850,
+                    'longitude': 98.5520
                 },
                 {
                     'name': 'ZedetkyiKyun Island',
@@ -899,7 +1093,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 23,
                     'entry_fee': 'Boat trip required',
-                    'distance': '1 hour by boat'
+                    'distance': '1 hour by boat',
+                    'latitude': 9.9860,
+                    'longitude': 98.5530
                 },
                 {
                     'name': 'Maliwun Waterfall',
@@ -908,7 +1104,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 29,
                     'entry_fee': '2,000 MMK',
-                    'distance': '25km from town'
+                    'distance': '25km from town',
+                    'latitude': 9.9870,
+                    'longitude': 98.5540
                 },
                 {
                     'name': 'Third Mile Pagoda (Pyi Daw Aye Pagoda)',
@@ -917,7 +1115,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 9.9880,
+                    'longitude': 98.5550
                 }
             ],
             
@@ -930,7 +1130,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 23,
                     'entry_fee': 'Boat trip required',
-                    'distance': 'Boat from Labutta'
+                    'distance': 'Boat from Labutta',
+                    'latitude': 16.1333,
+                    'longitude': 94.7167
                 },
                 {
                     'name': 'Meinmahla Kyun Wildlife Sanctuary',
@@ -939,7 +1141,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 34,
                     'entry_fee': '5,000 MMK',
-                    'distance': '20km from town'
+                    'distance': '20km from town',
+                    'latitude': 16.1340,
+                    'longitude': 94.7170
                 },
                 {
                     'name': 'Yway River',
@@ -948,7 +1152,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 15,
                     'entry_fee': 'Free entry',
-                    'distance': 'Adjacent to town'
+                    'distance': 'Adjacent to town',
+                    'latitude': 16.1350,
+                    'longitude': 94.7180
                 }
             ],
             
@@ -961,7 +1167,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 17.7833,
+                    'longitude': 95.7500
                 },
                 {
                     'name': 'Letpadan Public Park',
@@ -970,7 +1178,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 17.7840,
+                    'longitude': 95.7510
                 }
             ],
             
@@ -983,7 +1193,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 134,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 19.6667,
+                    'longitude': 97.2000
                 },
                 {
                     'name': 'Kayah State Cultural Museum',
@@ -992,7 +1204,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 67,
                     'entry_fee': '3,000 MMK',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 19.6670,
+                    'longitude': 97.2010
                 },
                 {
                     'name': 'Pan Pat Villages',
@@ -1001,7 +1215,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 19.6680,
+                    'longitude': 97.2020
                 },
                 {
                     'name': 'Ngwe Taung Dam',
@@ -1010,7 +1226,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 19.6690,
+                    'longitude': 97.2030
                 },
                 {
                     'name': 'Pilu River',
@@ -1019,7 +1237,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 19.6700,
+                    'longitude': 97.2040
                 }
             ],
             
@@ -1032,7 +1252,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.1500,
+                    'longitude': 94.9167
                 },
                 {
                     'name': 'Yokesone Monastery',
@@ -1041,7 +1263,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.1510,
+                    'longitude': 94.9170
                 },
                 {
                     'name': 'Fort Min Hla',
@@ -1050,7 +1274,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 20.1520,
+                    'longitude': 94.9180
                 },
                 {
                     'name': 'Salay House',
@@ -1059,7 +1285,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 15,
                     'entry_fee': '2,000 MMK',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 20.1530,
+                    'longitude': 94.9190
                 },
                 {
                     'name': 'Tantkyi Taung Pagoda',
@@ -1068,11 +1296,13 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 20.1540,
+                    'longitude': 94.9200
                 }
             ],
             
-            # 19. MANDALAY
+            # 19. MANDALAY - COMPLETELY CORRECTED COORDINATES
             'mandalay': [
                 {
                     'name': 'Mandalay Palace',
@@ -1081,7 +1311,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 567,
                     'entry_fee': '10,000 MMK',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.9929,
+                    'longitude': 96.0961
                 },
                 {
                     'name': 'Mandalay Hill',
@@ -1090,7 +1322,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 789,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 22.0130,
+                    'longitude': 96.1090
                 },
                 {
                     'name': 'Kuthodaw Pagoda',
@@ -1099,7 +1333,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 456,
                     'entry_fee': '5,000 MMK',
-                    'distance': '2.5km from downtown'
+                    'distance': '2.5km from downtown',
+                    'latitude': 22.0047,
+                    'longitude': 96.1129
                 },
                 {
                     'name': 'Mahamuni Buddha Temple',
@@ -1108,7 +1344,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 678,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 21.9518,
+                    'longitude': 96.0785
                 },
                 {
                     'name': 'Shwenandaw Monastery',
@@ -1117,7 +1355,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 234,
                     'entry_fee': '5,000 MMK',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 22.0006,
+                    'longitude': 96.1138
                 },
                 {
                     'name': 'Zegyo Market',
@@ -1126,7 +1366,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 189,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 21.9825,
+                    'longitude': 96.0772
                 },
                 {
                     'name': 'U Bein Bridge',
@@ -1135,7 +1377,9 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 912,
                     'entry_fee': 'Free entry',
-                    'distance': '11km from downtown'
+                    'distance': '11km from downtown',
+                    'latitude': 21.8916,
+                    'longitude': 96.0578
                 }
             ],
             
@@ -1148,7 +1392,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.4833,
+                    'longitude': 97.6167
                 },
                 {
                     'name': 'Win Sein Taw Ya',
@@ -1157,7 +1403,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 312,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 16.4840,
+                    'longitude': 97.6170
                 },
                 {
                     'name': 'Santawshin Pagoda',
@@ -1166,7 +1414,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.4850,
+                    'longitude': 97.6180
                 },
                 {
                     'name': 'The Death Railway Museum',
@@ -1175,7 +1425,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 145,
                     'entry_fee': '3,000 MMK',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 16.4860,
+                    'longitude': 97.6190
                 },
                 {
                     'name': 'Nwa La Bo Pagoda',
@@ -1184,7 +1436,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 16.4870,
+                    'longitude': 97.6200
                 }
             ],
             
@@ -1197,7 +1451,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.8667,
+                    'longitude': 95.8667
                 },
                 {
                     'name': 'Kyaung Daw Pagoda',
@@ -1206,7 +1462,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.8670,
+                    'longitude': 95.8670
                 },
                 {
                     'name': 'General Aung San Park',
@@ -1215,7 +1473,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.8680,
+                    'longitude': 95.8680
                 },
                 {
                     'name': 'Shwe Myin Tin Pagoda',
@@ -1224,7 +1484,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.8690,
+                    'longitude': 95.8690
                 },
                 {
                     'name': 'Nagayon Pagoda',
@@ -1233,7 +1495,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 19,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.8700,
+                    'longitude': 95.8700
                 },
                 {
                     'name': 'Dhamma Thukha Shwezigon Pagoda',
@@ -1242,7 +1506,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 21,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 20.8710,
+                    'longitude': 95.8710
                 }
             ],
             
@@ -1255,7 +1521,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 22.1000,
+                    'longitude': 95.1333
                 },
                 {
                     'name': 'Bodhi Tataung',
@@ -1264,7 +1532,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 278,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 22.1010,
+                    'longitude': 95.1340
                 },
                 {
                     'name': 'Pho Win Taung',
@@ -1273,7 +1543,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 156,
                     'entry_fee': 'Free entry',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 22.1020,
+                    'longitude': 95.1350
                 }
             ],
             
@@ -1286,7 +1558,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 234,
                     'entry_fee': 'Combined pass 10,000 MMK',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.6000,
+                    'longitude': 93.2000
                 },
                 {
                     'name': 'Htukkanthein Temple',
@@ -1295,7 +1569,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 167,
                     'entry_fee': 'Included in pass',
-                    'distance': '1.5km from downtown'
+                    'distance': '1.5km from downtown',
+                    'latitude': 20.6010,
+                    'longitude': 93.2010
                 },
                 {
                     'name': 'Andaw-thein Ordination Hall',
@@ -1304,7 +1580,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 98,
                     'entry_fee': 'Included in pass',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.6020,
+                    'longitude': 93.2020
                 },
                 {
                     'name': 'Koe-Thaung Temple',
@@ -1313,7 +1591,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 123,
                     'entry_fee': 'Included in pass',
-                    'distance': '1.5km from downtown'
+                    'distance': '1.5km from downtown',
+                    'latitude': 20.6030,
+                    'longitude': 93.2030
                 },
                 {
                     'name': 'Laymyetnha Paya',
@@ -1322,7 +1602,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 56,
                     'entry_fee': 'Included in pass',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.6040,
+                    'longitude': 93.2040
                 },
                 {
                     'name': 'Longban Pyak Pagoda',
@@ -1331,7 +1613,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 45,
                     'entry_fee': 'Included in pass',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.6050,
+                    'longitude': 93.2050
                 },
                 {
                     'name': 'Vesali Village',
@@ -1340,7 +1624,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from Mrauk U'
+                    'distance': '8km from Mrauk U',
+                    'latitude': 20.6060,
+                    'longitude': 93.2060
                 }
             ],
             
@@ -1353,7 +1639,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 16.5833,
+                    'longitude': 94.9333
                 },
                 {
                     'name': 'Kabalone Pagoda',
@@ -1362,7 +1650,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 16.5840,
+                    'longitude': 94.9340
                 },
                 {
                     'name': 'Shwe Thalyaung Pagoda',
@@ -1371,7 +1661,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 16.5850,
+                    'longitude': 94.9350
                 },
                 {
                     'name': 'Tawatain Tha Pagoda',
@@ -1380,7 +1672,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 16.5860,
+                    'longitude': 94.9360
                 },
                 {
                     'name': 'Shwe Boddhaw Pagoda',
@@ -1389,7 +1683,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 21,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.5870,
+                    'longitude': 94.9370
                 },
                 {
                     'name': 'Mya Kan Thar Park',
@@ -1398,7 +1694,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': '1,000 MMK',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.5880,
+                    'longitude': 94.9380
                 },
                 {
                     'name': 'Bo Gyoke Aung San Park',
@@ -1407,7 +1705,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 15,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.5890,
+                    'longitude': 94.9390
                 },
                 {
                     'name': 'Dee Dote U Ba Cho Park',
@@ -1416,7 +1716,9 @@ class Command(BaseCommand):
                     'rating': 3.9,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.5900,
+                    'longitude': 94.9400
                 }
             ],
             
@@ -1429,7 +1731,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 12.4333,
+                    'longitude': 98.6000
                 },
                 {
                     'name': 'Harris Island',
@@ -1438,7 +1742,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 67,
                     'entry_fee': 'Boat trip required',
-                    'distance': '30 minutes by boat'
+                    'distance': '30 minutes by boat',
+                    'latitude': 12.4340,
+                    'longitude': 98.6010
                 },
                 {
                     'name': 'Frost Island',
@@ -1447,7 +1753,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 56,
                     'entry_fee': 'Boat trip required',
-                    'distance': '45 minutes by boat'
+                    'distance': '45 minutes by boat',
+                    'latitude': 12.4350,
+                    'longitude': 98.6020
                 },
                 {
                     'name': 'Phi Lar Island',
@@ -1456,7 +1764,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 49,
                     'entry_fee': 'Boat trip required',
-                    'distance': '1 hour by boat'
+                    'distance': '1 hour by boat',
+                    'latitude': 12.4360,
+                    'longitude': 98.6030
                 },
                 {
                     'name': 'Lampi Island',
@@ -1465,7 +1775,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 78,
                     'entry_fee': 'Boat trip required',
-                    'distance': '2 hours by boat'
+                    'distance': '2 hours by boat',
+                    'latitude': 12.4370,
+                    'longitude': 98.6040
                 },
                 {
                     'name': 'Nyaung Wee Island',
@@ -1474,7 +1786,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 56,
                     'entry_fee': 'Boat trip required',
-                    'distance': '1.5 hours by boat'
+                    'distance': '1.5 hours by boat',
+                    'latitude': 12.4380,
+                    'longitude': 98.6050
                 }
             ],
             
@@ -1487,7 +1801,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 156,
                     'entry_fee': 'Free entry',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 25.3833,
+                    'longitude': 97.4000
                 },
                 {
                     'name': 'Kachin National Manau Park',
@@ -1496,7 +1812,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 25.3840,
+                    'longitude': 97.4010
                 },
                 {
                     'name': 'Hsu Taung Pye Zedidaw Pagoda',
@@ -1505,7 +1823,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 25.3850,
+                    'longitude': 97.4020
                 },
                 {
                     'name': 'Kachin State Cultural Museum',
@@ -1514,7 +1834,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 56,
                     'entry_fee': '3,000 MMK',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 25.3860,
+                    'longitude': 97.4030
                 },
                 {
                     'name': 'Sri Saraswati Temple',
@@ -1523,7 +1845,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 25.3870,
+                    'longitude': 97.4040
                 },
                 {
                     'name': 'Geis Memorial Church',
@@ -1532,7 +1856,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 25.3880,
+                    'longitude': 97.4050
                 },
                 {
                     'name': 'Irrawaddy Riverbank',
@@ -1541,11 +1867,13 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 25.3890,
+                    'longitude': 97.4060
                 }
             ],
             
-            # 27. NAYPYIDAW
+            # 27. NAYPYIDAW - COMPLETELY CORRECTED COORDINATES
             'naypyidaw': [
                 {
                     'name': 'Uppatasanti Pagoda',
@@ -1554,7 +1882,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 19.7811,
+                    'longitude': 96.1722
                 },
                 {
                     'name': 'Gem Museum',
@@ -1563,7 +1893,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 178,
                     'entry_fee': '5,000 MMK',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 19.7885,
+                    'longitude': 96.1345
                 },
                 {
                     'name': 'Nay Pyi Taw Zoological Garden',
@@ -1572,7 +1904,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 234,
                     'entry_fee': '5,000 MMK',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 19.7928,
+                    'longitude': 96.1489
                 },
                 {
                     'name': 'National Landmark Garden',
@@ -1581,7 +1915,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 156,
                     'entry_fee': '3,000 MMK',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 19.7856,
+                    'longitude': 96.1402
                 },
                 {
                     'name': 'National Herbal Park',
@@ -1590,7 +1926,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '6km from downtown'
+                    'distance': '6km from downtown',
+                    'latitude': 19.7795,
+                    'longitude': 96.1558
                 },
                 {
                     'name': 'Water Fountain Garden',
@@ -1599,7 +1937,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 167,
                     'entry_fee': '2,000 MMK',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 19.7722,
+                    'longitude': 96.1250
                 },
                 {
                     'name': 'Nay Pyi Taw Safari Park',
@@ -1608,7 +1948,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 112,
                     'entry_fee': '5,000 MMK',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 19.8205,
+                    'longitude': 96.1950
                 },
                 {
                     'name': 'Thapyaygone Market',
@@ -1617,7 +1959,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 19.7658,
+                    'longitude': 96.1125
                 }
             ],
             
@@ -1630,7 +1974,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 17.9500,
+                    'longitude': 96.6333
                 }
             ],
             
@@ -1643,7 +1989,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.3333,
+                    'longitude': 95.0833
                 },
                 {
                     'name': 'Thi Ho Shin Pagoda',
@@ -1652,7 +2000,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.3340,
+                    'longitude': 95.0840
                 },
                 {
                     'name': 'Pakhangyi Archaeological Museum',
@@ -1661,7 +2011,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 34,
                     'entry_fee': '2,000 MMK',
-                    'distance': '10km from downtown'
+                    'distance': '10km from downtown',
+                    'latitude': 21.3350,
+                    'longitude': 95.0850
                 },
                 {
                     'name': 'Shin-ma-taung Hill',
@@ -1670,7 +2022,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 21.3360,
+                    'longitude': 95.0860
                 }
             ],
             
@@ -1683,7 +2037,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.7833,
+                    'longitude': 94.7333
                 },
                 {
                     'name': 'Ngwe Saung Beach',
@@ -1692,7 +2048,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '48km from Pathein'
+                    'distance': '48km from Pathein',
+                    'latitude': 16.9500,
+                    'longitude': 94.3833
                 },
                 {
                     'name': 'Shwe Sar Umbrella Workshop',
@@ -1701,7 +2059,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.7840,
+                    'longitude': 94.7340
                 },
                 {
                     'name': 'Gaw Yin Gyi Island',
@@ -1710,7 +2070,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Boat trip required',
-                    'distance': 'Boat from Pathein'
+                    'distance': 'Boat from Pathein',
+                    'latitude': 16.7850,
+                    'longitude': 94.7350
                 },
                 {
                     'name': 'Chaung Thar Beach',
@@ -1719,7 +2081,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '55km from Pathein'
+                    'distance': '55km from Pathein',
+                    'latitude': 16.9500,
+                    'longitude': 94.4500
                 }
             ],
             
@@ -1732,7 +2096,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 18.4833,
+                    'longitude': 95.5000
                 },
                 {
                     'name': 'Min Lak Yar Pagoda',
@@ -1741,7 +2107,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 18.4840,
+                    'longitude': 95.5010
                 },
                 {
                     'name': 'Nyein Chan Shwe Ti Public Park',
@@ -1750,7 +2118,9 @@ class Command(BaseCommand):
                     'rating': 3.9,
                     'review_count': 8,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 18.4850,
+                    'longitude': 95.5020
                 }
             ],
             
@@ -1763,7 +2133,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 234,
                     'entry_fee': '5,000 MMK',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 18.8167,
+                    'longitude': 95.2167
                 },
                 {
                     'name': 'Akauk Taung',
@@ -1772,7 +2144,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 167,
                     'entry_fee': '5,000 MMK',
-                    'distance': '12km from downtown'
+                    'distance': '12km from downtown',
+                    'latitude': 18.8170,
+                    'longitude': 95.2170
                 },
                 {
                     'name': 'Shwesandaw Paya',
@@ -1781,7 +2155,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 145,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.8180,
+                    'longitude': 95.2180
                 },
                 {
                     'name': 'Shwe Myet Man Paya (Shwemyethman Paya)',
@@ -1790,7 +2166,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 18.8190,
+                    'longitude': 95.2190
                 },
                 {
                     'name': 'Hmawza (Srikshetra) Archaeological Museum',
@@ -1799,7 +2177,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 89,
                     'entry_fee': '3,000 MMK',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 18.8200,
+                    'longitude': 95.2200
                 },
                 {
                     'name': 'Sehtatgyi Buddha',
@@ -1808,7 +2188,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.8210,
+                    'longitude': 95.2210
                 },
                 {
                     'name': 'Nawaday Bridge',
@@ -1817,7 +2199,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 18.8220,
+                    'longitude': 95.2220
                 },
                 {
                     'name': 'Thone Pan Hla',
@@ -1826,11 +2210,13 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 18.8230,
+                    'longitude': 95.2230
                 }
             ],
             
-            # 34. PYIN OO LWIN
+            # 34. PYIN OO LWIN - CORRECTED COORDINATES
             'pyin oo lwin': [
                 {
                     'name': 'National Kandawgyi Botanical Gardens',
@@ -1839,7 +2225,9 @@ class Command(BaseCommand):
                     'rating': 4.7,
                     'review_count': 456,
                     'entry_fee': '5,000 MMK',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 22.0355,
+                    'longitude': 96.4622
                 },
                 {
                     'name': 'Anisakan Falls (Dattawgyaik Waterfall)',
@@ -1848,7 +2236,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': '2,000 MMK',
-                    'distance': '12km from downtown'
+                    'distance': '12km from downtown',
+                    'latitude': 21.9865,
+                    'longitude': 96.4238
                 },
                 {
                     'name': 'Peik Chin Myaung Cave',
@@ -1857,7 +2247,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 189,
                     'entry_fee': '3,000 MMK',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 22.0605,
+                    'longitude': 96.4850
                 },
                 {
                     'name': 'Pwe Kauk Waterfalls (Hampshire Falls)',
@@ -1866,7 +2258,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 167,
                     'entry_fee': '2,000 MMK',
-                    'distance': '10km from downtown'
+                    'distance': '10km from downtown',
+                    'latitude': 22.0425,
+                    'longitude': 96.4805
                 },
                 {
                     'name': 'Purcell Tower',
@@ -1875,7 +2269,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 98,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 22.0328,
+                    'longitude': 96.4583
                 },
                 {
                     'name': 'Maha Ant Htoo Kan Thar Pagoda',
@@ -1884,7 +2280,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 22.0400,
+                    'longitude': 96.4650
                 },
                 {
                     'name': 'Chan Tak Buddhist Temple',
@@ -1893,7 +2291,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 22.0310,
+                    'longitude': 96.4575
                 }
             ],
             
@@ -1906,7 +2306,9 @@ class Command(BaseCommand):
                     'rating': 4.8,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.8833,
+                    'longitude': 95.9833
                 },
                 {
                     'name': 'Soon U Ponya Shin Pagoda',
@@ -1915,7 +2317,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.8840,
+                    'longitude': 95.9840
                 },
                 {
                     'name': 'U Min Thonze (30 Caves) Pagoda',
@@ -1924,7 +2328,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 189,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 21.8850,
+                    'longitude': 95.9850
                 },
                 {
                     'name': 'Kaunghmudaw Pagoda',
@@ -1933,7 +2339,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 167,
                     'entry_fee': 'Free entry',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 21.8860,
+                    'longitude': 95.9860
                 },
                 {
                     'name': 'Settawa Paya',
@@ -1942,7 +2350,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 21.8870,
+                    'longitude': 95.9870
                 },
                 {
                     'name': 'Tilawkaguru',
@@ -1951,7 +2361,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 21.8880,
+                    'longitude': 95.9880
                 }
             ],
             
@@ -1964,7 +2376,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': '5,000 MMK',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 22.5667,
+                    'longitude': 95.7000
                 },
                 {
                     'name': 'Maw Daw Myin Thar Pagoda',
@@ -1973,7 +2387,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 22.5670,
+                    'longitude': 95.7010
                 },
                 {
                     'name': 'Hanlin World Heritage Site',
@@ -1982,7 +2398,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 89,
                     'entry_fee': '5,000 MMK',
-                    'distance': '15km from downtown'
+                    'distance': '15km from downtown',
+                    'latitude': 22.5680,
+                    'longitude': 95.7020
                 }
             ],
             
@@ -1995,7 +2413,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 15,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 18.2833,
+                    'longitude': 96.9000
                 },
                 {
                     'name': 'Pyuntaza Lake',
@@ -2004,7 +2424,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.2840,
+                    'longitude': 96.9010
                 }
             ],
             
@@ -2017,7 +2439,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 112,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.1500,
+                    'longitude': 92.9000
                 },
                 {
                     'name': 'Law Ka Nandar Pagoda',
@@ -2026,7 +2450,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.1510,
+                    'longitude': 92.9010
                 },
                 {
                     'name': 'Rakhine State Cultural Museum',
@@ -2035,7 +2461,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': '3,000 MMK',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.1520,
+                    'longitude': 92.9020
                 },
                 {
                     'name': 'Buddhist Museum',
@@ -2044,7 +2472,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 45,
                     'entry_fee': '2,000 MMK',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.1530,
+                    'longitude': 92.9030
                 },
                 {
                     'name': 'Central Market & Fish Market',
@@ -2053,7 +2483,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.1540,
+                    'longitude': 92.9040
                 },
                 {
                     'name': 'Shwezedi Monastery',
@@ -2062,7 +2494,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.1550,
+                    'longitude': 92.9050
                 },
                 {
                     'name': 'Lay Shan Taung Lighthouse',
@@ -2071,7 +2505,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 45,
                     'entry_fee': 'Boat trip required',
-                    'distance': 'Boat from jetty'
+                    'distance': 'Boat from jetty',
+                    'latitude': 20.1560,
+                    'longitude': 92.9060
                 },
                 {
                     'name': 'Ahkyaib-daw Pagoda',
@@ -2080,7 +2516,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.1570,
+                    'longitude': 92.9070
                 }
             ],
             
@@ -2093,7 +2531,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.4333,
+                    'longitude': 99.8833
                 },
                 {
                     'name': 'Tachileik Market',
@@ -2102,7 +2542,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 112,
                     'entry_fee': 'Free entry',
-                    'distance': 'Downtown'
+                    'distance': 'Downtown',
+                    'latitude': 20.4340,
+                    'longitude': 99.8840
                 },
                 {
                     'name': 'Golden Triangle Viewpoint',
@@ -2111,12 +2553,25 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '15km from Tachileik'
+                    'distance': '15km from Tachileik',
+                    'latitude': 20.3500,
+                    'longitude': 100.0833
                 }
             ],
             
-            # 40. TAUNGGYI
+            # 40. TAUNGGYI (including Nyaung Shwe/Inle Lake attractions) - COMPLETELY CORRECTED COORDINATES
             'taunggyi': [
+                {
+                    'name': 'Inle Lake',
+                    'description': 'The second largest freshwater lake in Myanmar, famous for its unique leg-rowing fishermen, floating gardens, and stilt-house villages.',
+                    'features': ['Lake', 'Boat tours', 'Floating villages', 'Photography', 'Iconic leg-rowing fishermen', 'Floating tomato gardens', 'Stilt-house architecture', 'Traditional artisan workshops', 'Five-day rotating market', 'Migratory bird watching'],
+                    'rating': 4.8,
+                    'review_count': 15000,
+                    'entry_fee': '15,000 MMK (Inle Zone Fee for international visitors)',
+                    'distance': 'Located in Nyaungshwe Township (accessible via Heho Airport, approx. 45 mins by car)',
+                    'latitude': 20.5500,
+                    'longitude': 96.9167
+                },
                 {
                     'name': 'Kakku Pagodas',
                     'description': 'Ancient complex of over 2,500 stupas dating back centuries, hidden in the hills south of Taunggyi.',
@@ -2124,34 +2579,20 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 345,
                     'entry_fee': '10,000 MMK',
-                    'distance': '38.6km from downtown'
+                    'distance': '38.6km from downtown',
+                    'latitude': 20.2667,
+                    'longitude': 97.0833
                 },
                 {
-                    'name': 'Hetm Sann Cave',
-                    'description': 'Beautiful cave with Buddha images and natural formations.',
-                    'features': common_features['cave'],
-                    'rating': 4.3,
-                    'review_count': 56,
-                    'entry_fee': 'Free entry',
-                    'distance': '15km from downtown'
-                },
-                {
-                    'name': 'Kyang Daw Pagoda',
-                    'description': 'Important local pagoda with scenic views.',
-                    'features': common_features['pagoda'],
-                    'rating': 4.2,
-                    'review_count': 45,
-                    'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
-                },
-                {
-                    'name': 'Main Ma Ye` Tha Khin Ma Mountain',
-                    'description': 'Scenic mountain offering hiking and panoramic views.',
-                    'features': common_features['hill'],
-                    'rating': 4.3,
-                    'review_count': 34,
-                    'entry_fee': 'Free entry',
-                    'distance': '10km from downtown'
+                    'name': 'Phaung Daw Oo Pagoda',
+                    'description': 'The most famous religious site on Inle Lake, housing five ancient gold-leaf-covered Buddha images.',
+                    'features': ['Religious site', 'Iconic gold statues', 'Cultural festival', 'Floating architecture', 'Traditional market'],
+                    'rating': 4.6,
+                    'review_count': 1245,
+                    'entry_fee': 'Free entry (included in 15,000 MMK Inle Zone Fee)',
+                    'distance': '12km from Nyaungshwe jetty (approx. 45 mins by boat)',
+                    'latitude': 20.5175,
+                    'longitude': 96.9108
                 },
                 {
                     'name': 'Nga Phe Chaung Monastery',
@@ -2160,16 +2601,53 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 78,
                     'entry_fee': 'Free entry',
-                    'distance': '32km from downtown'
+                    'distance': '32km from downtown',
+                    'latitude': 20.5180,
+                    'longitude': 96.8950
                 },
                 {
-                    'name': 'Nyaungshewe',
+                    'name': 'Kyang Daw Pagoda',
+                    'description': 'Important local pagoda with scenic views.',
+                    'features': common_features['pagoda'],
+                    'rating': 4.2,
+                    'review_count': 45,
+                    'entry_fee': 'Free entry',
+                    'distance': '2km from downtown',
+                    'latitude': 20.7833,
+                    'longitude': 97.0333
+                },
+                {
+                    'name': 'Hetm Sann Cave',
+                    'description': 'Beautiful cave with Buddha images and natural formations.',
+                    'features': common_features['cave'],
+                    'rating': 4.3,
+                    'review_count': 56,
+                    'entry_fee': 'Free entry',
+                    'distance': '15km from downtown',
+                    'latitude': 20.7825,
+                    'longitude': 97.0355
+                },
+                {
+                    'name': 'Main Ma Ye` Tha Khin Ma Mountain',
+                    'description': 'Scenic mountain offering hiking and panoramic views.',
+                    'features': common_features['hill'],
+                    'rating': 4.3,
+                    'review_count': 34,
+                    'entry_fee': 'Free entry',
+                    'distance': '10km from downtown',
+                    'latitude': 20.7855,
+                    'longitude': 97.0365
+                },
+                {
+                    'name': 'Nyaungshwe',
                     'description': 'Gateway town to Inle Lake with markets and temples.',
                     'features': ['Town', 'Gateway to Inle Lake'],
                     'rating': 4.2,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 20.6619,
+                    'longitude': 96.9350
                 },
                 {
                     'name': 'Shwe Bone Pwint Pagoda',
@@ -2178,7 +2656,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 34,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 20.7865,
+                    'longitude': 97.0345
                 },
                 {
                     'name': 'Sulamuni Lawka Chanthar Pagoda',
@@ -2187,7 +2667,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 29,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 20.7875,
+                    'longitude': 97.0355
                 }
             ],
             
@@ -2200,7 +2682,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 112,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.9333,
+                    'longitude': 96.4333
                 },
                 {
                     'name': 'Myat Saw Nyi Naung Pagoda',
@@ -2209,7 +2693,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 67,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.9340,
+                    'longitude': 96.4340
                 },
                 {
                     'name': 'Statue of King Bayintnaung',
@@ -2218,7 +2704,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 18.9350,
+                    'longitude': 96.4350
                 },
                 {
                     'name': 'Old City Moat/Walls',
@@ -2227,7 +2715,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 18.9360,
+                    'longitude': 96.4360
                 },
                 {
                     'name': 'Pho Kyar Elephant Camp',
@@ -2236,7 +2726,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 78,
                     'entry_fee': '5,000 MMK',
-                    'distance': '25km from downtown'
+                    'distance': '25km from downtown',
+                    'latitude': 18.9370,
+                    'longitude': 96.4370
                 },
                 {
                     'name': 'Kantawgyi Garden/Lake',
@@ -2245,7 +2737,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 45,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 18.9380,
+                    'longitude': 96.4380
                 }
             ],
             
@@ -2258,7 +2752,9 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 567,
                     'entry_fee': 'Free entry',
-                    'distance': '7km from downtown'
+                    'distance': '7km from downtown',
+                    'latitude': 18.4667,
+                    'longitude': 94.3667
                 },
                 {
                     'name': 'Tilawkasayambhu Buddha Statue',
@@ -2267,7 +2763,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 89,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 18.4670,
+                    'longitude': 94.3670
                 },
                 {
                     'name': 'Pao Wun Bridge',
@@ -2276,7 +2774,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 56,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 18.4680,
+                    'longitude': 94.3680
                 }
             ],
             
@@ -2289,7 +2789,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 23,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.6167,
+                    'longitude': 95.1833
                 },
                 {
                     'name': 'Mya Thein Tan Pagoda',
@@ -2298,7 +2800,9 @@ class Command(BaseCommand):
                     'rating': 4.1,
                     'review_count': 18,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.6170,
+                    'longitude': 95.1840
                 },
                 {
                     'name': 'Thet Kya Ma Har Thiri Pagoda',
@@ -2307,11 +2811,13 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 12,
                     'entry_fee': 'Free entry',
-                    'distance': '1km from downtown'
+                    'distance': '1km from downtown',
+                    'latitude': 16.6180,
+                    'longitude': 95.1850
                 }
             ],
             
-            # 46. YANGON
+            # 46. YANGON - COMPLETELY CORRECTED COORDINATES
             'yangon': [
                 {
                     'name': 'Shwedagon Pagoda',
@@ -2320,7 +2826,9 @@ class Command(BaseCommand):
                     'rating': 4.9,
                     'review_count': 2345,
                     'entry_fee': '10,000 MMK',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 16.7983,
+                    'longitude': 96.1497
                 },
                 {
                     'name': 'Bogyoke Aung San Market',
@@ -2329,7 +2837,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 789,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.7836,
+                    'longitude': 96.1594
                 },
                 {
                     'name': 'Botataung Pagoda',
@@ -2338,7 +2848,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 456,
                     'entry_fee': '3,000 MMK',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 16.7672,
+                    'longitude': 96.1700
                 },
                 {
                     'name': 'Chaukhtagyi Buddha Temple',
@@ -2347,7 +2859,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '6km from downtown'
+                    'distance': '6km from downtown',
+                    'latitude': 16.8183,
+                    'longitude': 96.1697
                 },
                 {
                     'name': 'Htauk Kyant War Memorial Cemetery',
@@ -2356,7 +2870,9 @@ class Command(BaseCommand):
                     'rating': 4.6,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '32km from downtown'
+                    'distance': '32km from downtown',
+                    'latitude': 16.9908,
+                    'longitude': 96.1972
                 },
                 {
                     'name': 'Inya Lake',
@@ -2365,7 +2881,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 567,
                     'entry_fee': 'Free entry',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 16.8361,
+                    'longitude': 96.1389
                 },
                 {
                     'name': 'Kandawgyi Park',
@@ -2374,7 +2892,9 @@ class Command(BaseCommand):
                     'rating': 4.4,
                     'review_count': 678,
                     'entry_fee': '2,000 MMK',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 16.7967,
+                    'longitude': 96.1661
                 },
                 {
                     'name': 'Myanmar Plaza',
@@ -2383,7 +2903,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 345,
                     'entry_fee': 'Free entry',
-                    'distance': '8km from downtown'
+                    'distance': '8km from downtown',
+                    'latitude': 16.8531,
+                    'longitude': 96.1731
                 },
                 {
                     'name': 'National Museum of Myanmar',
@@ -2392,7 +2914,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 456,
                     'entry_fee': '5,000 MMK',
-                    'distance': '3km from downtown'
+                    'distance': '3km from downtown',
+                    'latitude': 16.7850,
+                    'longitude': 96.1508
                 },
                 {
                     'name': 'The Secretariat Yangon',
@@ -2401,7 +2925,9 @@ class Command(BaseCommand):
                     'rating': 4.5,
                     'review_count': 234,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.7753,
+                    'longitude': 96.1581
                 },
                 {
                     'name': 'Yangon Chinatown',
@@ -2410,7 +2936,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 567,
                     'entry_fee': 'Free entry',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.7772,
+                    'longitude': 96.1525
                 },
                 {
                     'name': 'Yangon City Hall',
@@ -2419,7 +2947,9 @@ class Command(BaseCommand):
                     'rating': 4.2,
                     'review_count': 234,
                     'entry_fee': 'Free entry (outside only)',
-                    'distance': '2km from downtown'
+                    'distance': '2km from downtown',
+                    'latitude': 16.7800,
+                    'longitude': 96.1567
                 },
                 {
                     'name': 'Yangon Zoo',
@@ -2428,7 +2958,9 @@ class Command(BaseCommand):
                     'rating': 4.0,
                     'review_count': 345,
                     'entry_fee': '5,000 MMK',
-                    'distance': '4km from downtown'
+                    'distance': '4km from downtown',
+                    'latitude': 16.7911,
+                    'longitude': 96.1611
                 },
                 {
                     'name': 'Bogyoke Aung San Museum',
@@ -2437,7 +2969,9 @@ class Command(BaseCommand):
                     'rating': 4.3,
                     'review_count': 156,
                     'entry_fee': '2,000 MMK',
-                    'distance': '5km from downtown'
+                    'distance': '5km from downtown',
+                    'latitude': 16.7981,
+                    'longitude': 96.1375
                 }
             ]
         }
@@ -2460,7 +2994,9 @@ class Command(BaseCommand):
                 'rating': 4.0,
                 'review_count': random.randint(15, 40),
                 'entry_fee': 'Free entry',
-                'distance': 'Downtown'
+                'distance': 'Downtown',
+                'latitude': None,
+                'longitude': None
             },
             {
                 'name': f'{city.name} Pagoda',
@@ -2469,7 +3005,9 @@ class Command(BaseCommand):
                 'rating': 4.1,
                 'review_count': random.randint(10, 35),
                 'entry_fee': 'Free entry',
-                'distance': '1-2km from downtown'
+                'distance': '1-2km from downtown',
+                'latitude': None,
+                'longitude': None
             },
             {
                 'name': f'{city.name} Viewpoint',
@@ -2478,7 +3016,9 @@ class Command(BaseCommand):
                 'rating': 4.2,
                 'review_count': random.randint(5, 25),
                 'entry_fee': 'Free entry',
-                'distance': '2-3km from downtown'
+                'distance': '2-3km from downtown',
+                'latitude': None,
+                'longitude': None
             },
             {
                 'name': f'{city.name} Monastery',
@@ -2487,7 +3027,9 @@ class Command(BaseCommand):
                 'rating': 4.0,
                 'review_count': random.randint(5, 20),
                 'entry_fee': 'Free entry',
-                'distance': '1-2km from downtown'
+                'distance': '1-2km from downtown',
+                'latitude': None,
+                'longitude': None
             },
             {
                 'name': f'{city.name} Lake',
@@ -2496,7 +3038,9 @@ class Command(BaseCommand):
                 'rating': 3.9,
                 'review_count': random.randint(5, 15),
                 'entry_fee': 'Free entry',
-                'distance': '2-4km from downtown'
+                'distance': '2-4km from downtown',
+                'latitude': None,
+                'longitude': None
             }
         ]
         

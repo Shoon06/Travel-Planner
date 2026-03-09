@@ -762,6 +762,7 @@ class TripPlan(models.Model):
         verbose_name='From',
         default=1
     )
+    custom_itinerary = models.JSONField(default=dict, blank=True, help_text="Custom itinerary with selected attractions")
     destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='arriving_trips', verbose_name='To')
     start_date = models.DateField()
     end_date = models.DateField()

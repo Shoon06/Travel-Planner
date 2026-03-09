@@ -1,0 +1,837 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Build Your Itinerary - {{ trip.destination.name }} - GoMyanmar{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Two Column Layout */
+    .builder-container {
+        display: flex;
+        min-height: calc(100vh - 76px);
+        margin-top: 76px;
+    }
+    
+    /* Left Column - Attractions List */
+    .attractions-column {
+        width: 40%;
+        background-color: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        overflow-y: auto;
+        height: calc(100vh - 76px);
+        position: fixed;
+        left: 0;
+        padding: 20px;
+    }
+    
+    /* Right Column - Map and Route */
+    .map-column {
+        width: 60%;
+        margin-left: 40%;
+        padding: 20px;
+        overflow-y: auto;
+        height: calc(100vh - 76px);
+    }
+    
+    /* Attraction Card */
+    .attraction-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        cursor: pointer;
+    }
+    
+    .attraction-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        border-left-color: #667eea;
+    }
+    
+    .attraction-card.selected {
+        border-left-color: #28a745;
+        background-color: #f0fff4;
+    }
+    
+    .attraction-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .attraction-card.disabled:hover {
+        transform: none;
+    }
+    
+    .attraction-image {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        object-fit: cover;
+        margin-right: 15px;
+    }
+    
+    .attraction-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        margin-right: 15px;
+    }
+    
+    .rating-stars {
+        color: #ffc107;
+        font-size: 12px;
+    }
+    
+    .feature-badge {
+        background: #e9ecef;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        color: #495057;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        display: inline-block;
+    }
+    
+    .add-to-trip-btn {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .add-to-trip-btn:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    }
+    
+    .add-to-trip-btn.added {
+        background: #28a745;
+    }
+    
+    .add-to-trip-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    /* Route Map Container */
+    .route-map-container {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .map-frame {
+        width: 100%;
+        height: 400px;
+        border: none;
+        border-radius: 8px;
+    }
+    
+    /* Selected Attractions List */
+    .selected-attractions-list {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .selected-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .selected-order {
+        width: 30px;
+        height: 30px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+    
+    .selected-name {
+        flex: 1;
+        font-weight: 500;
+    }
+    
+    .remove-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0 5px;
+    }
+    
+    .remove-btn:hover {
+        color: #bd2130;
+    }
+    
+    /* Route Information */
+    .route-info {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .route-summary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .route-segment {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .route-segment:last-child {
+        border-bottom: none;
+    }
+    
+    .segment-icon {
+        width: 30px;
+        color: #667eea;
+        margin-right: 10px;
+    }
+    
+    .segment-details {
+        flex: 1;
+    }
+    
+    .segment-distance {
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    .drag-handle {
+        cursor: move;
+        color: #6c757d;
+        margin-right: 10px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: #dee2e6;
+    }
+    
+    .search-box {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        padding: 15px 0;
+        z-index: 10;
+        margin-bottom: 15px;
+    }
+    
+    .search-input {
+        border-radius: 25px;
+        padding: 10px 20px;
+        border: 2px solid #e9ecef;
+        width: 100%;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .filter-select {
+        border-radius: 25px;
+        padding: 8px 15px;
+        border: 2px solid #e9ecef;
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    .confirm-btn {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        width: 100%;
+        margin-top: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .confirm-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .confirm-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    .clear-btn {
+        background: none;
+        border: 1px solid #dc3545;
+        color: #dc3545;
+        padding: 8px 15px;
+        border-radius: 20px;
+        margin-top: 10px;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+    
+    .clear-btn:hover {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .badge-pill {
+        background: #667eea;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="builder-container">
+    <!-- Left Column: Attractions List -->
+    <div class="attractions-column">
+        <div class="search-box">
+            <h3 class="fw-bold mb-3">
+                Attractions in {{ trip.destination.name }}
+                <span class="badge-pill">{{ attractions|length }}</span>
+            </h3>
+            <input type="text" 
+                   class="search-input" 
+                   id="searchAttractions" 
+                   placeholder="Search attractions..."
+                   onkeyup="filterAttractions()">
+            <select class="filter-select" id="filterType" onchange="filterAttractions()">
+                <option value="all">All Types</option>
+                <option value="pagoda">Pagodas</option>
+                <option value="museum">Museums</option>
+                <option value="market">Markets</option>
+                <option value="temple">Temples</option>
+                <option value="lake">Lakes</option>
+                <option value="park">Parks</option>
+            </select>
+        </div>
+        
+        <div id="attractionsList">
+            {% for attraction in attractions %}
+            <div class="attraction-card" 
+                 data-id="{{ attraction.id }}"
+                 data-name="{{ attraction.name }}"
+                 data-type="{{ attraction.type|lower }}"
+                 data-search="{{ attraction.name|lower }} {{ attraction.description|lower }}"
+                 onclick="selectAttraction(this, {{ attraction.id }})">
+                <div class="d-flex">
+                    {% if attraction.has_image %}
+                    <img src="{{ attraction.image.url }}" alt="{{ attraction.name }}" class="attraction-image">
+                    {% else %}
+                    <div class="attraction-placeholder">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="fw-bold mb-1">{{ attraction.name }}</h5>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-primary me-2">{{ attraction.type }}</span>
+                                    {% if attraction.rating %}
+                                    <div class="rating-stars">
+                                        {% for i in "12345"|make_list %}
+                                            {% if forloop.counter <= attraction.rating %}
+                                            <i class="fas fa-star"></i>
+                                            {% else %}
+                                            <i class="far fa-star"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                        <span class="ms-1 text-muted">({{ attraction.review_count|default:0 }})</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <button class="add-to-trip-btn" 
+                                    id="btn-{{ attraction.id }}"
+                                    onclick="event.stopPropagation(); toggleAttraction({{ attraction.id }})">
+                                <i class="fas fa-plus me-1"></i>Add
+                            </button>
+                        </div>
+                        
+                        <p class="text-muted small mb-2">{{ attraction.description|truncatechars:100 }}</p>
+                        
+                        <div class="d-flex flex-wrap mb-2">
+                            {% for feature in attraction.features|slice:":3" %}
+                            <span class="feature-badge">{{ feature }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="small">
+                                <i class="fas fa-ticket-alt text-success me-1"></i>
+                                <span class="fw-bold">{{ attraction.entry_fee }}</span>
+                            </div>
+                            {% if attraction.distance %}
+                            <div class="small text-muted">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                {{ attraction.distance }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="fas fa-map-pin"></i>
+                <h5>No attractions found</h5>
+                <p class="text-muted">Attractions will be added soon</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Right Column: Map and Route -->
+    <div class="map-column">
+        <!-- Route Map -->
+        <div class="route-map-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">Your Route Map</h4>
+                <span class="badge bg-primary" id="selectedCount">{{ selected_attractions|length }}</span>
+            </div>
+            
+            {% if selected_attractions|length >= 2 and route_data %}
+            <iframe class="map-frame" 
+                    src="{{ route_data.map_url }}" 
+                    allowfullscreen>
+            </iframe>
+            {% else %}
+            <div class="map-frame d-flex align-items-center justify-content-center" 
+                 style="background: #e9ecef;">
+                <div class="text-center text-muted">
+                    <i class="fas fa-map-marked-alt fa-3x mb-3"></i>
+                    <h5>Add at least 2 attractions to see route</h5>
+                    <p>Select attractions from the left panel to build your itinerary</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Selected Attractions -->
+        <div class="selected-attractions-list">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-list me-2"></i>Your Itinerary
+                </h5>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearAll()">
+                    <i class="fas fa-trash me-1"></i>Clear All
+                </button>
+            </div>
+            
+            <div id="selectedList">
+                {% if selected_attractions %}
+                    {% for att in selected_attractions %}
+                    <div class="selected-item" data-id="{{ att.id }}">
+                        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+                        <span class="selected-order">{{ att.order }}</span>
+                        <span class="selected-name">{{ att.name }}</span>
+                        <button class="remove-btn" onclick="removeAttraction({{ att.id }})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-map-signs"></i>
+                        <p>Select attractions from the left panel to build your itinerary</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Route Information -->
+            {% if route_data %}
+            <div class="route-info">
+                <div class="route-summary">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-route me-2"></i>
+                            <span class="fw-bold">Total Distance:</span>
+                            <span class="ms-2">{{ route_data.total_distance }} km</span>
+                        </div>
+                        <div>
+                            <i class="fas fa-clock me-2"></i>
+                            <span class="fw-bold">Total Time:</span>
+                            <span class="ms-2">{{ route_data.total_time_display }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% for segment in route_data.routes %}
+                <div class="route-segment">
+                    <div class="segment-icon">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    <div class="segment-details">
+                        <div class="fw-bold">{{ segment.from }} → {{ segment.to }}</div>
+                        <div class="small text-muted">
+                            {{ segment.distance }} km • {{ segment.time_display }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Confirm Button -->
+        <button class="confirm-btn" 
+                id="confirmBtn"
+                {% if selected_attractions|length < 2 %}disabled{% endif %}
+                onclick="confirmItinerary()">
+            <i class="fas fa-check-circle me-2"></i>
+            Confirm Itinerary
+            {% if selected_attractions|length >= 2 %}
+            ({{ selected_attractions|length }} attractions)
+            {% else %}
+            (Add at least 2 attractions)
+            {% endif %}
+        </button>
+        
+        <button class="clear-btn" onclick="clearAll()">
+            <i class="fas fa-times-circle me-2"></i>
+            Clear All Selections
+        </button>
+    </div>
+</div>
+
+<!-- CSRF Token -->
+{% csrf_token %}
+
+<script>
+    let selectedAttractions = {{ selected_attractions|safe }};
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Update all buttons based on selected attractions
+    function updateAllButtons() {
+        const selectedIds = selectedAttractions.map(a => a.id);
+        document.querySelectorAll('.attraction-card').forEach(card => {
+            const id = parseInt(card.dataset.id);
+            const btn = document.getElementById(`btn-${id}`);
+            
+            if (selectedIds.includes(id)) {
+                card.classList.add('selected');
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Added';
+                btn.classList.add('added');
+                btn.disabled = false;
+            } else {
+                card.classList.remove('selected');
+                btn.innerHTML = '<i class="fas fa-plus me-1"></i>Add';
+                btn.classList.remove('added');
+                btn.disabled = false;
+            }
+        });
+        
+        // Update selected count
+        document.getElementById('selectedCount').textContent = selectedAttractions.length;
+        
+        // Update confirm button
+        const confirmBtn = document.getElementById('confirmBtn');
+        if (selectedAttractions.length >= 2) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<i class="fas fa-check-circle me-2"></i>Confirm Itinerary (${selectedAttractions.length} attractions)`;
+        } else {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = `<i class="fas fa-check-circle me-2"></i>Add at least 2 attractions (${selectedAttractions.length}/2)`;
+        }
+    }
+    
+    // Toggle attraction selection
+    function toggleAttraction(id) {
+        const index = selectedAttractions.findIndex(a => a.id === id);
+        
+        if (index === -1) {
+            // Add
+            addAttraction(id);
+        } else {
+            // Remove
+            removeAttraction(id);
+        }
+    }
+    
+    // Add attraction
+    function addAttraction(id) {
+        const formData = new FormData();
+        formData.append('action', 'add');
+        formData.append('attraction_id', id);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectedAttractions = data.selected;
+                updateSelectedList();
+                updateAllButtons();
+                
+                if (data.route_data) {
+                    updateRouteMap(data.route_data);
+                }
+            }
+        });
+    }
+    
+    // Remove attraction
+    function removeAttraction(id) {
+        const formData = new FormData();
+        formData.append('action', 'remove');
+        formData.append('attraction_id', id);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectedAttractions = data.selected;
+                updateSelectedList();
+                updateAllButtons();
+                
+                if (data.route_data) {
+                    updateRouteMap(data.route_data);
+                } else {
+                    // Reload page to show empty map
+                    location.reload();
+                }
+            }
+        });
+    }
+    
+    // Clear all attractions
+    function clearAll() {
+        if (!confirm('Are you sure you want to clear all selected attractions?')) {
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('action', 'clear');
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectedAttractions = [];
+                updateSelectedList();
+                updateAllButtons();
+                location.reload(); // Reload to reset map
+            }
+        });
+    }
+    
+    // Update selected list in UI
+    function updateSelectedList() {
+        const list = document.getElementById('selectedList');
+        
+        if (selectedAttractions.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-map-signs"></i>
+                    <p>Select attractions from the left panel to build your itinerary</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        selectedAttractions.sort((a, b) => a.order - b.order).forEach(att => {
+            html += `
+                <div class="selected-item" data-id="${att.id}">
+                    <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+                    <span class="selected-order">${att.order}</span>
+                    <span class="selected-name">${att.name}</span>
+                    <button class="remove-btn" onclick="removeAttraction(${att.id})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+        
+        list.innerHTML = html;
+    }
+    
+    // Update route map
+    function updateRouteMap(routeData) {
+        const mapContainer = document.querySelector('.route-map-container');
+        
+        let mapHtml = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">Your Route Map</h4>
+                <span class="badge bg-primary" id="selectedCount">${selectedAttractions.length}</span>
+            </div>
+            <iframe class="map-frame" 
+                    src="${routeData.map_url}" 
+                    allowfullscreen>
+            </iframe>
+        `;
+        
+        mapContainer.innerHTML = mapHtml;
+        
+        // Update route info
+        let routeInfoHtml = `
+            <div class="route-info">
+                <div class="route-summary">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-route me-2"></i>
+                            <span class="fw-bold">Total Distance:</span>
+                            <span class="ms-2">${routeData.total_distance} km</span>
+                        </div>
+                        <div>
+                            <i class="fas fa-clock me-2"></i>
+                            <span class="fw-bold">Total Time:</span>
+                            <span class="ms-2">${routeData.total_time_display}</span>
+                        </div>
+                    </div>
+                </div>
+        `;
+        
+        routeData.routes.forEach(segment => {
+            routeInfoHtml += `
+                <div class="route-segment">
+                    <div class="segment-icon">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    <div class="segment-details">
+                        <div class="fw-bold">${segment.from} → ${segment.to}</div>
+                        <div class="small text-muted">
+                            ${segment.distance} km • ${segment.time_display}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        routeInfoHtml += '</div>';
+        
+        // Replace route info
+        const existingRouteInfo = document.querySelector('.route-info');
+        if (existingRouteInfo) {
+            existingRouteInfo.outerHTML = routeInfoHtml;
+        } else {
+            document.querySelector('.selected-attractions-list').insertAdjacentHTML('beforeend', routeInfoHtml);
+        }
+    }
+    
+    // Filter attractions
+    function filterAttractions() {
+        const searchTerm = document.getElementById('searchAttractions').value.toLowerCase();
+        const filterType = document.getElementById('filterType').value;
+        
+        document.querySelectorAll('.attraction-card').forEach(card => {
+            const searchText = card.dataset.search || '';
+            const type = card.dataset.type || '';
+            
+            let matchesSearch = searchText.includes(searchTerm);
+            let matchesType = filterType === 'all' || type.includes(filterType);
+            
+            if (matchesSearch && matchesType) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    // Select attraction card
+    function selectAttraction(card, id) {
+        // Just toggle the attraction, don't do anything else
+        toggleAttraction(id);
+    }
+    
+    // Confirm itinerary
+    function confirmItinerary() {
+        if (selectedAttractions.length < 2) {
+            alert('Please add at least 2 attractions to your itinerary.');
+            return;
+        }
+        
+        // Save to trip and redirect
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{% url 'planner:save_itinerary' trip.id %}";
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAllButtons();
+    });
+</script>
+{% endblock %}

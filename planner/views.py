@@ -2878,23 +2878,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .models import TripPlan, BookedSeat, TransportSchedule
 
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-
-
-
-    # ========== KEEP ALL YOUR EXISTING METHODS HERE ==========
-    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights, 
-    # get_relaxed_highlights, generate_cultural_itinerary, 
-    # generate_adventure_itinerary, generate_relaxed_itinerary, 
-    # calculate_date - ALL THESE METHODS REMAIN THE SAME
-    # (I'm not including them here to save space, but keep them exactly as in your original code)
-
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-
 class PlanSelectionView(LoginRequiredMixin, View):
     template_name = 'planner/plan_selection.html'
 
@@ -3061,66 +3044,131 @@ class PlanSelectionView(LoginRequiredMixin, View):
         else:
             total_combined_cost_mmk = "-"
 
+        # ========== GET ATTRACTIONS FOR THIS DESTINATION ==========
+        import re
+        attractions = Destination.objects.filter(
+            parent=trip.destination,
+            type='attraction',
+            is_active=True
+        ).order_by('name')
+        
+        # Parse attraction data for display
+        attractions_data = []
+        for attraction in attractions:
+            rating = None
+            review_count = None
+            entry_fee = "Free entry"
+            distance = None
+            features = []
+            
+            if attraction.description:
+                # Extract rating
+                rating_match = re.search(r'Rating:\s*([\d.]+)/5', attraction.description)
+                if rating_match:
+                    rating = float(rating_match.group(1))
+                
+                # Extract review count
+                reviews_match = re.search(r'Reviews:\s*(\d+)', attraction.description)
+                if reviews_match:
+                    review_count = int(reviews_match.group(1))
+                
+                # Extract entry fee
+                fee_match = re.search(r'Entry Fee:\s*(.+?)(?:\n|$)', attraction.description)
+                if fee_match:
+                    entry_fee = fee_match.group(1).strip()
+                
+                # Extract distance
+                distance_match = re.search(r'Distance:\s*(.+?)(?:\n|$)', attraction.description)
+                if distance_match:
+                    distance = distance_match.group(1).strip()
+                
+                # Extract features
+                features_match = re.search(r'Features:\s*(.+?)(?:\n|$)', attraction.description)
+                if features_match:
+                    features = [f.strip() for f in features_match.group(1).split(',')]
+            
+            attractions_data.append({
+                'id': attraction.id,
+                'name': attraction.name,
+                'type': attraction.type,
+                'type_display': attraction.get_type_display(),
+                'description': attraction.description.split('\n\n')[0] if attraction.description else '',
+                'rating': rating,
+                'review_count': review_count,
+                'entry_fee': entry_fee,
+                'distance': distance,
+                'features': features,
+                'image': attraction.image,
+                'has_image': bool(attraction.image),
+                'latitude': float(attraction.latitude) if attraction.latitude else None,
+                'longitude': float(attraction.longitude) if attraction.longitude else None,
+            })
+
+        # ========== GET SELECTED ATTRACTIONS FROM SESSION ==========
+        session_key = f'selected_attractions_{trip_id}'
+        selected_attractions = request.session.get(session_key, [])
+        
+        # Debug print
+        print(f"DEBUG - Selected attractions from session: {len(selected_attractions)}")
+        
+        # ========== CALCULATE ROUTE IF ENOUGH ATTRACTIONS ==========
+        route_data = None
+        if len(selected_attractions) >= 2:
+            # Create an instance of ItineraryBuilderView to use its calculate_route method
+            from .views import ItineraryBuilderView
+            builder = ItineraryBuilderView()
+            route_data = builder.calculate_route_with_osrm(selected_attractions) if len(selected_attractions) >= 2 else None
+            print(f"DEBUG - Route data calculated: {route_data is not None}")
+
         # ================= CONTEXT =================
         context = {
+            # Basic trip info
             'trip': trip,
-            'plans': plans,
             'destination': trip.destination,
-
             'days': days,
             'nights': nights,
-
             'start_date': trip.start_date.strftime('%Y-%m-%d') if trip.start_date else '',
             'end_date': trip.end_date.strftime('%Y-%m-%d') if trip.end_date else '',
-
             'travelers': getattr(trip, 'travelers', 1),
-
-            'selected_hotel': selected_hotel,
-            'selected_transport': selected_transport,
-            'room_details': room_details,
-
-            'plan_selected': bool(selected_plan_id),
-
+            
+            # AI Plans
+            'plans': plans,
             'selected_plan': selected_plan,
             'selected_plan_id': selected_plan_id,
-
+            'plan_selected': bool(selected_plan_id),
             'trip_budget': budget,
-
-            'has_pending_seats': has_pending_seats,
-
-            # ROOM COSTS
+            
+            # Hotel and Rooms
+            'selected_hotel': selected_hotel,
+            'room_details': room_details,
             'room_total_cost_mmk': room_total_cost_mmk,
             'room_total_cost_numeric': room_total_cost_numeric,
-
-            # TRANSPORT
+            
+            # Transport
+            'selected_transport': selected_transport,
             'transport_cost_mmk': transport_cost_mmk,
             'transport_cost_numeric': transport_cost_numeric,
-
-            # REMOVED: destination_cost_mmk and destination_cost_numeric
-
-            # TOTAL (Rooms + Transport)
+            'has_pending_seats': has_pending_seats,
+            
+            # Total Costs
             'total_combined_cost_mmk': total_combined_cost_mmk,
             'total_combined_cost_numeric': total_combined_cost_numeric,
+            
+            # ========== CRITICAL: ATTRACTIONS AND ROUTE DATA ==========
+            'attractions': attractions_data,
+            'selected_attractions': selected_attractions,
+            'route_data': route_data,
         }
 
         return render(request, self.template_name, context)
 
-    # ========== KEEP ALL THE REST OF YOUR METHODS EXACTLY AS THEY ARE ==========
-    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights, 
-    # get_relaxed_highlights, generate_cultural_itinerary, 
-    # generate_adventure_itinerary, generate_relaxed_itinerary, 
+    # ========== ALL YOUR EXISTING METHODS BELOW ==========
+    # Keep ALL your existing methods exactly as they are:
+    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights,
+    # get_relaxed_highlights, generate_cultural_itinerary,
+    # generate_adventure_itinerary, generate_relaxed_itinerary,
     # calculate_date - ALL THESE METHODS REMAIN THE SAME
-    # ========== KEEP ALL THE REST OF YOUR METHODS EXACTLY AS THEY ARE ==========
-    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights, 
-    # get_relaxed_highlights, generate_cultural_itinerary, 
-    # generate_adventure_itinerary, generate_relaxed_itinerary, 
-    # calculate_date - ALL THESE METHODS REMAIN THE SAME
-
-    # ========== KEEP ALL THE REST OF YOUR METHODS EXACTLY AS THEY ARE ==========
-    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights, 
-    # get_relaxed_highlights, generate_cultural_itinerary, 
-    # generate_adventure_itinerary, generate_relaxed_itinerary, 
-    # calculate_date - ALL THESE METHODS REMAIN THE SAME
+    
     def generate_ai_plans(self, trip, days, budget):
         """Generate AI travel plans based on trip details - WITHOUT Estimated Cost"""
         destination = trip.destination.name
@@ -3610,6 +3658,8 @@ class PlanSelectionView(LoginRequiredMixin, View):
         if start_date:
             return (start_date + timedelta(days=day_offset)).strftime('%Y-%m-%d')
         return f"Day {day_offset + 1}"
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 
 class SelectPlanView(LoginRequiredMixin, View):
     """Handle plan selection"""
@@ -5118,3 +5168,210 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         except Exception as e:
             print("AUTO CONFIRM ERROR:", e)
             return False
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+# ========== ITINERARY BUILDER WITH REAL ROUTE DATA (OSRM - FREE) ==========
+# ========== ITINERARY BUILDER WITH MAP ROUTE ==========
+
+class ItineraryBuilderView(LoginRequiredMixin, View):
+
+    template_name = 'planner/plan_selection.html'
+
+    def get(self, request, trip_id):
+
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+
+        attractions = Destination.objects.filter(
+            parent=trip.destination,
+            type='attraction',
+            is_active=True
+        ).order_by('name')
+
+        attractions_data = []
+
+        for attraction in attractions:
+            attractions_data.append({
+                'id': attraction.id,
+                'name': attraction.name,
+                'latitude': float(attraction.latitude) if attraction.latitude else None,
+                'longitude': float(attraction.longitude) if attraction.longitude else None,
+            })
+
+        selected = request.session.get(f'selected_attractions_{trip_id}', [])
+
+        route_data = self.calculate_route_with_osrm(selected) if len(selected) >= 2 else None
+
+        nights = trip.calculate_nights()
+
+        return render(request, self.template_name, {
+            'trip': trip,
+            'attractions': attractions_data,
+            'selected_attractions': selected,
+            'route_data': route_data,
+            'days': nights + 1,
+            'nights': nights,
+        })
+
+
+    def post(self, request, trip_id):
+
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+
+        action = request.POST.get('action')
+        attraction_id = request.POST.get('attraction_id')
+
+        session_key = f'selected_attractions_{trip_id}'
+        selected = request.session.get(session_key, [])
+
+        if action == 'add':
+
+            attraction = get_object_or_404(Destination, id=attraction_id)
+
+            if not any(a['id'] == attraction.id for a in selected):
+
+                selected.append({
+                    'id': attraction.id,
+                    'name': attraction.name,
+                    'latitude': float(attraction.latitude),
+                    'longitude': float(attraction.longitude)
+                })
+
+                request.session[session_key] = selected
+
+        if action == 'remove':
+
+            selected = [a for a in selected if str(a['id']) != attraction_id]
+            request.session[session_key] = selected
+
+        request.session.modified = True
+
+        route_data = self.calculate_route_with_osrm(selected) if len(selected) >= 2 else None
+
+        return JsonResponse({
+            "selected": selected,
+            "route_data": route_data
+        })
+
+
+    # ---------------------------------------------------
+    # NEAREST NEIGHBOR ROUTE OPTIMIZATION
+    # ---------------------------------------------------
+
+    def optimize_route(self, points):
+
+        import math
+
+        def haversine(a, b):
+
+            R = 6371
+
+            lat1 = math.radians(a['latitude'])
+            lon1 = math.radians(a['longitude'])
+            lat2 = math.radians(b['latitude'])
+            lon2 = math.radians(b['longitude'])
+
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+
+            x = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+            c = 2 * math.atan2(math.sqrt(x), math.sqrt(1-x))
+
+            return R * c
+
+
+        if len(points) <= 2:
+            return points
+
+        start = points[0]
+        remaining = points[1:]
+
+        route = [start]
+
+        while remaining:
+
+            last = route[-1]
+
+            nearest = min(
+                remaining,
+                key=lambda p: haversine(last, p)
+            )
+
+            route.append(nearest)
+            remaining.remove(nearest)
+
+        return route
+
+
+    # ---------------------------------------------------
+    # OSRM ROUTING
+    # ---------------------------------------------------
+
+    def calculate_route_with_osrm(self, selected):
+
+        import requests
+
+        if len(selected) < 2:
+            return None
+
+        optimized = self.optimize_route(selected)
+
+        coords = ";".join(
+            f"{a['longitude']},{a['latitude']}"
+            for a in optimized
+        )
+
+        url = f"http://router.project-osrm.org/route/v1/driving/{coords}?overview=false"
+
+        try:
+
+            r = requests.get(url)
+            data = r.json()
+
+            route = data["routes"][0]
+
+            distance = route["distance"] / 1000
+            duration = route["duration"] / 60
+
+        except:
+
+            distance = 0
+            duration = 0
+
+        return {
+            "waypoints": optimized,
+            "total_distance": round(distance,1),
+            "total_time": round(duration)
+        }
+
+class SaveItineraryView(LoginRequiredMixin, View):
+    """Save the custom itinerary to the trip"""
+    
+    def post(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        session_key = f'selected_attractions_{trip_id}'
+        selected = request.session.get(session_key, [])
+        
+        if not selected:
+            messages.error(request, 'No attractions selected to save.')
+            return redirect('planner:itinerary_builder', trip_id=trip.id)
+        
+        # Save to trip
+        trip.custom_itinerary = {
+            'attractions': selected,
+            'created_at': timezone.now().isoformat()
+        }
+        trip.save()
+        
+        # Clear session
+        request.session.pop(session_key, None)
+        
+        messages.success(request, 'Your custom itinerary has been saved!')
+        return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id='custom')
