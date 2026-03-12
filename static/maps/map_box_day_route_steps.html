@@ -287,6 +287,7 @@ function renderRoute(activities) {
     };
 
     const startHotel = activities.length && isHotel(activities[0], 0) ? activities[0] : null;
+    const startHotelCoords = startHotel ? L.latLng(startHotel.lat, startHotel.lng) : null;
     const stops = startHotel ? activities.slice(1) : activities;
 
     updateLegend(stops);
@@ -304,6 +305,11 @@ function renderRoute(activities) {
         addNumberedMarker(activity, idx, lat, lng);
         waypoints.push(L.latLng(lat, lng));
     });
+
+    // Add a return leg to the hotel if we started there and have at least one stop
+    if (startHotelCoords && stops.length) {
+        waypoints.push(startHotelCoords);
+    }
 
     if (waypoints.length === 1) {
         map.setView(waypoints[0], 14);
