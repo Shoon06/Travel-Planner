@@ -1,5 +1,19 @@
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 # COMPLETE CORRECTED VERSION
+
+import json
+from django.utils import timezone
+from datetime import timedelta
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
+from django.urls import reverse
+from django.db.models import Q
+from django.http import JsonResponse
+
+from .models import TripPlan, BookedSeat, TransportSchedule
+from .models_room import Room, RoomBooking, RoomAvailability
 import json
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -2042,15 +2056,33 @@ class SaveHotelView(LoginRequiredMixin, View):
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# COMPLETELY FIXED SaveRoomSelectionView
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# COMPLETE FIXED SaveRoomSelectionView
+
 class SaveRoomSelectionView(LoginRequiredMixin, View):
-    """Save room selection (called from AJAX)"""
+    """Save room selection with extra beds"""
     
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         
         try:
             data = json.loads(request.body)
+            print(f"\n{'='*50}")
+            print(f"📦 SAVE ROOM SELECTION - Trip {trip_id}")
+            print(f"{'='*50}")
+            print(f"Received data: {data}")
+            
             room_ids = data.get('room_ids', [])
+            extra_beds_data = data.get('extra_beds', {})
+            nights = data.get('nights', trip.calculate_nights())
+            
+            print(f"🛏️ Room IDs: {room_ids}")
+            print(f"➕ Extra beds data: {extra_beds_data}")
+            print(f"🌙 Nights: {nights}")
             
             if not room_ids:
                 return JsonResponse({'success': False, 'error': 'No rooms selected'})
@@ -2063,14 +2095,31 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             check_in = trip.start_date
             check_out = trip.end_date
             
-            # Check room availability
-            from .models_room import Room, RoomBooking
-            available_room_ids = []
-            for room_id in room_ids:
-                if hotel.check_room_availability(room_id, check_in, check_out):
-                    available_room_ids.append(str(room_id))
+            from .models_room import Room, RoomBooking, RoomAvailability
+            date_range = [check_in + timedelta(days=x) for x in range((check_out - check_in).days)]
             
-            invalid_rooms = [rid for rid in room_ids if str(rid) not in available_room_ids]
+            # Check availability
+            invalid_rooms = []
+            for room_id in room_ids:
+                room = Room.objects.get(id=room_id)
+                
+                has_confirmed_booking = RoomBooking.objects.filter(
+                    room=room,
+                    check_in_date__lt=check_out,
+                    check_out_date__gt=check_in,
+                    is_cancelled=False,
+                    status__in=['confirmed', 'checked_in']
+                ).exists()
+                
+                has_unavailable = RoomAvailability.objects.filter(
+                    room=room,
+                    date__in=date_range,
+                    is_available=False
+                ).exists()
+                
+                if has_confirmed_booking or has_unavailable:
+                    invalid_rooms.append(room_id)
+                    print(f"❌ Room {room.room_number} is UNAVAILABLE")
             
             if invalid_rooms:
                 return JsonResponse({
@@ -2079,40 +2128,136 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                     'invalid_rooms': invalid_rooms
                 })
             
-            # Calculate price
+            # Calculate price including extra beds
             rooms = Room.objects.filter(id__in=room_ids)
-            nights = trip.calculate_nights()
-            total_price = 0
+            total_base_price = 0
+            total_extra_beds_cost = 0
             room_details = []
             
             for room in rooms:
                 price_per_night = room.get_price_per_night()
-                room_total = price_per_night * nights
-                total_price += room_total
+                room_base_total = price_per_night * nights
+                total_base_price += room_base_total
+                
+                # Check if extra bed is selected for this room
+                room_id_str = str(room.id)
+                extra_bed_selected = room_id_str in extra_beds_data
+                extra_beds_count = 0
+                extra_beds_total = 0
+                
+                if extra_bed_selected and room.extra_bed_available:
+                    extra_bed_info = extra_beds_data.get(room_id_str, {})
+                    
+                    if isinstance(extra_bed_info, dict):
+                        extra_beds_count = extra_bed_info.get('count', 1)
+                    elif isinstance(extra_bed_info, (int, float)):
+                        extra_beds_count = int(extra_bed_info)
+                    elif isinstance(extra_bed_info, bool):
+                        extra_beds_count = 1 if extra_bed_info else 0
+                    else:
+                        extra_beds_count = 1
+                    
+                    extra_beds_count = min(extra_beds_count, room.max_extra_beds)
+                    
+                    if extra_beds_count > 0:
+                        extra_beds_total = float(room.extra_bed_cost) * extra_beds_count * nights
+                        total_extra_beds_cost += extra_beds_total
+                        print(f"➕ Room {room.room_number}: {extra_beds_count} extra bed(s) x {room.extra_bed_cost} MMK x {nights} nights = {extra_beds_total} MMK")
+                
+                room_total = room_base_total + extra_beds_total
+                
                 room_details.append({
                     'id': room.id,
                     'room_number': room.room_number,
                     'room_type': room.room_type.name,
                     'price_per_night': float(price_per_night),
                     'total': float(room_total),
+                    'base_total': float(room_base_total),
                     'floor': room.floor,
-                    'bed_type': room.bed_type
+                    'bed_type': room.bed_type,
+                    # Extra bed fields - CRITICAL for display
+                    'extra_bed_selected': extra_bed_selected,
+                    'extra_beds_count': extra_beds_count,
+                    'extra_bed_cost_per_night': float(room.extra_bed_cost) if room.extra_bed_available else 0,
+                    'extra_beds_total': float(extra_beds_total),
                 })
+                
+                print(f"✅ Room {room.room_number}: base={room_base_total}, extra={extra_beds_total}, total={room_total}")
             
-            # Save to trip
+            total_price = total_base_price + total_extra_beds_cost
+            
+            print(f"\n💰 SUMMARY:")
+            print(f"   Total base price: {total_base_price} MMK")
+            print(f"   Total extra beds: {total_extra_beds_cost} MMK")
+            print(f"   GRAND TOTAL: {total_price} MMK")
+            
+            # SAVE TO TRIP - THIS IS CRITICAL
             trip.selected_rooms = {
                 'room_ids': room_ids,
                 'total_price': float(total_price),
+                'total_base_price': float(total_base_price),
+                'total_extra_beds_cost': float(total_extra_beds_cost),
                 'room_details': room_details,
+                'extra_beds_data': extra_beds_data,
                 'is_temporary': True
             }
             trip.save()
+            print(f"✅ Saved to trip.selected_rooms: {trip.selected_rooms}")
             
-            # Build redirect URL to MAIN PLAN PAGE
+            # Create TEMPORARY bookings
+            from .models_room import RoomBooking
+            
+            # Delete any existing temporary bookings for this trip
+            deleted = RoomBooking.objects.filter(
+                trip=trip,
+                status='temporary'
+            ).delete()
+            print(f"🧹 Deleted {deleted[0]} existing temporary bookings")
+            
+            # Create new temporary bookings
+            for room_id in room_ids:
+                room = Room.objects.get(id=room_id)
+                
+                price_per_night = room.get_price_per_night()
+                
+                # Get extra bed count again
+                room_id_str = str(room.id)
+                extra_bed_selected = room_id_str in extra_beds_data
+                extra_beds_count = 0
+                
+                if extra_bed_selected and room.extra_bed_available:
+                    extra_bed_info = extra_beds_data.get(room_id_str, {})
+                    if isinstance(extra_bed_info, dict):
+                        extra_beds_count = extra_bed_info.get('count', 1)
+                    elif isinstance(extra_bed_info, (int, float)):
+                        extra_beds_count = int(extra_bed_info)
+                    else:
+                        extra_beds_count = 1
+                    
+                    extra_beds_count = min(extra_beds_count, room.max_extra_beds)
+                
+                extra_beds_cost = float(room.extra_bed_cost) * extra_beds_count * nights if extra_beds_count > 0 else 0
+                room_total = (price_per_night * nights) + extra_beds_cost
+                
+                booking = RoomBooking.objects.create(
+                    room=room,
+                    trip=trip,
+                    booked_by=request.user,
+                    check_in_date=check_in,
+                    check_out_date=check_out,
+                    guests=trip.travelers + extra_beds_count,
+                    extra_beds=extra_beds_count,
+                    extra_beds_cost=extra_beds_cost,
+                    price_per_night=price_per_night,
+                    total_price=room_total,
+                    status='temporary'
+                )
+                print(f"✅ Created TEMPORARY booking for room {room.room_number} with {extra_beds_count} extra beds")
+            
+            # Build redirect URL
             redirect_url = reverse('planner:plan')
             params = []
             
-            # Include origin and destination
             if trip.origin:
                 params.append(f'origin_id={trip.origin.id}')
                 params.append(f'origin_name={urllib.parse.quote(trip.origin.name)}')
@@ -2121,46 +2266,37 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                 params.append(f'destination_id={trip.destination.id}')
                 params.append(f'destination_name={urllib.parse.quote(trip.destination.name)}')
             
-            # Add hotel
             if trip.selected_hotel:
                 params.append(f'hotel_id={trip.selected_hotel.id}')
                 params.append(f'hotel_name={urllib.parse.quote(trip.selected_hotel.name)}')
             
-            # Add dates
             if trip.start_date:
                 params.append(f'start_date={trip.start_date.strftime("%Y-%m-%d")}')
             if trip.end_date:
                 params.append(f'end_date={trip.end_date.strftime("%Y-%m-%d")}')
             
-            # Add travelers
             params.append(f'travelers={trip.travelers}')
             
-            # Check if transport exists and include it
-            if trip.selected_transport:
-                transport_data = trip.selected_transport
-                if transport_data.get('id'):
-                    params.append(f'transport_id={transport_data.get("id")}')
-                    params.append(f'transport_type={transport_data.get("type", "")}')
-                    params.append(f'transport_name={urllib.parse.quote(transport_data.get("name", ""))}')
-            
-            # Build final URL
             if params:
                 redirect_url += '?' + '&'.join(params)
             
+            print(f"{'='*50}\n")
+            
             return JsonResponse({
                 'success': True,
-                'message': f'{len(room_ids)} room(s) selected',
+                'message': f'{len(room_ids)} room(s) selected with extra beds',
                 'total_price': float(total_price),
+                'total_base_price': float(total_base_price),
+                'total_extra_beds_cost': float(total_extra_beds_cost),
                 'room_details': room_details,
-                'redirect_url': redirect_url  # Send back to plan page
+                'redirect_url': redirect_url
             })
             
         except Exception as e:
-            print(f"Error in SaveRoomSelectionView: {e}")
+            print(f"❌ Error in SaveRoomSelectionView: {e}")
             import traceback
             traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)})
-
 
 # ========== REAL HOTELS VIEW ==========
 class GetRealHotelsView(LoginRequiredMixin, View):
@@ -2878,6 +3014,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .models import TripPlan, BookedSeat, TransportSchedule
 
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class PlanSelectionView(LoginRequiredMixin, View):
     template_name = 'planner/plan_selection.html'
 
@@ -2944,27 +3082,58 @@ class PlanSelectionView(LoginRequiredMixin, View):
         for plan in plans:
             plan['is_selected'] = (str(plan.get('id')) == str(selected_plan_id))
 
-        # ================= HOTEL AND ROOMS =================
+        # ================= HOTEL AND ROOMS WITH EXTRA BEDS =================
         selected_hotel = getattr(trip, 'selected_hotel', None)
 
-        # ROOM COSTS ONLY
+        # Initialize room cost variables
         room_total_cost_numeric = 0
+        room_base_cost_numeric = 0
+        room_extra_beds_cost_numeric = 0
         room_total_cost_mmk = "No rooms selected"
         room_details = []
+        has_extra_beds = False
 
+        # Check if rooms are selected and process them
         if trip.selected_rooms and trip.selected_rooms.get('room_details'):
             room_details = trip.selected_rooms.get('room_details', [])
             
-            # Recalculate total to ensure accuracy
-            recalculated_total = 0
-            for room in room_details:
-                price_per_night = float(room.get('price_per_night', 0))
-                room_total = price_per_night * nights
-                recalculated_total += room_total
-                room['total'] = room_total
+            # Use pre-calculated totals if available (from SaveRoomSelectionView)
+            if trip.selected_rooms.get('total_price'):
+                room_total_cost_numeric = float(trip.selected_rooms.get('total_price', 0))
+                room_base_cost_numeric = float(trip.selected_rooms.get('total_base_price', 0))
+                room_extra_beds_cost_numeric = float(trip.selected_rooms.get('total_extra_beds_cost', 0))
+                has_extra_beds = room_extra_beds_cost_numeric > 0
+                
+                print(f"\n🏨 ROOM COSTS from selected_rooms:")
+                print(f"   Base: {room_base_cost_numeric:,.0f} MMK")
+                print(f"   Extra beds: {room_extra_beds_cost_numeric:,.0f} MMK")
+                print(f"   Total: {room_total_cost_numeric:,.0f} MMK")
+            else:
+                # Calculate from room details (fallback)
+                for room in room_details:
+                    # Get base total (without extra beds)
+                    room_base = float(room.get('base_total', room.get('total', 0)))
+                    # Get extra beds total
+                    extra_beds = float(room.get('extra_beds_total', 0))
+                    
+                    room_base_cost_numeric += room_base
+                    room_extra_beds_cost_numeric += extra_beds
+                    
+                    if extra_beds > 0:
+                        has_extra_beds = True
+                
+                room_total_cost_numeric = room_base_cost_numeric + room_extra_beds_cost_numeric
+                
+                print(f"\n🏨 ROOM COSTS calculated from details:")
+                print(f"   Base: {room_base_cost_numeric:,.0f} MMK")
+                print(f"   Extra beds: {room_extra_beds_cost_numeric:,.0f} MMK")
+                print(f"   Total: {room_total_cost_numeric:,.0f} MMK")
             
-            room_total_cost_numeric = recalculated_total
-            room_total_cost_mmk = f"{room_total_cost_numeric:,.0f} MMK"
+            # Format display string
+            if room_total_cost_numeric > 0:
+                room_total_cost_mmk = f"{room_total_cost_numeric:,.0f} MMK"
+        else:
+            print("🏨 No rooms selected")
 
         # ================= TRANSPORT =================
         selected_transport = None
@@ -3046,6 +3215,8 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
         # ========== GET ATTRACTIONS FOR THIS DESTINATION ==========
         import re
+        from planner.models import Destination
+        
         attractions = Destination.objects.filter(
             parent=trip.destination,
             type='attraction',
@@ -3138,11 +3309,14 @@ class PlanSelectionView(LoginRequiredMixin, View):
             'plan_selected': bool(selected_plan_id),
             'trip_budget': budget,
             
-            # Hotel and Rooms
+            # Hotel and Rooms with extra bed details
             'selected_hotel': selected_hotel,
             'room_details': room_details,
             'room_total_cost_mmk': room_total_cost_mmk,
             'room_total_cost_numeric': room_total_cost_numeric,
+            'room_base_cost_numeric': room_base_cost_numeric,
+            'room_extra_beds_cost_numeric': room_extra_beds_cost_numeric,
+            'has_extra_beds': has_extra_beds,
             
             # Transport
             'selected_transport': selected_transport,
@@ -3154,7 +3328,7 @@ class PlanSelectionView(LoginRequiredMixin, View):
             'total_combined_cost_mmk': total_combined_cost_mmk,
             'total_combined_cost_numeric': total_combined_cost_numeric,
             
-            # ========== CRITICAL: ATTRACTIONS AND ROUTE DATA ==========
+            # Attractions and Route Data
             'attractions': attractions_data,
             'selected_attractions': selected_attractions,
             'route_data': route_data,
@@ -3162,6 +3336,7 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, context)
 
+    # ... keep all your existing methods (generate_ai_plans, get_cultural_highlights, etc.) ...
     # ========== ALL YOUR EXISTING METHODS BELOW ==========
     # Keep ALL your existing methods exactly as they are:
     # generate_ai_plans, get_cultural_highlights, get_adventure_highlights,
@@ -3760,189 +3935,292 @@ from datetime import timedelta
 
 from .models import TripPlan
 from .views import PlanSelectionView
-
-
 class ItineraryDetailView(LoginRequiredMixin, View):
-    """Display detailed itinerary with weather and activity management"""
+    """Display detailed itinerary with cost summary, hotel, transport and optimized route"""
 
     template_name = 'planner/itinerary_detail.html'
 
     def get(self, request, trip_id, plan_id):
-
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
 
-        # Convert numeric plan_id to name
-        plan_map = {
-            '1': 'cultural',
-            '2': 'adventure',
-            '3': 'relaxed',
-            1: 'cultural',
-            2: 'adventure',
-            3: 'relaxed',
-        }
-
-        if plan_id in plan_map:
-            plan_id = plan_map.get(plan_id)
-
-        elif isinstance(plan_id, str):
-            plan_id = plan_id.lower().strip()
-
-        # Generate itinerary
-        days = trip.calculate_nights() + 1
-        itinerary_generator = PlanSelectionView()
-
-        if plan_id == 'cultural':
-            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
-            plan_title = 'Cultural Explorer'
-
-        elif plan_id == 'adventure':
-            days_data = itinerary_generator.generate_adventure_itinerary(trip, days)
-            plan_title = 'Adventure Seeker'
-
-        elif plan_id == 'relaxed':
-            days_data = itinerary_generator.generate_relaxed_itinerary(trip, days)
-            plan_title = 'Relaxed Wanderer'
-
+        # Handle plan title
+        if plan_id == 'custom':
+            plan_title = 'Custom Itinerary'
         else:
-            days_data = itinerary_generator.generate_cultural_itinerary(trip, days)
-            plan_title = 'Cultural Explorer'
-            plan_id = 'cultural'
+            plan_map = {
+                '1': 'cultural', '2': 'adventure', '3': 'relaxed',
+                1: 'cultural', 2: 'adventure', 3: 'relaxed',
+                'cultural': 'cultural', 'adventure': 'adventure', 'relaxed': 'relaxed'
+            }
+            plan_key = plan_map.get(plan_id, 'cultural')
+            plan_titles = {
+                'cultural': 'Cultural Explorer',
+                'adventure': 'Adventure Seeker',
+                'relaxed': 'Relaxed Wanderer'
+            }
+            plan_title = plan_titles.get(plan_key, 'Custom Itinerary')
 
-        # Weather
-        weather_forecast = self.get_weather_forecast_for_trip(trip)
+        # Get attractions from trip for route calculation
+        itinerary_attractions = []
+        
+        if hasattr(trip, 'selected_attractions_data') and trip.selected_attractions_data:
+            itinerary_attractions = trip.selected_attractions_data
+            print(f"✅ Found {len(itinerary_attractions)} attractions for route calculation")
+        elif trip.custom_itinerary and trip.custom_itinerary.get('attractions'):
+            itinerary_attractions = trip.custom_itinerary.get('attractions', [])
+            print(f"✅ Found {len(itinerary_attractions)} attractions for route calculation")
 
-        # Cost
-        cost_estimate = self.calculate_cost_estimate(trip, plan_id)
+        # Calculate route statistics using EXACT same method as plan_selection.html
+        route_stats = self.calculate_route_like_plan_selection(itinerary_attractions)
+
+        # Calculate cost breakdown
+        nights = trip.calculate_nights()
+        
+        # Room cost
+        room_total_cost_numeric = 0
+        room_details = []
+        if trip.selected_rooms and trip.selected_rooms.get('room_details'):
+            room_details = trip.selected_rooms.get('room_details', [])
+            room_total_cost_numeric = float(trip.selected_rooms.get('total_price', 0))
+        room_total_cost_mmk = f"{room_total_cost_numeric:,.0f} MMK" if room_total_cost_numeric > 0 else "0 MMK"
+
+        # Transport cost
+        transport_cost_numeric = 0
+        transport_data_formatted = None
+        if trip.selected_transport:
+            transport_data = trip.selected_transport
+            if isinstance(transport_data, dict):
+                transport_cost_numeric = float(transport_data.get('price', 0))
+                
+                # Format transport data for template
+                transport_type = transport_data.get('type', '')
+                transport_data_formatted = {
+                    'type': transport_type,
+                    'name': transport_data.get('name', ''),
+                    'id': transport_data.get('id', ''),
+                    'price': transport_cost_numeric,
+                    'seats': transport_data.get('seats', []),
+                    'booking_details': transport_data.get('booking_details', {}),
+                    'is_temporary': transport_data.get('is_temporary', False),
+                }
+                
+                # Add type-specific details
+                if transport_type == 'flight':
+                    transport_data_formatted['icon'] = 'fas fa-plane'
+                    if transport_data_formatted['booking_details']:
+                        transport_data_formatted['airline'] = transport_data_formatted['booking_details'].get('airline', '')
+                        transport_data_formatted['flight_number'] = transport_data_formatted['booking_details'].get('flight_number', '')
+                        transport_data_formatted['departure'] = transport_data_formatted['booking_details'].get('departure', '')
+                        transport_data_formatted['arrival'] = transport_data_formatted['booking_details'].get('arrival', '')
+                        transport_data_formatted['departure_time'] = transport_data_formatted['booking_details'].get('departure_time', '')
+                elif transport_type == 'bus':
+                    transport_data_formatted['icon'] = 'fas fa-bus'
+                    if transport_data_formatted['booking_details']:
+                        transport_data_formatted['company'] = transport_data_formatted['booking_details'].get('company', '')
+                        transport_data_formatted['bus_type'] = transport_data_formatted['booking_details'].get('bus_type', '')
+                elif transport_type == 'car':
+                    transport_data_formatted['icon'] = 'fas fa-car'
+                    if transport_data_formatted['booking_details']:
+                        transport_data_formatted['company'] = transport_data_formatted['booking_details'].get('company', '')
+                        transport_data_formatted['car_model'] = transport_data_formatted['booking_details'].get('car_model', '')
+                        transport_data_formatted['pickup_location'] = transport_data_formatted['booking_details'].get('pickup_location', '')
+
+        transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK" if transport_cost_numeric > 0 else "0 MMK"
+
+        # Total cost
+        total_cost_numeric = room_total_cost_numeric + transport_cost_numeric
+        total_cost_mmk = f"{total_cost_numeric:,.0f} MMK" if total_cost_numeric > 0 else "0 MMK"
+
+        # Get hotel details
+        hotel = trip.selected_hotel
+        hotel_data = None
+        if hotel:
+            hotel_data = {
+                'id': hotel.id,
+                'name': hotel.name,
+                'address': hotel.address,
+                'rating': float(hotel.rating) if hotel.rating else 0,
+                'review_count': hotel.review_count or 0,
+                'category': hotel.category,
+                'category_display': hotel.get_category_display() if hasattr(hotel, 'get_category_display') else hotel.category,
+                'phone_number': hotel.phone_number or '',
+                'website': hotel.website or '',
+                'image_url': hotel.image.url if hotel.image else '',
+                'amenities': hotel.get_amenities_list()[:8] if hasattr(hotel, 'get_amenities_list') else [],
+            }
 
         context = {
+            # Trip basic info
             'trip': trip,
             'plan_id': plan_id,
             'plan_title': plan_title,
-            'days_data': days_data,
-            'weather_forecast': weather_forecast,
-            'cost_estimate': cost_estimate,
-            'hotel': trip.selected_hotel,
-            'transport': trip.selected_transport,
-            'total_days': days,
-            'total_activities': sum(len(day['activities']) for day in days_data) if days_data else 0,
+            
+            # Route data
+            'itinerary_attractions': itinerary_attractions,
+            'route_stats': route_stats,
+            
+            # Destination info
             'destination_name': trip.destination.name,
-            'start_date': trip.start_date.strftime('%Y-%m-%d'),
-            'end_date': trip.end_date.strftime('%Y-%m-%d'),
+            'start_date': trip.start_date,
+            'end_date': trip.end_date,
             'travelers': trip.travelers,
-            'nights': trip.calculate_nights(),
+            'nights': nights,
+            'total_days': nights + 1,
+            
+            # Hotel details
+            'hotel': hotel_data,
+            
+            # Room details
+            'room_details': room_details,
+            'room_total_cost_mmk': room_total_cost_mmk,
+            'room_total_cost_numeric': room_total_cost_numeric,
+            
+            # Transport details
+            'transport': transport_data_formatted,
+            'transport_cost_mmk': transport_cost_mmk,
+            'transport_cost_numeric': transport_cost_numeric,
+            
+            # Total cost
+            'total_cost_mmk': total_cost_mmk,
+            'total_cost_numeric': total_cost_numeric,
         }
 
         return render(request, self.template_name, context)
 
-    # --------------------------------------------------
-    # WEATHER
-    # --------------------------------------------------
-
-    def get_weather_forecast_for_trip(self, trip):
-
-        try:
-            from .weather_service import weather_service
-
-            destination_name = trip.destination.name
-
-            start_date = trip.start_date
-            max_end_date = start_date + timedelta(days=4)
-            actual_end_date = min(trip.end_date, max_end_date)
-
-            forecast = weather_service.get_weather_forecast(
-                destination_name,
-                start_date.strftime('%Y-%m-%d'),
-                actual_end_date.strftime('%Y-%m-%d')
-            )
-
-            if forecast:
-                return dict(list(forecast.items())[:5])
-
-            return self.generate_mock_weather_forecast(start_date, actual_end_date)
-
-        except Exception:
-            return self.generate_mock_weather_forecast(
-                trip.start_date,
-                trip.start_date + timedelta(days=4)
-            )
-
-    def generate_mock_weather_forecast(self, start_date, end_date):
-
-        import random
-
-        forecasts = {}
-        current = start_date
-
-        for _ in range(5):
-
-            date_str = current.strftime('%Y-%m-%d')
-
-            temp = random.randint(25, 35)
-
-            forecasts[date_str] = {
-                'date': date_str,
-                'day_name': current.strftime('%A'),
-                'daily_summary': {
-                    'temperature': temp,
-                    'description': 'Sunny',
-                    'icon': '01d'
-                },
-                'min_temp': temp - 3,
-                'max_temp': temp + 2,
-                'is_mock': True,
-            }
-
-            current += timedelta(days=1)
-
-        return forecasts
-
-    # --------------------------------------------------
-    # COST (FIXED)
-    # --------------------------------------------------
-
-    def calculate_cost_estimate(self, trip, plan_id):
-        """
-        Calculate cost estimate
-        Includes: Hotel + Transport + Activities
-        NO additional travelers
-        """
-
-        breakdown = trip.get_cost_breakdown()
-
-        plan_multipliers = {
-            'cultural': 1.0,
-            'adventure': 1.15,
-            'relaxed': 0.9,
-       }
-
-        multiplier = plan_multipliers.get(plan_id, 1.0)
-
-    # Apply multiplier ONLY to destination
-        destination_cost = int(
-            breakdown.get('destination', 0) * multiplier
-        )
-
-        hotel_cost = int(breakdown.get('hotel', 0))
-        transport_cost = int(breakdown.get('transport', 0))
-
-    # ✅ FINAL TOTAL (WITH TRANSPORT)
-        total = (
-            hotel_cost +
-            transport_cost +
-            destination_cost
-        )
-
+    def calculate_route_like_plan_selection(self, attractions):
+        """Calculate route using EXACT logic from plan_selection.html"""
+        if len(attractions) < 2:
+            return {}
+        
+        import requests
+        import math
+        
+        # Step 1: Optimize route using nearest neighbor (like plan_selection.html)
+        optimized = self.optimize_route_nearest_neighbor(attractions)
+        
+        total_distance = 0
+        total_duration = 0
+        segment_distances = []
+        segment_durations = []
+        
+        # Step 2: Calculate each segment (like plan_selection.html)
+        for i in range(len(optimized) - 1):
+            a1 = optimized[i]
+            a2 = optimized[i+1]
+            
+            # Get coordinates safely
+            lat1 = float(a1.get('lat', 0) or a1.get('latitude', 0))
+            lng1 = float(a1.get('lng', 0) or a1.get('longitude', 0))
+            lat2 = float(a2.get('lat', 0) or a2.get('latitude', 0))
+            lng2 = float(a2.get('lng', 0) or a2.get('longitude', 0))
+            
+            if lat1 and lng1 and lat2 and lng2:
+                # Try to get accurate route from OSRM (like plan_selection.html)
+                route_data = self.get_accurate_route_osrm(lat1, lng1, lat2, lng2, a1.get('name'), a2.get('name'))
+                
+                if route_data:
+                    segment_distances.append(route_data['distance'])
+                    segment_durations.append(route_data['duration'])
+                    total_distance += route_data['distance']
+                    total_duration += route_data['duration']
+                else:
+                    # Fallback to Haversine with 1.3x factor (like plan_selection.html)
+                    straight_distance = self.haversine_distance(lat1, lng1, lat2, lng2)
+                    road_distance = straight_distance * 1.3
+                    duration = road_distance / 40 * 60  # 40 km/h average speed
+                    
+                    segment_distances.append(road_distance)
+                    segment_durations.append(duration)
+                    total_distance += road_distance
+                    total_duration += duration
+        
         return {
-            'total': total,
-            'breakdown': {
-                'hotel': hotel_cost,
-                'transport': transport_cost,
-                'destination': destination_cost,
-            }
+            'total_distance': total_distance,
+            'total_duration': total_duration,
+            'segment_distances': segment_distances,
+            'segment_durations': segment_durations
         }
 
+    def get_accurate_route_osrm(self, lat1, lng1, lat2, lng2, name1="", name2=""):
+        """Get accurate route from OSRM - EXACT same as plan_selection.html"""
+        import requests
+        
+        url = f"https://router.project-osrm.org/route/v1/driving/{lng2},{lat2};{lng1},{lat1}?overview=false&steps=false&alternatives=false"
+        
+        try:
+            response = requests.get(url, timeout=5)
+            data = response.json()
+            
+            if data.get('code') == 'Ok' and data.get('routes') and len(data['routes']) > 0:
+                route = data['routes'][0]
+                distance = route['distance'] / 1000  # km
+                duration = route['duration'] / 60    # minutes
+                
+                # Calculate straight-line distance for validation
+                straight_distance = self.haversine_distance(lat1, lng1, lat2, lng2)
+                
+                # Validation logic (like plan_selection.html)
+                min_reasonable = straight_distance * 1.1
+                max_reasonable = straight_distance * 3
+                
+                print(f"Distance check: {name1} to {name2} - Straight: {straight_distance:.1f}km, Road: {distance:.1f}km")
+                
+                if distance < min_reasonable or distance > max_reasonable or distance < 0.5:
+                    # Use adjusted value
+                    distance = straight_distance * 1.3
+                    duration = distance / 40 * 60
+                    print(f"  → Using adjusted: {distance:.1f}km")
+                
+                return {'distance': distance, 'duration': duration}
+                
+        except Exception as e:
+            print(f"OSRM error for {name1} to {name2}: {e}")
+        
+        return None
 
+    def haversine_distance(self, lat1, lon1, lat2, lon2):
+        """Haversine formula - EXACT same as plan_selection.html"""
+        import math
+        
+        R = 6371  # Earth's radius in km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        return R * c
 
+    def optimize_route_nearest_neighbor(self, points):
+        """Optimize route using nearest neighbor - EXACT same as plan_selection.html"""
+        if len(points) <= 2:
+            return points
+        
+        import math
+        
+        def distance_between(a, b):
+            R = 6371
+            lat1 = math.radians(float(a.get('lat', a.get('latitude', 0))))
+            lon1 = math.radians(float(a.get('lng', a.get('longitude', 0))))
+            lat2 = math.radians(float(b.get('lat', b.get('latitude', 0))))
+            lon2 = math.radians(float(b.get('lng', b.get('longitude', 0))))
+            
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            x = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.atan2(math.sqrt(x), math.sqrt(1-x))
+            return R * c
+        
+        # Start with first point
+        route = [points[0]]
+        remaining = points[1:]
+        
+        while remaining:
+            last = route[-1]
+            # Find nearest remaining point
+            nearest = min(remaining, key=lambda p: distance_between(last, p))
+            route.append(nearest)
+            remaining.remove(nearest)
+        
+        return route
 class AddActivityView(LoginRequiredMixin, View):
     """Add a new activity to itinerary"""
     def post(self, request, trip_id, plan_id):
@@ -4593,93 +4871,70 @@ class VisitedDestinationsView(LoginRequiredMixin, TemplateView):
 # ========== CONFIRM BOOKING VIEW ==========
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# ========== CONFIRM BOOKING VIEW ==========
+# ========== CONFIRM BOOKING VIEW ==========
+# ========== CONFIRM BOOKING VIEW ==========
 
-class ConfirmBookingView(LoginRequiredMixin, View):
+# ========== UPDATED CONFIRM BOOKING VIEW FOR CUSTOM ITINERARIES ==========
+
+
+
+# ========== CONFIRM ROOMS ONLY VIEW (if needed separately) ==========
+
+class ConfirmRoomsOnlyView(LoginRequiredMixin, View):
+    """
+    View to confirm only room bookings (without transport).
+    Useful if user wants to confirm rooms separately.
+    """
+    
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-
-        if not trip.selected_plan:
-            messages.error(request, "Select plan first")
-            return redirect('planner:plan_selection', trip_id=trip.id)
-
-        if not trip.selected_hotel:
-            messages.error(request, "Select hotel")
-            return redirect('planner:plan_selection', trip_id=trip.id)
-
-        if not trip.selected_transport:
-            messages.error(request, "Select transport")
-            return redirect('planner:plan_selection', trip_id=trip.id)
-
-        transport = trip.selected_transport
-
-        # AUTO CONFIRM
-        if transport.get("is_temporary"):
-            success = self.auto_confirm(trip, request)
-            if not success:
-                messages.error(request, "Seat confirmation failed")
-                return redirect('planner:plan_selection', trip_id=trip.id)
-
-        trip.is_confirmed = True
-        trip.confirmed_at = timezone.now()
-        trip.status = "booked"
-        trip.save()
-
-        # Clear session data for this trip
-        request.session.pop(f'ai_plans_{trip_id}', None)
-        request.session.pop(f'selected_plan_{trip_id}', None)
-        request.session.pop(f'selected_rooms_{trip_id}', None)
         
-        messages.success(request, "Trip booked successfully! You can start planning a new trip.")
+        if not trip.selected_hotel:
+            messages.error(request, "No hotel selected")
+            return redirect('planner:plan_selection', trip_id=trip.id)
+        
+        if not trip.selected_rooms:
+            messages.error(request, "No rooms selected")
+            return redirect('planner:plan_selection', trip_id=trip.id)
+        
+        # Create an instance of ConfirmBookingView to use its confirm_rooms method
+        confirm_view = ConfirmBookingView()
+        success = confirm_view.confirm_rooms(trip, request)
+        
+        if success:
+            messages.success(request, "Rooms confirmed successfully!")
+        else:
+            messages.error(request, "Room confirmation failed")
+        
+        return redirect('planner:plan_selection', trip_id=trip.id)
 
-        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id="cultural")
+
+# ========== CONFIRM TRANSPORT ONLY VIEW (if needed separately) ==========
+
+class ConfirmTransportOnlyView(LoginRequiredMixin, View):
+    """
+    View to confirm only transport seats (without rooms).
+    Useful if user wants to confirm transport separately.
+    """
     
-    def auto_confirm(self, trip, request):
-        try:
-            data = trip.selected_transport
-            t_type = data["type"]
-            t_id = data["id"]
-            seats = data["seats"]
-            date = trip.start_date
-
-            schedule = get_object_or_404(
-                TransportSchedule,
-                transport_type=t_type,
-                transport_id=t_id,
-                travel_date=date,
-                is_active=True
-            )
-
-            for seat in seats:
-                if BookedSeat.objects.filter(
-                    transport_type=t_type,
-                    transport_id=t_id,
-                    schedule_date=date,
-                    seat_number=seat,
-                    is_cancelled=False
-                ).exists():
-                    return False
-
-                BookedSeat.objects.create(
-                    transport_type=t_type,
-                    transport_id=t_id,
-                    schedule_date=date,
-                    seat_number=seat,
-                    trip=trip,
-                    booked_by=request.user
-                )
-
-            schedule.available_seats -= len(seats)
-            schedule.save()
-
-            trip.selected_transport["is_temporary"] = False
-            trip.selected_transport["needs_confirmation"] = False
-            trip.save()
-
-            return True
-
-        except Exception as e:
-            print("AUTO CONFIRM ERROR:", e)
-            return False
+    def post(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        if not trip.selected_transport:
+            messages.error(request, "No transport selected")
+            return redirect('planner:plan_selection', trip_id=trip.id)
+        
+        # Create an instance of ConfirmBookingView to use its confirm_transport_seats method
+        confirm_view = ConfirmBookingView()
+        success = confirm_view.confirm_transport_seats(trip, request)
+        
+        if success:
+            messages.success(request, "Transport seats confirmed successfully!")
+        else:
+            messages.error(request, "Transport seat confirmation failed")
+        
+        return redirect('planner:plan_selection', trip_id=trip.id)
 
 
 class GetAvailableRoomsView(LoginRequiredMixin, View):
@@ -4863,16 +5118,28 @@ class SelectRoomsView(LoginRequiredMixin, View):
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# UPDATE the SaveRoomSelectionView class
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# COMPLETE FIXED SaveRoomSelectionView
 
 class SaveRoomSelectionView(LoginRequiredMixin, View):
-    """Save room selection and redirect back to plan page"""
+    """Save room selection with extra beds and redirect back to plan page"""
     
     def post(self, request, trip_id):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         
         try:
             data = json.loads(request.body)
+            print(f"📦 Received data: {data}")
+            
             room_ids = data.get('room_ids', [])
+            extra_beds_data = data.get('extra_beds', {})
+            nights = data.get('nights', trip.calculate_nights())
+            
+            print(f"🛏️ Room IDs: {room_ids}")
+            print(f"➕ Extra beds data: {extra_beds_data}")
             
             if not room_ids:
                 return JsonResponse({'success': False, 'error': 'No rooms selected'})
@@ -4884,7 +5151,6 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             
             check_in = trip.start_date
             check_out = trip.end_date
-            nights = trip.calculate_nights()
             
             from .models_room import Room, RoomBooking, RoomAvailability
             date_range = [check_in + timedelta(days=x) for x in range((check_out - check_in).days)]
@@ -4893,7 +5159,7 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
             for room_id in room_ids:
                 room = Room.objects.get(id=room_id)
                 
-                # Check for CONFIRMED bookings (not temporary)
+                # Check for CONFIRMED bookings
                 has_confirmed_booking = RoomBooking.objects.filter(
                     room=room,
                     check_in_date__lt=check_out,
@@ -4911,7 +5177,7 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                 
                 if has_confirmed_booking or has_unavailable:
                     invalid_rooms.append(room_id)
-                    print(f"Room {room.room_number} is UNAVAILABLE - cannot book")
+                    print(f"❌ Room {room.room_number} is UNAVAILABLE")
             
             if invalid_rooms:
                 return JsonResponse({
@@ -4920,70 +5186,133 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                     'invalid_rooms': invalid_rooms
                 })
             
-            # Calculate price
+            # Calculate price including extra beds
             rooms = Room.objects.filter(id__in=room_ids)
-            total_price = 0
+            total_base_price = 0
+            total_extra_beds_cost = 0
             room_details = []
             
             for room in rooms:
                 price_per_night = room.get_price_per_night()
-                room_total = price_per_night * nights
-                total_price += room_total
+                room_base_total = price_per_night * nights
+                total_base_price += room_base_total
+                
+                # Check if extra bed is selected for this room
+                room_id_str = str(room.id)
+                extra_bed_selected = room_id_str in extra_beds_data
+                extra_beds_count = 0
+                extra_beds_total = 0
+                
+                if extra_bed_selected and room.extra_bed_available:
+                    # Get extra bed data
+                    extra_bed_info = extra_beds_data.get(room_id_str, {})
+                    
+                    if isinstance(extra_bed_info, dict):
+                        extra_beds_count = extra_bed_info.get('count', 1)
+                    elif isinstance(extra_bed_info, (int, float)):
+                        extra_beds_count = int(extra_bed_info)
+                    elif isinstance(extra_bed_info, bool):
+                        extra_beds_count = 1 if extra_bed_info else 0
+                    else:
+                        extra_beds_count = 1
+                    
+                    # Ensure count doesn't exceed maximum
+                    extra_beds_count = min(extra_beds_count, room.max_extra_beds)
+                    
+                    if extra_beds_count > 0:
+                        extra_beds_total = float(room.extra_bed_cost) * extra_beds_count * nights
+                        total_extra_beds_cost += extra_beds_total
+                        print(f"➕ Room {room.room_number}: {extra_beds_count} extra bed(s) x {room.extra_bed_cost} MMK x {nights} nights = {extra_beds_total} MMK")
+                
+                room_total = room_base_total + extra_beds_total
+                
                 room_details.append({
                     'id': room.id,
                     'room_number': room.room_number,
                     'room_type': room.room_type.name,
                     'price_per_night': float(price_per_night),
                     'total': float(room_total),
+                    'base_total': float(room_base_total),
                     'floor': room.floor,
-                    'bed_type': room.bed_type
+                    'bed_type': room.bed_type,
+                    # Extra bed fields
+                    'extra_bed_selected': extra_bed_selected,
+                    'extra_beds_count': extra_beds_count,
+                    'extra_bed_cost_per_night': float(room.extra_bed_cost) if room.extra_bed_available else 0,
+                    'extra_beds_total': float(extra_beds_total),
                 })
+                
+                print(f"✅ Room {room.room_number}: base={room_base_total}, extra={extra_beds_total}, total={room_total}")
             
-            # Save to trip (TEMPORARY - not confirmed yet)
+            total_price = total_base_price + total_extra_beds_cost
+            
+            print(f"💰 Total base: {total_base_price}, Total extra: {total_extra_beds_cost}, Grand total: {total_price}")
+            
+            # Save to trip
             trip.selected_rooms = {
                 'room_ids': room_ids,
                 'total_price': float(total_price),
+                'total_base_price': float(total_base_price),
+                'total_extra_beds_cost': float(total_extra_beds_cost),
                 'room_details': room_details,
-                'is_temporary': True  # This is temporary until confirmed
+                'extra_beds_data': extra_beds_data,
+                'is_temporary': True
             }
             trip.save()
             
-            # Create TEMPORARY bookings to lock the rooms
+            # Create TEMPORARY bookings
             from .models_room import RoomBooking
+            
+            # Delete any existing temporary bookings for this trip
+            RoomBooking.objects.filter(
+                trip=trip,
+                status='temporary'
+            ).delete()
+            
+            # Create new temporary bookings
             for room_id in room_ids:
                 room = Room.objects.get(id=room_id)
-                # Check if there's already a temporary booking
-                existing_temp = RoomBooking.objects.filter(
+                
+                price_per_night = room.get_price_per_night()
+                
+                # Get extra bed count again
+                room_id_str = str(room.id)
+                extra_bed_selected = room_id_str in extra_beds_data
+                extra_beds_count = 0
+                
+                if extra_bed_selected and room.extra_bed_available:
+                    extra_bed_info = extra_beds_data.get(room_id_str, {})
+                    if isinstance(extra_bed_info, dict):
+                        extra_beds_count = extra_bed_info.get('count', 1)
+                    elif isinstance(extra_bed_info, (int, float)):
+                        extra_beds_count = int(extra_bed_info)
+                    else:
+                        extra_beds_count = 1
+                    
+                    extra_beds_count = min(extra_beds_count, room.max_extra_beds)
+                
+                extra_beds_cost = float(room.extra_bed_cost) * extra_beds_count * nights if extra_beds_count > 0 else 0
+                room_total = (price_per_night * nights) + extra_beds_cost
+                
+                RoomBooking.objects.create(
                     room=room,
+                    trip=trip,
+                    booked_by=request.user,
                     check_in_date=check_in,
                     check_out_date=check_out,
-                    status='temporary',
-                    is_cancelled=False
-                ).first()
-                
-                if not existing_temp:
-                    # Create temporary booking
-                    RoomBooking.objects.create(
-                        room=room,
-                        trip=trip,
-                        booked_by=request.user,
-                        check_in_date=check_in,
-                        check_out_date=check_out,
-                        guests=trip.travelers,
-                        price_per_night=price_per_night,
-                        total_price=room_total,
-                        status='temporary'  # Temporary until confirmed
-                    )
-                    print(f"Created TEMPORARY booking for room {room.room_number}")
+                    guests=trip.travelers + extra_beds_count,
+                    extra_beds=extra_beds_count,
+                    extra_beds_cost=extra_beds_cost,
+                    price_per_night=price_per_night,
+                    total_price=room_total,
+                    status='temporary'
+                )
+                print(f"✅ Created TEMPORARY booking for room {room.room_number} with {extra_beds_count} extra beds")
             
-            print(f"DEBUG - Saved rooms: {room_details}")
-            print(f"DEBUG - Total price: {total_price} for {nights} nights")
-            
-            # Build redirect URL to MAIN PLAN PAGE
+            # Build redirect URL
             redirect_url = reverse('planner:plan')
             params = []
             
-            # Include origin and destination
             if trip.origin:
                 params.append(f'origin_id={trip.origin.id}')
                 params.append(f'origin_name={urllib.parse.quote(trip.origin.name)}')
@@ -4992,182 +5321,352 @@ class SaveRoomSelectionView(LoginRequiredMixin, View):
                 params.append(f'destination_id={trip.destination.id}')
                 params.append(f'destination_name={urllib.parse.quote(trip.destination.name)}')
             
-            # Add hotel
             if trip.selected_hotel:
                 params.append(f'hotel_id={trip.selected_hotel.id}')
                 params.append(f'hotel_name={urllib.parse.quote(trip.selected_hotel.name)}')
             
-            # Add dates
             if trip.start_date:
                 params.append(f'start_date={trip.start_date.strftime("%Y-%m-%d")}')
             if trip.end_date:
                 params.append(f'end_date={trip.end_date.strftime("%Y-%m-%d")}')
             
-            # Add travelers
             params.append(f'travelers={trip.travelers}')
             
-            # Check if transport exists and include it
-            if trip.selected_transport:
-                transport_data = trip.selected_transport
-                if transport_data.get('id'):
-                    params.append(f'transport_id={transport_data.get("id")}')
-                    params.append(f'transport_type={transport_data.get("type", "")}')
-                    params.append(f'transport_name={urllib.parse.quote(transport_data.get("name", ""))}')
-            
-            # Build final URL
             if params:
                 redirect_url += '?' + '&'.join(params)
             
             return JsonResponse({
                 'success': True,
-                'message': f'{len(room_ids)} room(s) selected',
+                'message': f'{len(room_ids)} room(s) selected with extra beds',
                 'total_price': float(total_price),
+                'total_base_price': float(total_base_price),
+                'total_extra_beds_cost': float(total_extra_beds_cost),
                 'room_details': room_details,
                 'redirect_url': redirect_url
             })
             
         except Exception as e:
-            print(f"Error in SaveRoomSelectionView: {e}")
+            print(f"❌ Error in SaveRoomSelectionView: {e}")
             import traceback
             traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)})
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-
+# ========== UPDATED CONFIRM BOOKING VIEW FOR CUSTOM ITINERARIES ==========
+# ========== UPDATED CONFIRM BOOKING VIEW FOR CUSTOM ITINERARIES ==========
+# ========== COMPLETE CONFIRM BOOKING VIEW ==========
 class ConfirmBookingView(LoginRequiredMixin, View):
+    """
+    Final booking confirmation view for custom user-built itineraries.
+    This version does NOT require a selected_plan (AI plan).
+    """
+    
     def post(self, request, trip_id):
+        """
+        Handle POST request to confirm and book the entire trip.
+        """
+        # Get the trip and verify ownership
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        print(f"\n{'='*60}")
+        print(f"🔵 CONFIRM BOOKING VIEW (Custom Itinerary) - Trip ID: {trip_id}")
+        print(f"🔵 User: {request.user.username}")
+        print(f"{'='*60}\n")
 
-        if not trip.selected_plan:
-            messages.error(request, "Select plan first")
-            return redirect('planner:plan_selection', trip_id=trip.id)
-
+        # ========== VALIDATION STEP 1: Check if hotel is selected ==========
         if not trip.selected_hotel:
-            messages.error(request, "Select hotel")
+            messages.error(request, "Please select a hotel first.")
+            print("❌ Validation failed: No hotel selected")
             return redirect('planner:plan_selection', trip_id=trip.id)
 
+        # ========== VALIDATION STEP 2: Check if rooms are selected ==========
+        if not trip.selected_rooms or not trip.selected_rooms.get('room_ids'):
+            messages.error(request, "Please select rooms first.")
+            print("❌ Validation failed: No rooms selected")
+            return redirect('planner:plan_selection', trip_id=trip.id)
+
+        # ========== VALIDATION STEP 3: Check if transport is selected ==========
         if not trip.selected_transport:
-            messages.error(request, "Select transport")
+            messages.error(request, "Please select transport first.")
+            print("❌ Validation failed: No transport selected")
             return redirect('planner:plan_selection', trip_id=trip.id)
 
+        # ========== STEP 1: SAVE CUSTOM ITINERARY (if any attractions selected) ==========
+        # Get selected attractions from session and save to trip
+        session_key = f'selected_attractions_{trip_id}'
+        selected_attractions = request.session.get(session_key, [])
+        
+        print(f"📍 Selected attractions from session: {len(selected_attractions)}")
+        
+        if selected_attractions:
+            # Save the custom itinerary to the trip with proper structure
+            trip.custom_itinerary = {
+                'attractions': selected_attractions,
+                'created_at': timezone.now().isoformat(),
+                'type': 'user_built',
+                'count': len(selected_attractions)
+            }
+            
+            # Also save to selected_attractions_data field
+            trip.selected_attractions_data = selected_attractions
+            print(f"✅ Saved {len(selected_attractions)} attractions to custom itinerary")
+        else:
+            print("⚠️ No attractions selected for custom itinerary")
+            trip.custom_itinerary = {
+                'attractions': [],
+                'created_at': timezone.now().isoformat(),
+                'type': 'user_built',
+                'count': 0
+            }
+            trip.selected_attractions_data = []
+
+        # ========== STEP 2: CONFIRM TRANSPORT SEATS ==========
         transport = trip.selected_transport
-
-        # AUTO CONFIRM transport
-        if transport.get("is_temporary"):
-            success = self.auto_confirm(trip, request)
-            if not success:
-                messages.error(request, "Seat confirmation failed")
+        transport_confirmed = True
+        
+        # Only confirm if transport is temporary (has seats to confirm)
+        if transport.get("is_temporary", False):
+            print(f"🚌 Confirming transport: {transport.get('type')} - Seats: {transport.get('seats', [])}")
+            transport_confirmed = self.confirm_transport_seats(trip, request)
+            
+            if not transport_confirmed:
+                messages.error(request, "Transport seat confirmation failed. Some seats may no longer be available.")
+                print("❌ Transport confirmation failed")
                 return redirect('planner:plan_selection', trip_id=trip.id)
+        else:
+            print("✅ Transport already confirmed (no temporary seats)")
 
-        # CONFIRM ROOMS (change from temporary to confirmed)
-        if trip.selected_rooms and trip.selected_rooms.get('is_temporary'):
-            self.confirm_rooms(trip, request)
+        # ========== STEP 3: CONFIRM ROOM BOOKINGS ==========
+        rooms_confirmed = True
+        
+        if trip.selected_rooms and trip.selected_rooms.get('is_temporary', True):
+            print(f"🏨 Confirming rooms: {trip.selected_rooms.get('room_ids', [])}")
+            rooms_confirmed = self.confirm_rooms(trip, request)
+            
+            if not rooms_confirmed:
+                messages.error(request, "Room confirmation failed. Some rooms may no longer be available.")
+                print("❌ Room confirmation failed")
+                return redirect('planner:plan_selection', trip_id=trip.id)
+        else:
+            print("✅ Rooms already confirmed")
 
+        # ========== STEP 4: UPDATE TRIP STATUS ==========
+        # Mark trip as confirmed and booked
         trip.is_confirmed = True
         trip.confirmed_at = timezone.now()
         trip.status = "booked"
+        
+        # If no AI plan was selected, set a default plan type for display purposes
+        if not trip.selected_plan:
+            trip.selected_plan = 'custom'  # You can use 'custom' as a plan identifier
+            print("✅ Set default plan type to 'custom'")
+        
         trip.save()
+        
+        print(f"✅ Trip status updated to 'booked' at {trip.confirmed_at}")
 
-        # Clear session data for this trip
-        request.session.pop(f'ai_plans_{trip_id}', None)
-        request.session.pop(f'selected_plan_{trip_id}', None)
-        request.session.pop(f'selected_rooms_{trip_id}', None)
+        # ========== STEP 5: CLEAN UP SESSION DATA ==========
+        # Clear all session data related to this trip
+        self.clear_trip_session_data(request, trip_id)
         
-        messages.success(request, "Trip booked successfully! You can start planning a new trip.")
+        print(f"🧹 Session data cleared for trip {trip_id}")
 
-        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id="cultural")
-    
-    def confirm_rooms(self, trip, request):
-        """Confirm room bookings (change from temporary to confirmed)"""
-        from .models_room import RoomBooking, RoomAvailability
+        # ========== STEP 6: SUCCESS MESSAGE ==========
+        success_message = (
+            f"✅ Trip successfully booked! "
+            f"Booking reference: #{trip.id}{trip.confirmed_at.strftime('%Y%m%d%H%M')}"
+        )
+        messages.success(request, success_message)
+        print(f"✨ {success_message}")
+        print(f"{'='*60}\n")
+
+        # ========== STEP 7: REDIRECT TO FINAL PAGE ==========
+        # For custom itineraries, use a special plan_id like 'custom'
+        plan_id = 'custom'
         
-        if not trip.selected_rooms:
-            return
-        
-        room_ids = trip.selected_rooms.get('room_ids', [])
-        check_in = trip.start_date
-        check_out = trip.end_date
-        nights = trip.calculate_nights()
-        
-        date_range = [check_in + timedelta(days=x) for x in range(nights)]
-        
-        for room_id in room_ids:
-            # Find the temporary booking
-            booking = RoomBooking.objects.filter(
-                room_id=room_id,
-                trip=trip,
-                check_in_date=check_in,
-                check_out_date=check_out,
-                status='temporary',
-                is_cancelled=False
-            ).first()
+        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id=plan_id)
+
+    def confirm_transport_seats(self, trip, request):
+        """Confirm transport seats (convert temporary to permanent)."""
+        try:
+            from .models import BookedSeat, TransportSchedule
             
-            if booking:
-                # Confirm the booking
-                booking.status = 'confirmed'
-                booking.save()
-                print(f"Room {booking.room.room_number} booking CONFIRMED")
+            data = trip.selected_transport
+            
+            transport_type = data.get("type")
+            transport_id = data.get("id")
+            seats = data.get("seats", [])
+            schedule_id = data.get("schedule_id")
+            travel_date = trip.start_date
+
+            # Skip if no seats to confirm (e.g., car rental)
+            if not seats or transport_type == 'car':
+                print("   ✅ No seats to confirm (car rental or no seats)")
+                return True
+
+            # Get the transport schedule
+            try:
+                schedule = TransportSchedule.objects.get(
+                    transport_type=transport_type,
+                    transport_id=transport_id,
+                    travel_date=travel_date,
+                    is_active=True
+                )
+            except TransportSchedule.DoesNotExist:
+                print(f"   ❌ Schedule not found")
+                return False
+
+            # Check if seats are still available
+            if schedule.available_seats < len(seats):
+                print(f"   ❌ Not enough seats available")
+                return False
+
+            # Check if any seats are already booked
+            for seat in seats:
+                existing = BookedSeat.objects.filter(
+                    transport_type=transport_type,
+                    transport_id=transport_id,
+                    schedule_date=travel_date,
+                    seat_number=seat,
+                    is_cancelled=False
+                ).exists()
                 
-                # Update availability records to mark dates as unavailable
+                if existing:
+                    print(f"   ❌ Seat {seat} is already booked")
+                    return False
+
+            # Create permanent bookings
+            for seat in seats:
+                BookedSeat.objects.create(
+                    transport_type=transport_type,
+                    transport_id=transport_id,
+                    schedule_date=travel_date,
+                    seat_number=seat,
+                    trip=trip,
+                    booked_by=request.user
+                )
+
+            # Update schedule available seats
+            schedule.available_seats -= len(seats)
+            schedule.save()
+
+            # Update transport data
+            trip.selected_transport["is_temporary"] = False
+            trip.selected_transport["needs_confirmation"] = False
+            trip.selected_transport["confirmed_at"] = timezone.now().isoformat()
+            trip.save(update_fields=['selected_transport'])
+            
+            print(f"   ✅ Successfully confirmed {len(seats)} seats")
+            return True
+
+        except Exception as e:
+            print(f"   ❌ Error confirming transport: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def confirm_rooms(self, trip, request):
+        """Confirm room bookings (convert temporary to permanent)."""
+        try:
+            from .models_room import RoomBooking, RoomAvailability
+            from datetime import timedelta
+            
+            room_ids = trip.selected_rooms.get('room_ids', [])
+            check_in = trip.start_date
+            check_out = trip.end_date
+            nights = trip.calculate_nights()
+            
+            date_range = [check_in + timedelta(days=x) for x in range(nights)]
+
+            # Verify each room is still available
+            for room_id in room_ids:
+                # Check for confirmed bookings
+                has_confirmed = RoomBooking.objects.filter(
+                    room_id=room_id,
+                    check_in_date__lt=check_out,
+                    check_out_date__gt=check_in,
+                    is_cancelled=False,
+                    status__in=['confirmed', 'checked_in']
+                ).exists()
+                
+                if has_confirmed:
+                    print(f"   ❌ Room {room_id} has a confirmed booking")
+                    return False
+                
+                # Check availability records
+                has_unavailable = RoomAvailability.objects.filter(
+                    room_id=room_id,
+                    date__in=date_range,
+                    is_available=False
+                ).exists()
+                
+                if has_unavailable:
+                    print(f"   ❌ Room {room_id} has unavailable dates")
+                    return False
+
+            # Find and confirm all temporary bookings
+            confirmed_count = 0
+            for room_id in room_ids:
+                bookings = RoomBooking.objects.filter(
+                    room_id=room_id,
+                    trip=trip,
+                    check_in_date=check_in,
+                    check_out_date=check_out,
+                    status='temporary',
+                    is_cancelled=False
+                )
+                
+                for booking in bookings:
+                    booking.status = 'confirmed'
+                    booking.confirmed_at = timezone.now()
+                    booking.save()
+                    confirmed_count += 1
+                    print(f"   ✅ Confirmed room booking for room {room_id}")
+
+            # Block the dates in RoomAvailability
+            for room_id in room_ids:
                 for date in date_range:
                     RoomAvailability.objects.update_or_create(
                         room_id=room_id,
                         date=date,
                         defaults={'is_available': False}
                     )
-        
-        # Update trip selected_rooms to reflect confirmed status
-        trip.selected_rooms['is_temporary'] = False
-        trip.save()
-    
-    def auto_confirm(self, trip, request):
-        try:
-            data = trip.selected_transport
-            t_type = data["type"]
-            t_id = data["id"]
-            seats = data["seats"]
-            date = trip.start_date
 
-            from .models import TransportSchedule, BookedSeat
-            schedule = get_object_or_404(
-                TransportSchedule,
-                transport_type=t_type,
-                transport_id=t_id,
-                travel_date=date,
-                is_active=True
-            )
-
-            for seat in seats:
-                if BookedSeat.objects.filter(
-                    transport_type=t_type,
-                    transport_id=t_id,
-                    schedule_date=date,
-                    seat_number=seat,
-                    is_cancelled=False
-                ).exists():
-                    return False
-
-                BookedSeat.objects.create(
-                    transport_type=t_type,
-                    transport_id=t_id,
-                    schedule_date=date,
-                    seat_number=seat,
-                    trip=trip,
-                    booked_by=request.user
-                )
-
-            schedule.available_seats -= len(seats)
-            schedule.save()
-
-            trip.selected_transport["is_temporary"] = False
-            trip.selected_transport["needs_confirmation"] = False
-            trip.save()
-
+            # Update trip selected_rooms
+            trip.selected_rooms['is_temporary'] = False
+            trip.selected_rooms['confirmed_at'] = timezone.now().isoformat()
+            trip.save(update_fields=['selected_rooms'])
+            
+            print(f"   ✅ Successfully confirmed {confirmed_count} room bookings")
             return True
 
         except Exception as e:
-            print("AUTO CONFIRM ERROR:", e)
+            print(f"   ❌ Error confirming rooms: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
+
+    def clear_trip_session_data(self, request, trip_id):
+        """Clear all session data related to this trip."""
+        session_keys_to_clear = [
+            f'ai_plans_{trip_id}',
+            f'selected_plan_{trip_id}',
+            f'selected_plan_details_{trip_id}',
+            f'selected_attractions_{trip_id}',
+            f'selected_rooms_{trip_id}',
+        ]
+        
+        session_keys = list(request.session.keys())
+        for key in session_keys:
+            if (key.startswith('ai_plans_') or 
+                key.startswith('selected_plan_') or
+                key.startswith('selected_attractions_') or
+                key.startswith('selected_rooms_') or
+                key in session_keys_to_clear):
+                
+                del request.session[key]
+        
+        request.session.modified = True
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
 # ========== ITINERARY BUILDER WITH MAP ROUTE ==========
@@ -5354,24 +5853,90 @@ class SaveItineraryView(LoginRequiredMixin, View):
     """Save the custom itinerary to the trip"""
     
     def post(self, request, trip_id):
-        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
-        
-        session_key = f'selected_attractions_{trip_id}'
-        selected = request.session.get(session_key, [])
-        
-        if not selected:
-            messages.error(request, 'No attractions selected to save.')
-            return redirect('planner:itinerary_builder', trip_id=trip.id)
-        
-        # Save to trip
-        trip.custom_itinerary = {
-            'attractions': selected,
-            'created_at': timezone.now().isoformat()
-        }
-        trip.save()
-        
-        # Clear session
-        request.session.pop(session_key, None)
-        
-        messages.success(request, 'Your custom itinerary has been saved!')
-        return redirect('planner:itinerary_detail', trip_id=trip.id, plan_id='custom')
+        """
+        Save selected attractions to the trip's custom_itinerary field.
+        This is called via AJAX before confirming the booking.
+        """
+        try:
+            # Get the trip and verify ownership
+            trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+            
+            print(f"\n{'='*60}")
+            print(f"🔵 SAVE ITINERARY VIEW - Trip ID: {trip_id}")
+            print(f"{'='*60}")
+            
+            # Parse the request body
+            try:
+                data = json.loads(request.body)
+                print(f"📦 Received data: {data}")
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Decode Error: {e}")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid JSON data'
+                }, status=400)
+            
+            # Get attractions from request
+            attractions = data.get('attractions', [])
+            print(f"📍 Attractions received: {len(attractions)}")
+            
+            if not attractions:
+                print("⚠️ No attractions to save")
+                return JsonResponse({
+                    'success': True,
+                    'message': 'No attractions to save',
+                    'count': 0
+                })
+            
+            # Validate attractions have required fields
+            valid_attractions = []
+            for attr in attractions:
+                if all(k in attr for k in ['id', 'name', 'lat', 'lng']):
+                    valid_attractions.append(attr)
+                else:
+                    print(f"⚠️ Invalid attraction data: {attr}")
+            
+            print(f"✅ Valid attractions: {len(valid_attractions)}")
+            
+            # Save to trip's custom_itinerary field
+            trip.custom_itinerary = {
+                'attractions': valid_attractions,
+                'created_at': timezone.now().isoformat(),
+                'type': 'user_built',
+                'count': len(valid_attractions)
+            }
+            
+            # Also save to selected_attractions field if it exists in your model
+            # If you have a field for selected attractions, save there too
+            # trip.selected_attractions = valid_attractions  # Uncomment if this field exists
+            
+            trip.save()
+            print(f"✅ Saved {len(valid_attractions)} attractions to trip {trip_id}")
+            
+            # Store in session as backup
+            session_key = f'selected_attractions_{trip_id}'
+            request.session[session_key] = valid_attractions
+            request.session.modified = True
+            print(f"✅ Saved to session as backup")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully saved {len(valid_attractions)} attractions',
+                'count': len(valid_attractions)
+            })
+            
+        except TripPlan.DoesNotExist:
+            print(f"❌ Trip not found: {trip_id}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Trip not found'
+            }, status=404)
+            
+        except Exception as e:
+            print(f"❌ Unexpected error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)

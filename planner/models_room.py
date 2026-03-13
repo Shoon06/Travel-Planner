@@ -19,6 +19,7 @@ class RoomType(models.Model):
     class Meta:
         ordering = ['name']
 
+
 class Room(models.Model):
     """Individual rooms in hotels (like seats in transport)"""
     hotel = models.ForeignKey(Hotel, on_delete=models.CASCADE, related_name='rooms')
@@ -30,6 +31,26 @@ class Room(models.Model):
     custom_price = models.DecimalField(
         max_digits=10, decimal_places=0, null=True, blank=True,
         help_text="Override hotel price per night for this room"
+    )
+    
+    # ADD THESE EXTRA BED FIELDS
+    extra_bed_available = models.BooleanField(
+        default=False,
+        help_text="Whether this room can accommodate an extra bed"
+    )
+    
+    extra_bed_cost = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        default=0,
+        null=True,
+        blank=True,
+        help_text="Cost for extra bed per night in MMK"
+    )
+    
+    max_extra_beds = models.IntegerField(
+        default=0,
+        help_text="Maximum number of extra beds allowed in this room"
     )
     
     # Room features/amenities specific to this room
@@ -66,6 +87,22 @@ class Room(models.Model):
         # Use hotel price multiplied by room type factor
         return int(float(self.hotel.price_per_night) * float(self.room_type.base_price_multiplier))
     
+    def get_total_price_with_extra_beds(self, nights, extra_beds_count=0):
+        """
+        Calculate total price including extra beds
+        """
+        base_price = self.get_price_per_night() * nights
+        extra_beds_total = 0
+        
+        if extra_beds_count > 0 and self.extra_bed_available:
+            extra_beds_total = self.extra_bed_cost * extra_beds_count * nights
+        
+        return {
+            'base_price': base_price,
+            'extra_beds_total': extra_beds_total,
+            'total': base_price + extra_beds_total
+        }
+    
     def get_availability_for_dates(self, check_in, check_out):
         """Check if room is available for given dates"""
         from .models_room import RoomBooking, RoomAvailability
@@ -95,9 +132,10 @@ class Room(models.Model):
         
         return True
 
+
 class RoomAvailability(models.Model):
     """Track room availability for specific dates (60 days in advance)"""
-    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='availabilities')
+    room = models.ForeignKey('Room', on_delete=models.CASCADE, related_name='availabilities')
     date = models.DateField()
     is_available = models.BooleanField(default=True)
     price_override = models.DecimalField(max_digits=10, decimal_places=0, null=True, blank=True)
@@ -113,6 +151,7 @@ class RoomAvailability(models.Model):
     def __str__(self):
         return f"{self.room} - {self.date} - {'Available' if self.is_available else 'Booked'}"
 
+
 class RoomBooking(models.Model):
     """Booking for specific rooms (like BookedSeat for transport)"""
     BOOKING_STATUS = [
@@ -124,7 +163,7 @@ class RoomBooking(models.Model):
         ('no_show', 'No Show'),
     ]
     
-    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='bookings')
+    room = models.ForeignKey('Room', on_delete=models.CASCADE, related_name='bookings')
     trip = models.ForeignKey('TripPlan', on_delete=models.CASCADE, related_name='room_bookings')
     booked_by = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='room_bookings')
     
@@ -132,6 +171,19 @@ class RoomBooking(models.Model):
     check_in_date = models.DateField()
     check_out_date = models.DateField()
     guests = models.IntegerField(default=1)
+    
+    # ADD THESE EXTRA BED FIELDS
+    extra_beds = models.IntegerField(
+        default=0,
+        help_text="Number of extra beds booked for this room"
+    )
+    
+    extra_beds_cost = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        default=0,
+        help_text="Total cost for extra beds"
+    )
     
     # Price at time of booking
     price_per_night = models.DecimalField(max_digits=10, decimal_places=0)
@@ -162,6 +214,19 @@ class RoomBooking(models.Model):
     def calculate_nights(self):
         """Calculate number of nights"""
         return (self.check_out_date - self.check_in_date).days
+    
+    def get_breakdown(self):
+        """Get price breakdown including extra beds"""
+        nights = self.calculate_nights()
+        room_base = self.price_per_night * nights
+        
+        return {
+            'room_base': room_base,
+            'extra_beds': self.extra_beds_cost,
+            'total': self.total_price,
+            'nights': nights,
+            'extra_beds_count': self.extra_beds
+        }
     
     def is_active_booking(self):
         """Check if booking is active (not cancelled and dates valid)"""

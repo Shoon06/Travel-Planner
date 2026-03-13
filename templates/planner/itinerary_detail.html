@@ -1,676 +1,1065 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load static %}
 {% load custom_filters %}
-{% load weather_filters %}
-{% load humanize %}
 
-{% block title %}Your Itinerary - GoMyanmar{% endblock %}
+{% block title %}Your Confirmed Itinerary - {{ trip.destination.name }}{% endblock %}
 
-{% block content %}
-<!-- MINIMAL DEBUG -->
-
-<!-- END DEBUG -->
-<div class="container-fluid px-0">
-    <!-- Hero Header -->
-    <div class="itinerary-hero py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="container py-5">
-            <div class="row align-items-center">
-                <div class="col-lg-8">
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{% url 'planner:dashboard' %}" class="text-white">Dashboard</a></li>
-                            <li class="breadcrumb-item"><a href="{% url 'planner:plan_selection' trip_id=trip.id %}" class="text-white">Plans</a></li>
-                            <li class="breadcrumb-item active text-white" aria-current="page">{{ plan_title }}</li>
-                        </ol>
-                    </nav>
-                    <h1 class="display-5 fw-bold text-white mb-3">{{ plan_title }} Itinerary</h1>
-                    <p class="lead text-white mb-0">
-                        {{ destination_name }} • {{ start_date }} to {{ end_date }} • {{ travelers }} traveler{{ travelers|pluralize }}
-                    </p>
-                </div>
-                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
-                    <button class="btn btn-light btn-lg me-2" id="printItinerary">
-                        <i class="fas fa-print me-2"></i>Print
-                    </button>
-                    <a href="{% url 'planner:download_itinerary_pdf' trip_id=trip.id plan_id=plan_id %}" 
-                       class="btn btn-outline-light btn-lg">
-                        <i class="fas fa-download me-2"></i>Download PDF
-                    </a>
-                    <a href="{% url 'planner:plan' %}?clear=true" class="btn btn-success btn-lg">
-                     <i class="fas fa-plus me-2"></i>Plan New Trip
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Main Content -->
-    <div class="container py-5">
-        <div class="row">
-            <!-- Left Column - Itinerary -->
-            <div class="col-lg-8">
-                <!-- Trip Summary Cards -->
-                <div class="row mb-5">
-                    <div class="col-md-4 mb-4">
-                        <div class="card stat-card h-100">
-                            <div class="card-body text-center py-4">
-                                <div class="stat-icon mb-3">
-                                    <i class="fas fa-calendar-alt fa-2x"></i>
-                                </div>
-                                <h3 class="stat-number">{{ total_days }}</h3>
-                                <p class="stat-label">Total Days</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-4">
-                        <div class="card stat-card h-100">
-                            <div class="card-body text-center py-4">
-                                <div class="stat-icon mb-3">
-                                    <i class="fas fa-tasks fa-2x"></i>
-                                </div>
-                                <h3 class="stat-number">{{ total_activities }}</h3>
-                                <p class="stat-label">Activities</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-4">
-                        <div class="card stat-card h-100">
-                            <div class="card-body text-center py-4">
-                                <div class="stat-icon mb-3">
-                                    <i class="fas fa-coins fa-2x"></i>
-                                </div>
-                                <h3 class="stat-number">{{ cost_estimate.total|intcomma }} MMK</h3>
-                                <p class="stat-label">Estimated Cost</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Days Navigation -->
-                <div class="mb-4">
-                    <nav>
-                        <div class="nav nav-tabs" id="daysTab" role="tablist">
-                            {% for day in days_data %}
-                            <button class="nav-link {% if forloop.first %}active{% endif %}" 
-                                    id="day{{ day.day_number }}-tab" data-bs-toggle="tab" 
-                                    data-bs-target="#day{{ day.day_number }}" type="button" role="tab">
-                                <div class="d-flex flex-column align-items-center">
-                                    <span class="small">Day</span>
-                                    <strong class="fs-5">{{ day.day_number }}</strong>
-                                    <small class="xsmall">{{ day.date }}</small>
-                                </div>
-                            </button>
-                            {% endfor %}
-                        </div>
-                    </nav>
-                </div>
-                
-                <!-- Days Content -->
-                <div class="tab-content" id="daysTabContent">
-                    {% for day in days_data %}
-                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
-                         id="day{{ day.day_number }}" role="tabpanel">
-                         
-                        <!-- Day Header with Weather -->
-                        <div class="card-glass p-4 mb-4">
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <h3 class="fw-bold mb-1">Day {{ day.day_number }}: {{ day.date }}</h3>
-                                    <p class="text-gray mb-0">
-                                        <i class="fas fa-calendar-day me-2"></i>
-                                        {% with day_index=forloop.counter0 %}
-                                            {% if weather_forecast %}
-                                                {{ weather_forecast|get_day_name:day_index }}
-                                            {% else %}
-                                                {% now "l" %}
-                                            {% endif %}
-                                        {% endwith %}
-                                    </p>
-                                </div>
-                                <div class="col-md-6 text-md-end">
-                                    {% with weather=weather_forecast|get_item:day.date %}
-                                    {% if weather %}
-                                    <div class="weather-widget d-inline-block">
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <img src="https://openweathermap.org/img/wn/{{ weather.daily_summary.icon }}.png" 
-                                                     alt="{{ weather.daily_summary.description }}" 
-                                                     width="50" height="50">
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">{{ weather.daily_summary.temperature }}°C</div>
-                                                <div class="small text-muted">{{ weather.daily_summary.description }}</div>
-                                                <div class="xsmall">
-                                                    H: {{ weather.max_temp }}° L: {{ weather.min_temp }}°
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% else %}
-                                    <div class="weather-widget d-inline-block">
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <i class="fas fa-sun fa-2x text-warning"></i>
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">25°C</div>
-                                                <div class="small text-muted">Weather data unavailable</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    {% endwith %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Activities Timeline -->
-                        <div class="timeline">
-                            {% for activity in day.activities %}
-                            <div class="timeline-item" id="activity-{{ day.day_number }}-{{ forloop.counter0 }}">
-                                <div class="timeline-marker">
-                                    <i class="{{ activity.icon }}"></i>
-                                </div>
-                                <div class="timeline-content">
-                                    <div class="card activity-card mb-4">
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div class="col-md-8">
-                                                    <div class="d-flex align-items-start">
-                                                        <div class="me-4">
-                                                            <span class="badge bg-primary px-3 py-2">
-                                                                {{ activity.time }}
-                                                            </span>
-                                                            <div class="mt-2 xsmall text-center">{{ activity.duration }}</div>
-                                                        </div>
-                                                        <div>
-                                                            <h5 class="fw-bold mb-2">{{ activity.title }}</h5>
-                                                            <p class="text-gray mb-3">{{ activity.description }}</p>
-                                                            <div class="d-flex align-items-center">
-                                                                <i class="fas fa-map-marker-alt me-2 text-muted"></i>
-                                                                <span class="small">{{ activity.location }}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="text-end">
-                                                        <!-- Weather for this time -->
-                                                        {% with time_arg=day.date|add:":"|add:activity.time|cut:" " %}
-                                                            {% with weather=weather_forecast|get_hourly_weather:time_arg %}
-                                                            {% if weather %}
-                                                            <div class="weather-at-time mb-3">
-                                                                <div class="d-flex align-items-center justify-content-end">
-                                                                    <span class="me-2">{{ weather.temperature }}°C</span>
-                                                                    <img src="https://openweathermap.org/img/wn/{{ weather.icon }}.png" 
-                                                                         alt="{{ weather.description }}" width="30" height="30">
-                                                                </div>
-                                                                <div class="xsmall text-muted">{{ weather.description }}</div>
-                                                            </div>
-                                                            {% endif %}
-                                                            {% endwith %}
-                                                        {% endwith %}
-                                                        
-                                                        <!-- Action Buttons -->
-                                                        <div class="btn-group">
-                                                            <button class="btn btn-sm btn-outline-danger delete-activity" 
-                                                                    data-day="{{ day.day_number }}" 
-                                                                    data-index="{{ forloop.counter0 }}">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            
-                            <!-- Add Activity Button -->
-                            <div class="timeline-item">
-                                <div class="timeline-marker">
-                                    <i class="fas fa-plus"></i>
-                                </div>
-                                <div class="timeline-content">
-                                    <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
-                                            data-day="{{ day.day_number }}">
-                                        <i class="fas fa-plus-circle me-2"></i>Add Custom Activity
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <!-- Right Column - Sidebar -->
-            <div class="col-lg-4">
-                <!-- Weather Forecast Widget -->
-                <div class="card-glass p-4 mb-4">
-                    <h5 class="fw-bold mb-4">
-                        <i class="fas fa-cloud-sun me-2"></i>Weather Forecast
-                    </h5>
-                    <div class="weather-forecast">
-                        {% for date, forecast in weather_forecast.items %}
-                        <div class="weather-day mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="fw-bold">{{ forecast.day_name }}</div>
-                                    <div class="xsmall text-muted">{{ date }}</div>
-                                </div>
-                                <div class="text-end">
-                                    <div class="d-flex align-items-center">
-                                        <img src="https://openweathermap.org/img/wn/{{ forecast.daily_summary.icon }}.png" 
-                                             alt="{{ forecast.daily_summary.description }}" width="40" height="40">
-                                        <div class="ms-2">
-                                            <div class="fw-bold">{{ forecast.daily_summary.temperature }}°C</div>
-                                            <div class="xsmall">{{ forecast.daily_summary.description }}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="text-center py-3">
-                            <i class="fas fa-cloud-sun fa-2x text-muted mb-2"></i>
-                            <p class="small text-muted">Weather forecast not available</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <!-- Cost Breakdown -->
-                <div class="card-glass p-4 mb-4">
-                    <h5 class="fw-bold mb-4">
-                        <i class="fas fa-money-bill-wave me-2"></i>Cost Breakdown (MMK)
-                    </h5>
-                    <div class="cost-breakdown">
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Destination Activities & Food</span>
-                                <span class="fw-bold">{{ cost_estimate.breakdown.destination|intcomma }} MMK</span>
-                            </div>
-                            
-                            <!-- Hotel Cost -->
-                            {% if cost_estimate.breakdown.hotel > 0 %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Hotel ({{ nights }} nights)</span>
-                                <span class="fw-bold">{{ cost_estimate.breakdown.hotel|intcomma }} MMK</span>
-                            </div>
-                            {% endif %}
-                            
-                            <!-- Transport Cost -->
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Transport</span>
-                                <span class="fw-bold">{{ cost_estimate.breakdown.transport|intcomma }} MMK</span>
-                            </div>
-                            
-                            <hr>
-                            
-                            <!-- Total -->
-                            <div class="d-flex justify-content-between">
-                                <span class="fw-bold">Total Estimated Cost</span>
-                                <span class="fw-bold fs-5 text-primary">{{ cost_estimate.total|intcomma }} MMK</span>
-                            </div>
-                            
-                            <!-- Debug info (remove in production) -->
-                            <div class="mt-2 xsmall text-muted" style="display: none;">
-                                <i class="fas fa-bug me-1"></i>
-                                Hotel: {{ cost_estimate.breakdown.hotel }} | 
-                                Transport: {{ cost_estimate.breakdown.transport }} | 
-                                Activities: {{ cost_estimate.breakdown.destination }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Hotel & Transport Info -->
-                <div class="card-glass p-4">
-                    <h5 class="fw-bold mb-4">
-                        <i class="fas fa-info-circle me-2"></i>Trip Details
-                    </h5>
-                    {% if hotel %}
-                    <div class="mb-4">
-                        <h6 class="fw-bold mb-2">
-                            <i class="fas fa-hotel me-2 text-primary"></i>Accommodation
-                        </h6>
-                        <div class="ps-3">
-                            <div class="fw-bold">{{ hotel.name }}</div>
-                            <div class="xsmall text-muted mb-2">{{ hotel.address }}</div>
-                            <div class="badge bg-light text-dark">{{ hotel.get_category_display }}</div>
-                            <div class="mt-2">
-                                <span class="badge bg-primary">{{ hotel.price_in_mmk }} per night</span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    {% if transport %}
-                    <div>
-                        <h6 class="fw-bold mb-2">
-                            <i class="fas fa-{{ transport.type|default:'bus' }} me-2 text-success"></i>Transportation
-                        </h6>
-                        <div class="ps-3">
-                            <div class="fw-bold">{{ transport.name }}</div>
-                            {% if transport.booking_details %}
-                            <div class="xsmall text-muted mb-2">
-                                {% if transport.booking_details.total_price %}
-                                Cost: {{ transport.booking_details.total_price|intcomma }} MMK
-                                {% elif transport.price %}
-                                Cost: {{ transport.price|intcomma }} MMK
-                                {% endif %}
-                            </div>
-                            {% elif transport.price %}
-                            <div class="xsmall text-muted mb-2">
-                                Cost: {{ transport.price|intcomma }} MMK
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Activity Modal -->
-<div class="modal fade" id="addActivityModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Custom Activity</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addActivityForm">
-                    <input type="hidden" id="activityDay" name="day_number">
-                    <div class="mb-3">
-                        <label class="form-label">Activity Name</label>
-                        <input type="text" class="form-control" name="activity_name" required>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Time</label>
-                            <input type="time" class="form-control" name="activity_time" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Duration</label>
-                            <select class="form-select" name="activity_duration">
-                                <option value="30 mins">30 minutes</option>
-                                <option value="1 hour">1 hour</option>
-                                <option value="1.5 hours">1.5 hours</option>
-                                <option value="2 hours">2 hours</option>
-                                <option value="3 hours">3 hours</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Location</label>
-                        <input type="text" class="form-control" name="activity_location">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="activity_description" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Type</label>
-                        <select class="form-select" name="activity_type">
-                            <option value="sightseeing">Sightseeing</option>
-                            <option value="food">Food & Dining</option>
-                            <option value="shopping">Shopping</option>
-                            <option value="entertainment">Entertainment</option>
-                            <option value="transport">Transport</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveActivityBtn">Add Activity</button>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
-.itinerary-hero {
-    background-size: cover;
-    background-position: center;
-}
-
-.timeline {
-    position: relative;
-    padding-left: 40px;
-}
-
-.timeline:before {
-    content: '';
-    position: absolute;
-    left: 15px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: linear-gradient(to bottom, #667eea, #764ba2);
-}
-
-.timeline-item {
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.timeline-marker {
-    position: absolute;
-    left: -40px;
-    top: 0;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: white;
-    border: 3px solid #667eea;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #667eea;
-}
-
-.timeline-content {
-    padding-left: 20px;
-}
-
-.activity-card {
-    border-left: 4px solid #667eea !important;
-    transition: transform 0.2s;
-}
-
-.activity-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.stat-card {
-    border: none;
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border-radius: 15px;
-}
-
-.stat-icon {
-    color: #667eea;
-}
-
-.stat-number {
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 0.5rem;
-}
-
-.stat-label {
-    color: #666;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.nav-tabs .nav-link {
-    border: none;
-    color: #666;
-    padding: 15px 20px;
-    border-radius: 10px 10px 0 0;
-}
-
-.nav-tabs .nav-link.active {
-    background: white;
-    color: #667eea;
-    font-weight: bold;
-    border-bottom: 3px solid #667eea;
-}
-
-.weather-widget {
-    background: rgba(255,255,255,0.9);
-    padding: 10px 15px;
-    border-radius: 10px;
-}
-
-.weather-at-time {
-    background: #f8f9fa;
-    padding: 8px 12px;
-    border-radius: 8px;
-    display: inline-block;
-}
-</style>
-<script>
-// Get Django variables first
-const tripId = "{{ trip.id }}";
-const planId = "{{ plan_id }}";
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Get CSRF token
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    :root {
+        --primary: #6c63ff;
+        --primary-dark: #5849c0;
+        --secondary: #2ecc71;
+        --accent: #ff6b6b;
+        --dark: #2c3e50;
+        --light: #f8f9fa;
+        --gray: #6c757d;
+        --border: #e0e0e0;
+    }
     
-    // Print functionality
-    document.getElementById('printItinerary')?.addEventListener('click', function() {
-        window.print();
-    });
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f5 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
     
-    // Add activity modal
-    const addActivityModal = document.getElementById('addActivityModal');
-    if (addActivityModal) {
-        const addActivityModalInstance = new bootstrap.Modal(addActivityModal);
-        const addActivityBtns = document.querySelectorAll('.add-activity-btn');
-        const activityDayInput = document.getElementById('activityDay');
-        const saveActivityBtn = document.getElementById('saveActivityBtn');
-        const addActivityForm = document.getElementById('addActivityForm');
-        
-        addActivityBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const day = this.getAttribute('data-day');
-                if (activityDayInput) {
-                    activityDayInput.value = day;
-                }
-                
-                // Set default time
-                const timeInput = addActivityForm?.querySelector('[name="activity_time"]');
-                if (timeInput) {
-                    const now = new Date();
-                    timeInput.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                }
-                
-                addActivityModalInstance.show();
-            });
-        });
-        
-        // Save activity
-        if (saveActivityBtn) {
-            saveActivityBtn.addEventListener('click', function() {
-                if (!addActivityForm) return;
-                
-                const formData = new FormData(addActivityForm);
-                const dayNumber = activityDayInput?.value;
-                
-                const activity = {
-                    time: (formData.get('activity_time') || '12:00') + ' PM',
-                    title: formData.get('activity_name') || 'New Activity',
-                    location: formData.get('activity_location') || 'Location',
-                    duration: formData.get('activity_duration') || '1 hour',
-                    description: formData.get('activity_description') || 'Description',
-                    type: formData.get('activity_type') || 'sightseeing',
-                    icon: 'fas fa-star',
-                    is_custom: true
-                };
-                
-                // Send AJAX request to add activity
-                fetch(`/planner/trip/${tripId}/plan/${planId}/add-activity/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        day_number: dayNumber,
-                        activity: activity
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Reload the page
-                        location.reload();
-                    } else {
-                        alert('Error adding activity: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
-                });
-                
-                addActivityModalInstance.hide();
-            });
+    /* Hero Section */
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 40px 0;
+        color: white;
+        margin-bottom: 30px;
+        border-radius: 0 0 30px 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.95;
+        margin-bottom: 5px;
+    }
+    
+    .booking-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 8px 20px;
+        border-radius: 50px;
+        display: inline-block;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.3);
+        font-weight: 600;
+        margin-top: 15px;
+    }
+    
+    .booking-badge i {
+        margin-right: 8px;
+    }
+    
+    /* Success Animation */
+    .success-checkmark {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 20px;
+    }
+    
+    .check-icon {
+        width: 80px;
+        height: 80px;
+        position: relative;
+        border-radius: 50%;
+        box-sizing: content-box;
+        border: 4px solid #4CAF50;
+    }
+    
+    .check-icon::before {
+        top: 3px;
+        left: -2px;
+        width: 30px;
+        transform-origin: 100% 50%;
+        border-radius: 100px 0 0 100px;
+    }
+    
+    .check-icon::after {
+        top: 0;
+        left: 30px;
+        width: 60px;
+        transform-origin: 0 50%;
+        border-radius: 0 100px 100px 0;
+        animation: rotate-circle 4.25s ease-in;
+    }
+    
+    .check-icon::before, .check-icon::after {
+        content: '';
+        height: 100px;
+        position: absolute;
+        background: #FFFFFF;
+        transform: rotate(-45deg);
+    }
+    
+    .icon-line {
+        height: 5px;
+        background-color: #4CAF50;
+        display: block;
+        border-radius: 2px;
+        position: absolute;
+        z-index: 10;
+    }
+    
+    .icon-line.line-tip {
+        top: 46px;
+        left: 14px;
+        width: 25px;
+        transform: rotate(45deg);
+        animation: icon-line-tip 0.75s;
+    }
+    
+    .icon-line.line-long {
+        top: 38px;
+        right: 8px;
+        width: 47px;
+        transform: rotate(-45deg);
+        animation: icon-line-long 0.75s;
+    }
+    
+    @keyframes icon-line-tip {
+        0% { width: 0; left: 1px; top: 19px; }
+        54% { width: 0; left: 1px; top: 19px; }
+        70% { width: 50px; left: -8px; top: 37px; }
+        84% { width: 17px; left: 21px; top: 48px; }
+        100% { width: 25px; left: 14px; top: 45px; }
+    }
+    
+    @keyframes icon-line-long {
+        0% { width: 0; right: 46px; top: 54px; }
+        65% { width: 0; right: 46px; top: 54px; }
+        84% { width: 55px; right: 0px; top: 35px; }
+        100% { width: 47px; right: 8px; top: 38px; }
+    }
+    
+    /* Main Content */
+    .main-container {
+        max-width: 1300px;
+        margin: 0 auto 50px;
+        padding: 0 20px;
+    }
+    
+    /* Cards */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.3);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--dark);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border);
+    }
+    
+    .section-title i {
+        color: var(--primary);
+        margin-right: 10px;
+    }
+    
+    /* Trip Summary */
+    .trip-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+    
+    .summary-item {
+        background: var(--light);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    
+    .summary-item:hover {
+        background: white;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .summary-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        color: white;
+        font-size: 24px;
+    }
+    
+    .summary-label {
+        font-size: 0.9rem;
+        color: var(--gray);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+    }
+    
+    .summary-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--dark);
+    }
+    
+    /* Hotel & Transport Cards */
+    .booking-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid var(--primary);
+        transition: all 0.3s;
+    }
+    
+    .booking-card:hover {
+        box-shadow: 0 5px 20px rgba(108, 99, 255, 0.15);
+    }
+    
+    .booking-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .booking-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--dark);
+        margin: 0;
+    }
+    
+    .booking-badge-confirmed {
+        background: var(--secondary);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .booking-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .detail-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+    
+    .detail-item i {
+        width: 25px;
+        color: var(--primary);
+    }
+    
+    /* Room Cards */
+    .room-card {
+        background: var(--light);
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border);
+    }
+    
+    .room-number {
+        font-weight: 700;
+        color: var(--primary);
+        font-size: 1.1rem;
+    }
+    
+    .room-type {
+        background: var(--primary);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    /* ===== ROUTE DETAILS SECTION - EXACTLY LIKE PLAN_SELECTION.HTML ===== */
+    .route-section {
+        margin-top: 30px;
+    }
+    
+    .route-stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 25px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    
+    .stat-item {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--primary);
+        margin-top: 5px;
+    }
+    
+    .route-list {
+        margin-top: 20px;
+    }
+    
+    .route-item {
+        margin-bottom: 15px;
+    }
+    
+    .route-main {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        background: white;
+        border-radius: 10px;
+        border-left: 4px solid var(--primary);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    .route-number {
+        width: 28px;
+        height: 28px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+        font-size: 14px;
+    }
+    
+    .route-name {
+        flex: 1;
+    }
+    
+    .route-distance-time {
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+        margin-left: 15px;
+    }
+    
+    .route-separator {
+        margin-left: 43px;
+        margin-bottom: 10px;
+        margin-top: 5px;
+        color: var(--gray);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .route-separator i {
+        color: var(--primary);
+        margin-right: 8px;
+        font-size: 12px;
+    }
+    
+    .route-separator span {
+        background: var(--light);
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px dashed var(--border);
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .btn-download {
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-download:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+        color: white;
+    }
+    
+    .btn-share {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-share:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        color: white;
+    }
+    
+    .btn-new-trip {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-new-trip:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        color: white;
+    }
+    
+    /* Alert styles */
+    .alert-info {
+        background: linear-gradient(135deg, #0dcaf0, #0aa2c0);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 15px 20px;
+    }
+    
+    .alert-warning {
+        background: linear-gradient(135deg, #ffc107, #ffb300);
+        color: #333;
+        border: none;
+        border-radius: 10px;
+        padding: 15px 20px;
+    }
+    
+    .price-tag {
+        background: linear-gradient(135deg, #06B6D4, #0891B2);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .text-gray {
+        color: #6c757d;
+    }
+    
+    /* Print Styles */
+    @media print {
+        .hero-section {
+            background: white;
+            color: black;
+        }
+        .btn-download, .btn-share, .btn-new-trip {
+            display: none;
         }
     }
     
-    // Delete activity
-    document.querySelectorAll('.delete-activity').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const day = this.getAttribute('data-day');
-            const index = this.getAttribute('data-index');
+    /* Responsive */
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 1.8rem;
+        }
+        .trip-summary-grid {
+            grid-template-columns: 1fr;
+        }
+        .route-stats {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .route-main {
+            flex-wrap: wrap;
+        }
+        .route-distance-time {
+            margin-left: 43px;
+            margin-top: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section with Success Animation -->
+<div class="hero-section">
+    <div class="container text-center">
+        <div class="success-checkmark">
+            <div class="check-icon">
+                <span class="icon-line line-tip"></span>
+                <span class="icon-line line-long"></span>
+                <div class="icon-circle"></div>
+                <div class="icon-fix"></div>
+            </div>
+        </div>
+        
+        <h1 class="hero-title">Booking Confirmed! 🎉</h1>
+        <p class="hero-subtitle">Your Myanmar adventure is officially booked and confirmed</p>
+        
+        <div class="booking-badge">
+            <i class="fas fa-check-circle"></i>
+            Booking Reference: <strong>#{{ trip.id }}{{ trip.confirmed_at|date:"Ymd" }}</strong>
+        </div>
+        
+        {% if trip.confirmed_at %}
+        <div class="mt-3 text-white-50">
+            <i class="far fa-calendar-check me-2"></i>
+            Confirmed on {{ trip.confirmed_at|date:"F d, Y \a\t h:i A" }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="row">
+        <!-- Main Content Column (Left) -->
+        <div class="col-lg-8">
+            <!-- Trip Summary Card -->
+            <div class="glass-card">
+                <h3 class="section-title">
+                    <i class="fas fa-suitcase"></i>
+                    Trip Summary
+                </h3>
+                
+                <div class="trip-summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="summary-label">Destination</div>
+                        <div class="summary-value">{{ trip.destination.name }}</div>
+                        <div class="small text-gray">{{ trip.destination.region }}</div>
+                    </div>
+                    
+                    <div class="summary-item">
+                        <div class="summary-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="summary-label">Dates</div>
+                        <div class="summary-value">{{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d, Y" }}</div>
+                        <div class="small text-gray">{{ total_days }} days ({{ nights }} nights)</div>
+                    </div>
+                    
+                    <div class="summary-item">
+                        <div class="summary-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="summary-label">Travelers</div>
+                        <div class="summary-value">{{ travelers }}</div>
+                        <div class="small text-gray">person{{ travelers|pluralize }}</div>
+                    </div>
+                    
+                    <div class="summary-item">
+                        <div class="summary-icon">
+                            <i class="fas fa-tag"></i>
+                        </div>
+                        <div class="summary-label">Plan Type</div>
+                        <div class="summary-value">{{ plan_title }}</div>
+                        <div class="small text-gray">
+                            {% if plan_id == 'cultural' %}
+                                <i class="fas fa-landmark me-1"></i>Cultural
+                            {% elif plan_id == 'adventure' %}
+                                <i class="fas fa-hiking me-1"></i>Adventure
+                            {% elif plan_id == 'relaxed' %}
+                                <i class="fas fa-spa me-1"></i>Relaxed
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
             
-            if (confirm('Are you sure you want to remove this activity?')) {
-                fetch(`/planner/trip/${tripId}/plan/${planId}/remove-activity/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        day_number: day,
-                        activity_index: index
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Remove the activity element
-                        const activityElement = document.getElementById(`activity-${day}-${index}`);
-                        if (activityElement) {
-                            activityElement.remove();
-                        }
-                    } else {
-                        alert('Error removing activity: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
-                });
-            }
-        });
-    });
+            <!-- ===== OPTIMIZED ROUTE SECTION - ADDED FROM PLAN_SELECTION.HTML ===== -->
+            {% if itinerary_attractions %}
+            <div class="glass-card">
+                <h3 class="section-title">
+                    <i class="fas fa-route"></i>
+                    Optimized Route
+                </h3>
+                
+                <!-- Stats Row - STOPS, DISTANCE, DURATION -->
+                <div class="route-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">STOPS</div>
+                        <div class="stat-value">{{ itinerary_attractions|length }}</div>
+                    </div>
+                    
+                    {% if route_stats.total_distance %}
+                    <div class="stat-item">
+                        <div class="stat-label">DISTANCE</div>
+                        <div class="stat-value">{{ route_stats.total_distance|floatformat:1 }} km</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if route_stats.total_duration %}
+                    <div class="stat-item">
+                        <div class="stat-label">DURATION</div>
+                        <div class="stat-value">
+                            {% if route_stats.total_duration >= 60 %}
+                                {% with hours=route_stats.total_duration|floatformat:0|divisibleby:60 %}
+                                {% with minutes=route_stats.total_duration|floatformat:0|add:"-60" %}
+                                    {{ hours|floatformat:0 }}h 
+                                    {% if minutes > 0 %}
+                                        {{ minutes|floatformat:0 }}m
+                                    {% endif %}
+                                {% endwith %}
+                                {% endwith %}
+                            {% else %}
+                                {{ route_stats.total_duration|floatformat:0 }}m
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Route List with Numbers and Distances -->
+                <div class="route-list">
+                    {% for attraction in itinerary_attractions %}
+                    <div class="route-item">
+                        <div class="route-main">
+                            <div class="route-number">{{ forloop.counter }}</div>
+                            <span class="route-name">{{ attraction.name }}</span>
+                            
+                            {% if not forloop.last and route_stats.segment_distances %}
+                                {% with segment_index=forloop.counter0 %}
+                                    {% if route_stats.segment_distances|length > segment_index %}
+                                        <span class="route-distance-time">
+                                            {{ route_stats.segment_distances|slice:segment_index|first|floatformat:1 }} km • 
+                                            {% with duration=route_stats.segment_durations|slice:segment_index|first %}
+                                                {% if duration >= 60 %}
+                                                    {% with hours=duration|floatformat:0|divisibleby:60 %}
+                                                    {% with minutes=duration|floatformat:0|add:"-60" %}
+                                                        {{ hours|floatformat:0 }}h 
+                                                        {% if minutes > 0 %}
+                                                            {{ minutes|floatformat:0 }}m
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    {{ duration|floatformat:0 }}m
+                                                {% endif %}
+                                            {% endwith %}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Separator line (only between items, not after last) -->
+                        {% if not forloop.last %}
+                        <div class="route-separator">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>Next stop</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Note if no route stats available -->
+                {% if not route_stats.total_distance %}
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Distance and duration estimates are not available for this route.
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="glass-card">
+                <h3 class="section-title">
+                    <i class="fas fa-route"></i>
+                    Optimized Route
+                </h3>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No attractions have been added to your itinerary yet.
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Accommodation Card -->
+            <div class="glass-card">
+                <h3 class="section-title">
+                    <i class="fas fa-hotel"></i>
+                    Accommodation
+                </h3>
+                
+                {% if hotel %}
+                <div class="booking-card">
+                    <div class="booking-header">
+                        <h4 class="booking-title">{{ hotel.name }}</h4>
+                        <span class="booking-badge-confirmed">
+                            <i class="fas fa-check-circle me-1"></i>Confirmed
+                        </span>
+                    </div>
+                    
+                    <p class="text-gray mb-3">
+                        <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                        {{ hotel.address }}
+                    </p>
+                    
+                    <div class="booking-details">
+                        <div class="detail-item">
+                            <i class="fas fa-star"></i>
+                            <span>
+                                {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= hotel.rating %}
+                                        <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                        <i class="far fa-star text-warning"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                ({{ hotel.review_count|default:0 }} reviews)
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-tag"></i>
+                            <span>{{ hotel.get_category_display }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-phone"></i>
+                            <span>{{ hotel.phone_number|default:"Not provided" }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Room Details -->
+                    {% if trip.selected_rooms and trip.selected_rooms.room_details %}
+                    <div class="mt-4">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-bed me-2" style="color: var(--primary);"></i>
+                            Selected Rooms ({{ trip.selected_rooms.room_details|length }})
+                        </h5>
+                        
+                        {% for room in trip.selected_rooms.room_details %}
+                        <div class="room-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="room-number">Room {{ room.room_number }}</span>
+                                    <span class="room-type ms-2">{{ room.room_type }}</span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="fw-bold">{{ room.price_per_night|floatformat:0 }} MMK</span>
+                                    <small class="text-gray d-block">per night</small>
+                                </div>
+                            </div>
+                            
+                            {% if room.floor or room.bed_type %}
+                            <div class="mt-2 small text-gray">
+                                {% if room.floor %}Floor {{ room.floor }}{% endif %}
+                                {% if room.bed_type %} • {{ room.bed_type }} Bed{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                            <span class="fw-bold">Total for {{ nights }} nights:</span>
+                            <span class="price-tag">{{ trip.selected_rooms.total_price|floatformat:0 }} MMK</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No accommodation details available.
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Transportation Card -->
+            <div class="glass-card">
+                <h3 class="section-title">
+                    <i class="fas fa-bus"></i>
+                    Transportation
+                </h3>
+                
+                {% if transport %}
+                <div class="booking-card">
+                    <div class="booking-header">
+                        <h4 class="booking-title">{{ transport.name }}</h4>
+                        <span class="booking-badge-confirmed">
+                            <i class="fas fa-check-circle me-1"></i>Confirmed
+                        </span>
+                    </div>
+                    
+                    <div class="booking-details">
+                        {% if transport.type == 'flight' %}
+                            <div class="detail-item">
+                                <i class="fas fa-plane"></i>
+                                <span>Flight • {{ transport.booking_details.airline|default:"N/A" }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-tag"></i>
+                                <span>Flight #{{ transport.booking_details.flight_number|default:"N/A" }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-calendar"></i>
+                                <span>{{ transport.booking_details.travel_date|default:trip.start_date }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-clock"></i>
+                                <span>{{ transport.booking_details.departure_time|default:"N/A" }}</span>
+                            </div>
+                            
+                        {% elif transport.type == 'bus' %}
+                            <div class="detail-item">
+                                <i class="fas fa-bus"></i>
+                                <span>Bus • {{ transport.booking_details.company|default:"N/A" }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-chair"></i>
+                                <span>Seats: {{ transport.seats|join:", " }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-calendar"></i>
+                                <span>{{ transport.booking_details.travel_date|default:trip.start_date }}</span>
+                            </div>
+                            
+                        {% elif transport.type == 'car' %}
+                            <div class="detail-item">
+                                <i class="fas fa-car"></i>
+                                <span>{{ transport.booking_details.company|default:"N/A" }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-car-side"></i>
+                                <span>{{ transport.booking_details.car_model|default:"N/A" }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-map-pin"></i>
+                                <span>{{ transport.booking_details.pickup_location|default:"N/A" }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Selected Seats for Flight/Bus -->
+                    {% if transport.seats %}
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <i class="fas fa-chair me-2 text-primary"></i>
+                        <strong>Selected Seats:</strong> 
+                        {% for seat in transport.seats %}
+                            <span class="badge bg-primary me-1">{{ seat }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">Transport Cost:</span>
+                            <span class="fw-bold text-primary">
+                                {% if transport.price %}
+                                    {{ transport.price|floatformat:0 }} MMK
+                                {% elif transport.booking_details and transport.booking_details.total_price %}
+                                    {{ transport.booking_details.total_price|floatformat:0 }} MMK
+                                {% else %}
+                                    0 MMK
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No transportation details available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Sidebar Column (Right) - Cost Summary -->
+        <div class="col-lg-4">
+            <div class="glass-card" style="position: sticky; top: 100px;">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-calculator me-2" style="color: var(--primary);"></i>
+                    Cost Summary
+                </h4>
+                
+                <!-- Accommodation Cost -->
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-gray">Accommodation</span>
+                    <span class="fw-bold">
+                        {% if trip.selected_rooms and trip.selected_rooms.total_price %}
+                            {{ trip.selected_rooms.total_price|floatformat:0 }} MMK
+                        {% else %}
+                            0 MMK
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Transportation Cost -->
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-gray">Transportation</span>
+                    <span class="fw-bold">
+                        {% if transport and transport.price %}
+                            {{ transport.price|floatformat:0 }} MMK
+                        {% elif transport and transport.booking_details and transport.booking_details.total_price %}
+                            {{ transport.booking_details.total_price|floatformat:0 }} MMK
+                        {% else %}
+                            0 MMK
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Activities Cost -->
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="text-gray">Activities</span>
+                    <span class="fw-bold">0 MMK</span>
+                </div>
+                
+                <hr>
+                
+                <!-- Total Cost -->
+                <div class="d-flex justify-content-between fw-bold h5 mb-0">
+                    <span>Total Cost</span>
+                    <span class="price-tag">
+                        {% with acc_cost=trip.selected_rooms.total_price|default:0 %}
+                        {% with trans_cost=transport.price|default:0 %}
+                            {{ acc_cost|add:trans_cost|floatformat:0 }} MMK
+                        {% endwith %}
+                        {% endwith %}
+                    </span>
+                </div>
+                
+                {% if travelers > 1 %}
+                <div class="text-center small text-gray mt-2">
+                    <i class="fas fa-user me-1"></i>{{ travelers }} travelers
+                </div>
+                {% endif %}
+                
+                <!-- Status Alerts -->
+                {% if transport and transport.is_temporary %}
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    <i class="fas fa-clock me-2"></i>
+                    Transport seats pending confirmation
+                </div>
+                {% endif %}
+                
+                {% if trip.selected_rooms and trip.selected_rooms.is_temporary %}
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    <i class="fas fa-clock me-2"></i>
+                    Room selection pending confirmation
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Buttons -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'planner:plan' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Plan
+        </a>
+        <div>
+            <a href="{% url 'planner:select_hotel_map' trip.id %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-hotel me-2"></i>Select Hotel
+            </a>
+            <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-bus me-2"></i>Select Transport
+            </a>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="{% url 'planner:download_itinerary_pdf' trip.id plan_id %}" class="btn btn-download">
+            <i class="fas fa-download me-2"></i>
+            Download PDF Itinerary
+        </a>
+        
+        <button class="btn btn-share" onclick="shareItinerary()">
+            <i class="fas fa-share-alt me-2"></i>
+            Share Itinerary
+        </button>
+        
+        <a href="{% url 'planner:plan' %}?clear=true" class="btn btn-new-trip">
+            <i class="fas fa-plus-circle me-2"></i>
+            Plan New Trip
+        </a>
+    </div>
+</div>
+
+<script>
+function shareItinerary() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'My {{ plan_title }} Itinerary to {{ trip.destination.name }}',
+            text: 'Check out my confirmed travel itinerary to {{ trip.destination.name }}!',
+            url: window.location.href,
+        })
+        .then(() => console.log('Successful share'))
+        .catch((error) => console.log('Error sharing:', error));
+    } else {
+        // Fallback
+        alert('Copy this link to share: ' + window.location.href);
+    }
+}
+
+// Print functionality
+function printItinerary() {
+    window.print();
+}
+
+// Add print button to action buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const actionButtons = document.querySelector('.action-buttons');
+    if (actionButtons) {
+        const printBtn = document.createElement('button');
+        printBtn.className = 'btn btn-download';
+        printBtn.innerHTML = '<i class="fas fa-print me-2"></i>Print Itinerary';
+        printBtn.onclick = printItinerary;
+        actionButtons.appendChild(printBtn);
+    }
 });
 </script>
 

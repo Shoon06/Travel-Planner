@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ plan_title }} Itinerary - {{ trip.destination.name }}</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #6c63ff;
+        }
+        .header h1 {
+            color: #6c63ff;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        .header h2 {
+            color: #666;
+            font-size: 18px;
+            font-weight: normal;
+        }
+        .booking-ref {
+            background: #f0f0f0;
+            padding: 8px 15px;
+            border-radius: 30px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .summary-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+        }
+        .summary-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .section-title {
+            font-size: 20px;
+            color: #6c63ff;
+            margin: 30px 0 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #6c63ff;
+        }
+        .hotel-box, .transport-box {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .hotel-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .room-list {
+            margin-top: 10px;
+        }
+        .room-item {
+            background: #f5f5f5;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+        }
+        .day-card {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        .day-header {
+            background: #6c63ff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px 8px 0 0;
+        }
+        .day-content {
+            border: 1px solid #ddd;
+            border-top: none;
+            padding: 15px;
+            border-radius: 0 0 8px 8px;
+        }
+        .activity {
+            padding: 10px;
+            border-bottom: 1px dashed #eee;
+        }
+        .activity:last-child {
+            border-bottom: none;
+        }
+        .activity-time {
+            font-weight: bold;
+            color: #6c63ff;
+        }
+        .cost-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .cost-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .cost-table .total {
+            font-weight: bold;
+            font-size: 18px;
+            color: #6c63ff;
+        }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        @media print {
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ plan_title }} Itinerary</h1>
+        <h2>{{ trip.destination.name }}, Myanmar</h2>
+        <div class="booking-ref">
+            <strong>Booking Reference:</strong> #{{ trip.id }}{{ trip.confirmed_at|date:"Ymd" }}
+        </div>
+        {% if trip.confirmed_at %}
+        <p>Confirmed on: {{ trip.confirmed_at|date:"F d, Y" }}</p>
+        {% endif %}
+    </div>
+    
+    <div class="summary-box">
+        <div class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Destination</div>
+                <div class="summary-value">{{ trip.destination.name }}</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Dates</div>
+                <div class="summary-value">{{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d, Y" }}</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Duration</div>
+                <div class="summary-value">{{ total_days }} days / {{ nights }} nights</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Travelers</div>
+                <div class="summary-value">{{ travelers }} person{{ travelers|pluralize }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <h2 class="section-title">Accommodation</h2>
+    <div class="hotel-box">
+        <div class="hotel-name">{{ hotel.name|default:"Hotel not specified" }}</div>
+        <p>{{ hotel.address|default:"" }}</p>
+        <p>
+            Category: {{ hotel.get_category_display|default:"N/A" }}<br>
+            Rating: {{ hotel.rating|default:"N/A" }}/5 ({{ hotel.review_count|default:0 }} reviews)
+        </p>
+        
+        {% if trip.selected_rooms and trip.selected_rooms.room_details %}
+        <div class="room-list">
+            <h4>Selected Rooms:</h4>
+            {% for room in trip.selected_rooms.room_details %}
+            <div class="room-item">
+                <strong>Room {{ room.room_number }}</strong> - {{ room.room_type }}<br>
+                <small>Floor {{ room.floor|default:"N/A" }} • {{ room.bed_type|default:"Standard" }} Bed</small>
+                <div class="text-right">{{ room.price_per_night|floatformat:0 }} MMK per night</div>
+            </div>
+            {% endfor %}
+            <p><strong>Total for {{ nights }} nights: {{ trip.selected_rooms.total_price|floatformat:0 }} MMK</strong></p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <h2 class="section-title">Transportation</h2>
+    <div class="transport-box">
+        {% if transport %}
+            <h3>{{ transport.name }}</h3>
+            <p>
+                Type: 
+                {% if transport.type == 'flight' %}
+                    ✈️ Flight
+                {% elif transport.type == 'bus' %}
+                    🚌 Bus
+                {% elif transport.type == 'car' %}
+                    🚗 Car Rental
+                {% endif %}
+            </p>
+            
+            {% if transport.type == 'flight' %}
+                <p>
+                    Airline: {{ transport.booking_details.airline|default:"N/A" }}<br>
+                    Flight Number: {{ transport.booking_details.flight_number|default:"N/A" }}<br>
+                    Departure: {{ transport.booking_details.departure|default:"N/A" }}<br>
+                    Arrival: {{ transport.booking_details.arrival|default:"N/A" }}<br>
+                    Date: {{ transport.booking_details.travel_date|default:trip.start_date }}<br>
+                    Time: {{ transport.booking_details.departure_time|default:"N/A" }}
+                </p>
+            {% elif transport.type == 'bus' %}
+                <p>
+                    Company: {{ transport.booking_details.company|default:"N/A" }}<br>
+                    Bus Type: {{ transport.booking_details.bus_type|default:"N/A" }}<br>
+                    From: {{ transport.booking_details.departure|default:trip.origin.name }}<br>
+                    To: {{ transport.booking_details.arrival|default:trip.destination.name }}<br>
+                    Date: {{ transport.booking_details.travel_date|default:trip.start_date }}
+                </p>
+            {% elif transport.type == 'car' %}
+                <p>
+                    Company: {{ transport.booking_details.company|default:"N/A" }}<br>
+                    Car Model: {{ transport.booking_details.car_model|default:"N/A" }}<br>
+                    Pickup: {{ transport.booking_details.pickup_location|default:trip.origin.name }}<br>
+                    Date: {{ transport.booking_details.travel_date|default:trip.start_date }}
+                </p>
+            {% endif %}
+            
+            {% if transport.seats %}
+            <p><strong>Selected Seats:</strong> {{ transport.seats|join:", " }}</p>
+            {% endif %}
+            
+            <p><strong>Transport Cost:</strong> 
+                {% if transport.price %}
+                    {{ transport.price|floatformat:0 }} MMK
+                {% elif transport.booking_details.total_price %}
+                    {{ transport.booking_details.total_price|floatformat:0 }} MMK
+                {% endif %}
+            </p>
+        {% else %}
+            <p>No transportation details available.</p>
+        {% endif %}
+    </div>
+    
+    <h2 class="section-title">Daily Itinerary</h2>
+    {% for day in days_data %}
+    <div class="day-card">
+        <div class="day-header">
+            <strong>Day {{ day.day_number }}</strong> - {{ day.date|date:"l, F d, Y" }}
+        </div>
+        <div class="day-content">
+            {% for activity in day.activities %}
+            <div class="activity">
+                <span class="activity-time">{{ activity.time }}</span> - 
+                <strong>{{ activity.title }}</strong><br>
+                <small>{{ activity.location|default:"Location not specified" }}</small>
+                {% if activity.duration %}
+                <br><small>Duration: {{ activity.duration }}</small>
+                {% endif %}
+                {% if activity.description %}
+                <br><small>{{ activity.description }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <p><small>Overnight at {{ hotel.name|default:"hotel" }}</small></p>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <div class="page-break"></div>
+    
+    <h2 class="section-title">Cost Summary</h2>
+    <table class="cost-table">
+        <tr>
+            <td>Accommodation ({{ nights }} nights)</td>
+            <td align="right">{{ cost_estimate.breakdown.hotel|floatformat:0 }} MMK</td>
+        </tr>
+        <tr>
+            <td>Transportation</td>
+            <td align="right">{{ cost_estimate.breakdown.transport|floatformat:0 }} MMK</td>
+        </tr>
+        <tr>
+            <td>Activities & Meals</td>
+            <td align="right">{{ cost_estimate.breakdown.destination|floatformat:0 }} MMK</td>
+        </tr>
+        <tr style="border-top: 2px solid #333;">
+            <td class="total">TOTAL COST</td>
+            <td class="total" align="right">{{ cost_estimate.total|floatformat:0 }} MMK</td>
+        </tr>
+    </table>
+    
+    <h2 class="section-title">Important Information</h2>
+    <ul>
+        <li><strong>Hotel Check-in:</strong> 2:00 PM | <strong>Check-out:</strong> 12:00 PM</li>
+        <li><strong>Emergency Number:</strong> 199</li>
+        <li><strong>Tourist Police:</strong> +95 1 549 622</li>
+        <li>Bring valid ID/passport at all times</li>
+        <li>Respect local customs and dress modestly at religious sites</li>
+        <li>Carry local currency (MMK) for small purchases</li>
+        <li>Drink bottled water only</li>
+    </ul>
+    
+    <div class="footer">
+        <p>Generated by GoMyanmar Travel Planner on {% now "F d, Y" %}</p>
+        <p>Thank you for choosing Myanmar for your adventure!</p>
+        <p>For assistance, contact: support@gomyanmar.com</p>
+    </div>
+</body>
+</html>

@@ -8,6 +8,8 @@ from .views import (
     DashboardView,
     RegionPlacesView,
     PlaceDetailView,
+    ConfirmRoomsOnlyView,
+    ConfirmTransportOnlyView,
     DestinationSearchView,
     SelectHotelView,
     SelectHotelWithMapView,
@@ -61,7 +63,19 @@ urlpatterns = [
     path('select-hotel-map/<int:trip_id>/', views.SelectHotelWithMapView.as_view(), name='select_hotel_map'),
     path('filter-hotels/<int:destination_id>/', views.FilterHotelsView.as_view(), name='filter_hotels'),
     path('save-hotel/<int:trip_id>/', views.SaveHotelView.as_view(), name='save_hotel'),
+    # Trip confirmation endpoints
+    path('trip/<int:trip_id>/confirm-booking/', 
+         ConfirmBookingView.as_view(), 
+         name='confirm_booking'),
     
+    # Optional: Separate confirmation endpoints if needed
+    path('trip/<int:trip_id>/confirm-rooms/', 
+         ConfirmRoomsOnlyView.as_view(), 
+         name='confirm_rooms'),
+    
+    path('trip/<int:trip_id>/confirm-transport/', 
+         ConfirmTransportOnlyView.as_view(), 
+         name='confirm_transport'),
     # Transport selection
     path('select-transport-category/<int:trip_id>/', views.SelectTransportCategoryView.as_view(), name='select_transport_category'),
     path('select-transport/<int:trip_id>/', views.SelectTransportView.as_view(), name='select_transport'),

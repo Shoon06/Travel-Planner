@@ -414,13 +414,36 @@ class RoomInline(admin.TabularInline):
     model = Room
     extra = 3
     fields = ['room_number', 'room_type', 'floor', 'custom_price', 'is_active']
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\admin.py
+# UPDATE the RoomAdmin class
 
 @admin.register(Room)
 class RoomAdmin(admin.ModelAdmin):
-    list_display = ['hotel', 'room_number', 'room_type', 'floor', 'is_active']
-    list_filter = ['hotel', 'room_type', 'floor', 'is_active']
+    list_display = ['hotel', 'room_number', 'room_type', 'floor', 'extra_bed_available', 'extra_bed_cost', 'is_active']
+    list_filter = ['hotel', 'room_type', 'floor', 'extra_bed_available', 'is_active']
     search_fields = ['room_number', 'hotel__name']
     autocomplete_fields = ['hotel']
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('hotel', 'room_number', 'room_type', 'floor')
+        }),
+        ('Room Details', {
+            'fields': ('bed_type', 'has_window', 'has_balcony', 'square_feet', 'features')
+        }),
+        ('Pricing', {
+            'fields': ('custom_price',)
+        }),
+        ('Extra Bed Settings', {
+            'fields': ('extra_bed_available', 'extra_bed_cost', 'max_extra_beds'),
+            'description': 'Configure extra bed options for this room',
+            'classes': ('wide',)
+        }),
+        ('Status', {
+            'fields': ('is_active', 'needs_maintenance')
+        }),
+    )
+
 
 @admin.register(RoomBooking)
 class RoomBookingAdmin(admin.ModelAdmin):

@@ -88,6 +88,25 @@
         background-color: #dc3545;
         border-color: #dc3545;
     }
+    
+    /* Extra bed section styles */
+    .extra-bed-section {
+        background: rgba(6, 182, 212, 0.1);
+        border-left: 3px solid #06B6D4;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    .extra-bed-section h6 {
+        color: #06B6D4;
+        margin-bottom: 10px;
+    }
+    
+    .extra-bed-section .form-label {
+        color: #e5e7eb;
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
@@ -101,7 +120,7 @@
                         <i class="fas fa-map-marked-alt fa-2x text-white"></i>
                     </div>
                     <h2 class="fw-bold" style="color: #2c3e50;">Add Hotel with Map Location</h2>
-                    <p class="text-gray">Add a new hotel and manage its rooms</p>
+                    <p class="text-gray">Add a new hotel and manage its rooms with extra bed options</p>
                 </div>
                 
                 <!-- Display form errors -->
@@ -286,9 +305,8 @@
                         <h4 class="fw-bold mb-4" style="color: #2c3e50;">
                             <i class="fas fa-bed me-2"></i>Add Rooms
                         </h4>
-                        <p class="text-gray mb-3">Add rooms to this hotel. Each room's price is determined by its type.</p>
+                        <p class="text-gray mb-3">Add rooms to this hotel. Each room can have extra bed options.</p>
                         
-                       
                         <div id="roomsContainer">
                             <!-- Rooms will be added here dynamically -->
                         </div>
@@ -317,7 +335,7 @@
     </div>
 </div>
 
-<!-- Room Template (Hidden) -->
+<!-- Room Template (Hidden) with Extra Bed Fields -->
 <template id="roomTemplate">
     <div class="room-card mb-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -355,6 +373,38 @@
                        placeholder="Leave empty for default" step="1000">
                 <small class="text-muted">If empty, uses room type multiplier</small>
             </div>
+            
+            <!-- NEW: Extra Bed Section -->
+            <div class="col-12 mt-2">
+                <div class="extra-bed-section">
+                    <h6><i class="fas fa-bed me-2"></i>Extra Bed Options</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="extra_bed_available" value="yes">
+                                <label class="form-check-label">Extra Bed Available</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label">Extra Bed Cost (MMK/night)</label>
+                            <input type="number" class="form-control" name="extra_bed_cost" 
+                                   placeholder="e.g., 30000" step="1000" min="0" value="0">
+                            <small class="text-muted">Cost per extra bed per night</small>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label">Max Extra Beds</label>
+                            <select class="form-select" name="max_extra_beds">
+                                <option value="0">0 (No extra beds)</option>
+                                <option value="1" selected>1 extra bed</option>
+                                <option value="2">2 extra beds</option>
+                                <option value="3">3 extra beds</option>
+                            </select>
+                            <small class="text-muted">Maximum number of extra beds allowed</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="col-md-3 mb-3">
                 <label class="form-label">Bed Type</label>
                 <select class="form-select" name="bed_type">
@@ -368,7 +418,7 @@
             <div class="col-md-3 mb-3">
                 <label class="form-label">Square Feet</label>
                 <input type="number" class="form-control" name="square_feet" 
-                       placeholder="e.g., 350">
+                       placeholder="e.g., 350" min="0">
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label">Features (comma separated)</label>
@@ -458,7 +508,7 @@
             roomsContainer.appendChild(template);
         }
         
-        // Add first room by default (optional - remove if you want empty start)
+        // Add first room by default
         addRoom();
         
         // Add room button click handler
@@ -489,6 +539,28 @@
                     e.preventDefault();
                     alert('Please fill in all room numbers or remove empty room entries.');
                     roomNumbers[i].focus();
+                    return false;
+                }
+            }
+            
+            // Validate extra bed cost if extra bed is available
+            const extraBedCheckboxes = document.querySelectorAll('input[name="extra_bed_available"]:checked');
+            for (let i = 0; i < extraBedCheckboxes.length; i++) {
+                const roomCard = extraBedCheckboxes[i].closest('.room-card');
+                const extraBedCost = roomCard.querySelector('input[name="extra_bed_cost"]');
+                const maxExtraBeds = roomCard.querySelector('select[name="max_extra_beds"]');
+                
+                if (extraBedCost && extraBedCost.value && parseFloat(extraBedCost.value) <= 0) {
+                    e.preventDefault();
+                    alert('Extra bed cost must be greater than 0 if extra bed is available.');
+                    extraBedCost.focus();
+                    return false;
+                }
+                
+                if (maxExtraBeds && parseInt(maxExtraBeds.value) <= 0) {
+                    e.preventDefault();
+                    alert('Max extra beds must be at least 1 if extra bed is available.');
+                    maxExtraBeds.focus();
                     return false;
                 }
             }

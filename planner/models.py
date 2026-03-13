@@ -753,6 +753,10 @@ class CarRental(models.Model):
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
 
 # ========== TRIP PLAN MODEL ==========
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\models.py
+
 class TripPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips')
     origin = models.ForeignKey(
@@ -762,6 +766,7 @@ class TripPlan(models.Model):
         verbose_name='From',
         default=1
     )
+    selected_attractions_data = models.JSONField(default=list, blank=True, help_text="List of selected attractions with coordinates")
     custom_itinerary = models.JSONField(default=dict, blank=True, help_text="Custom itinerary with selected attractions")
     destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='arriving_trips', verbose_name='To')
     start_date = models.DateField()
@@ -778,8 +783,8 @@ class TripPlan(models.Model):
     transportation_preference = models.CharField(max_length=20, blank=True)
     selected_transport = models.JSONField(default=dict, blank=True)
     
-    # ADD THIS FIELD - For storing selected rooms
-    selected_rooms = models.JSONField(default=dict, blank=True, help_text="Selected rooms with details")
+    # Field for storing selected rooms with extra bed details
+    selected_rooms = models.JSONField(default=dict, blank=True, help_text="Selected rooms with details including extra beds")
     
     status = models.CharField(max_length=20, default='draft', choices=[
         ('draft', 'Draft'),
@@ -802,87 +807,142 @@ class TripPlan(models.Model):
             return max(1, days)
         return 1
     
+    def _extract_transport_price(self):
+        """Helper method to extract transport price from selected_transport"""
+        try:
+            transport_data = self.selected_transport
+            
+            if hasattr(transport_data, 'price'):
+                return float(transport_data.price)
+            
+            elif isinstance(transport_data, dict):
+                # Try different possible price fields
+                if 'price' in transport_data:
+                    price_val = transport_data['price']
+                elif 'total_price' in transport_data:
+                    price_val = transport_data['total_price']
+                elif transport_data.get('booking_details'):
+                    booking_details = transport_data['booking_details']
+                    if 'total_price' in booking_details:
+                        price_val = booking_details['total_price']
+                    else:
+                        return 0
+                else:
+                    return 0
+                
+                # Handle different price formats
+                if isinstance(price_val, (int, float)):
+                    return float(price_val)
+                elif isinstance(price_val, str):
+                    import re
+                    clean_price = re.sub(r'[^\d.]', '', price_val)
+                    return float(clean_price) if clean_price else 0
+            return 0
+            
+        except (ValueError, TypeError, AttributeError) as e:
+            print(f"Transport cost error for trip {self.id}: {e}")
+            return 0
+    
     def get_total_cost_in_mmk(self):
-        """Calculate total cost in MMK including rooms and transport ONLY"""
+        """
+        Calculate total cost in MMK including rooms (with extra beds) and transport ONLY
+        """
         total = 0
         nights = self.calculate_nights()
         
-        # 1. Room costs ONLY
-        if self.selected_rooms and self.selected_rooms.get('total_price'):
-            total += float(self.selected_rooms.get('total_price', 0))
+        print(f"\n{'='*50}")
+        print(f"💰 CALCULATING TOTAL COST FOR TRIP {self.id}")
+        print(f"{'='*50}")
+        
+        # 1. Room costs with extra beds
+        if self.selected_rooms:
+            # Use total_price from selected_rooms which already includes extra beds
+            if self.selected_rooms.get('total_price'):
+                room_total = float(self.selected_rooms.get('total_price', 0))
+                total += room_total
+                print(f"🏨 Room total (from selected_rooms): {room_total:,.0f} MMK")
+                
+                # Show breakdown if available
+                if self.selected_rooms.get('total_base_price'):
+                    print(f"   - Base rooms: {float(self.selected_rooms.get('total_base_price', 0)):,.0f} MMK")
+                if self.selected_rooms.get('total_extra_beds_cost'):
+                    print(f"   - Extra beds: {float(self.selected_rooms.get('total_extra_beds_cost', 0)):,.0f} MMK")
+            else:
+                # Calculate from room_details if total_price not available
+                room_details = self.selected_rooms.get('room_details', [])
+                room_total = 0
+                for room in room_details:
+                    # Base room price
+                    room_base = float(room.get('total', 0))
+                    # Extra beds price
+                    extra_beds_total = float(room.get('extra_beds_total', 0))
+                    room_subtotal = room_base + extra_beds_total
+                    room_total += room_subtotal
+                    print(f"🏨 Room {room.get('room_number')}: {room_base:,.0f} + {extra_beds_total:,.0f} = {room_subtotal:,.0f} MMK")
+                
+                total += room_total
+                print(f"🏨 Total rooms: {room_total:,.0f} MMK")
+        else:
+            print("🏨 No rooms selected")
         
         # 2. Transport cost
-        if self.selected_transport and 'price' in self.selected_transport:
-            transport_price = self.selected_transport.get('price', 0)
-            try:
-                if isinstance(transport_price, str):
-                    import re
-                    clean_price = re.sub(r'[^\d.]', '', transport_price)
-                    transport_cost = float(clean_price) if clean_price else 0
-                else:
-                    transport_cost = float(transport_price)
-                total += transport_cost
-            except (ValueError, TypeError):
-                transport_cost = 0
+        if self.selected_transport:
+            transport_price = self._extract_transport_price()
+            total += transport_price
+            print(f"🚗 Transport: {transport_price:,.0f} MMK")
+        else:
+            print("🚗 No transport selected")
         
-        # REMOVED: destination cost
+        print(f"{'='*50}")
+        print(f"💵 GRAND TOTAL: {total:,.0f} MMK")
+        print(f"{'='*50}\n")
         
         return int(total)
     
     def get_cost_breakdown(self):
         """
-        Get detailed cost breakdown (MMK)
-        Total = Rooms + Transport ONLY
+        Get detailed cost breakdown including extra beds (MMK)
+        Returns dictionary with detailed breakdown
         """
         nights = self.calculate_nights()
 
         breakdown = {
             'rooms': 0,
+            'rooms_base': 0,
+            'rooms_extra_beds': 0,
             'transport': 0,
-            'total': 0
+            'total': 0,
+            'nights': nights,
+            'travelers': self.travelers
         }
 
         # -----------------------
-        # ROOMS COST ONLY
+        # ROOMS COST WITH EXTRA BEDS
         # -----------------------
-        if self.selected_rooms and self.selected_rooms.get('total_price'):
-            breakdown['rooms'] = int(float(self.selected_rooms.get('total_price', 0)))
+        if self.selected_rooms:
+            # Use pre-calculated totals from selected_rooms if available
+            if self.selected_rooms.get('total_price'):
+                breakdown['rooms'] = int(float(self.selected_rooms.get('total_price', 0)))
+                breakdown['rooms_base'] = int(float(self.selected_rooms.get('total_base_price', 0)))
+                breakdown['rooms_extra_beds'] = int(float(self.selected_rooms.get('total_extra_beds_cost', 0)))
+            else:
+                # Calculate from room_details
+                room_details = self.selected_rooms.get('room_details', [])
+                for room in room_details:
+                    # Base room price (without extra beds)
+                    room_base = float(room.get('base_total', room.get('total', 0)))
+                    # Extra beds price
+                    extra_beds_total = float(room.get('extra_beds_total', 0))
+                    
+                    breakdown['rooms_base'] += room_base
+                    breakdown['rooms_extra_beds'] += extra_beds_total
+                
+                breakdown['rooms'] = breakdown['rooms_base'] + breakdown['rooms_extra_beds']
 
         # -----------------------
         # TRANSPORT COST
         # -----------------------
-        if self.selected_transport:
-            try:
-                transport_data = self.selected_transport
-                
-                if hasattr(transport_data, 'price'):
-                    breakdown['transport'] = float(transport_data.price)
-                elif isinstance(transport_data, dict):
-                    price = 0
-                    if 'price' in transport_data:
-                        price_val = transport_data['price']
-                        if isinstance(price_val, (int, float)):
-                            price = float(price_val)
-                        elif isinstance(price_val, str):
-                            import re
-                            clean_price = re.sub(r'[^\d.]', '', price_val)
-                            price = float(clean_price) if clean_price else 0
-                    elif transport_data.get('booking_details'):
-                        booking_details = transport_data['booking_details']
-                        if 'total_price' in booking_details:
-                            price_val = booking_details['total_price']
-                            if isinstance(price_val, (int, float)):
-                                price = float(price_val)
-                            elif isinstance(price_val, str):
-                                import re
-                                clean_price = re.sub(r'[^\d.]', '', price_val)
-                                price = float(clean_price) if clean_price else 0
-                    breakdown['transport'] = price
-            except Exception as e:
-                print(f"Transport cost error for trip {self.id}: {e}")
-                breakdown['transport'] = 0
-
-        # REMOVED: destination cost
+        breakdown['transport'] = self._extract_transport_price()
 
         # -----------------------
         # TOTAL
@@ -894,10 +954,69 @@ class TripPlan(models.Model):
 
         return breakdown
     
+    def get_room_breakdown_details(self):
+        """
+        Get detailed breakdown of each room including extra beds
+        Returns list of dicts with room details for display
+        """
+        if not self.selected_rooms:
+            return []
+        
+        room_details = self.selected_rooms.get('room_details', [])
+        nights = self.calculate_nights()
+        
+        details = []
+        for room in room_details:
+            details.append({
+                'room_number': room.get('room_number', 'Unknown'),
+                'room_type': room.get('room_type', 'Standard'),
+                'price_per_night': room.get('price_per_night', 0),
+                'nights': nights,
+                'base_total': room.get('base_total', room.get('total', 0)),
+                'extra_bed_selected': room.get('extra_bed_selected', False),
+                'extra_beds_count': room.get('extra_beds_count', 0),
+                'extra_bed_cost_per_night': room.get('extra_bed_cost_per_night', 0),
+                'extra_beds_total': room.get('extra_beds_total', 0),
+                'total': room.get('total', 0) + room.get('extra_beds_total', 0),
+                'floor': room.get('floor', ''),
+                'bed_type': room.get('bed_type', '')
+            })
+        
+        return details
+    
+    def has_extra_beds(self):
+        """Check if any selected rooms have extra beds"""
+        if not self.selected_rooms:
+            return False
+        
+        room_details = self.selected_rooms.get('room_details', [])
+        for room in room_details:
+            if room.get('extra_bed_selected', False):
+                return True
+        return False
+    
+    def get_total_extra_beds_count(self):
+        """Get total number of extra beds across all rooms"""
+        if not self.selected_rooms:
+            return 0
+        
+        room_details = self.selected_rooms.get('room_details', [])
+        total = 0
+        for room in room_details:
+            total += room.get('extra_beds_count', 0)
+        return total
+    
     def get_total_spent(self):
         """Get total spent for completed/booked trips"""
         if self.status in ['booked', 'completed']:
             return self.get_total_cost_in_mmk()
+        return 0
+    
+    def get_total_savings(self):
+        """
+        Calculate total savings (if any discounts applied)
+        Currently returns 0 as no discount system implemented
+        """
         return 0
     
     def origin_has_airport(self):
@@ -908,8 +1027,77 @@ class TripPlan(models.Model):
         """Check if destination has airport"""
         return self.destination.has_airport() if self.destination else False
     
+    def get_trip_duration_display(self):
+        """Get formatted trip duration"""
+        nights = self.calculate_nights()
+        days = nights + 1
+        return f"{days} days, {nights} nights"
+    
+    def get_status_display_with_badge(self):
+        """Get status with Bootstrap badge class for UI"""
+        status_badges = {
+            'draft': 'secondary',
+            'planning': 'info',
+            'booked': 'success',
+            'completed': 'primary',
+            'cancelled': 'danger'
+        }
+        return {
+            'status': self.status,
+            'display': self.get_status_display(),
+            'badge_class': status_badges.get(self.status, 'secondary')
+        }
+    
+    def has_rooms_selected(self):
+        """Check if rooms are selected"""
+        return bool(self.selected_rooms and self.selected_rooms.get('room_ids'))
+    
+    def has_transport_selected(self):
+        """Check if transport is selected"""
+        return bool(self.selected_transport)
+    
+    def is_fully_booked(self):
+        """Check if trip is fully booked (rooms and transport confirmed)"""
+        rooms_confirmed = False
+        if self.selected_rooms:
+            rooms_confirmed = not self.selected_rooms.get('is_temporary', True)
+        
+        transport_confirmed = False
+        if self.selected_transport:
+            transport_confirmed = not self.selected_transport.get('is_temporary', True)
+        
+        return rooms_confirmed and transport_confirmed
+    
+    def get_booking_summary(self):
+        """Get a summary of the booking for display"""
+        nights = self.calculate_nights()
+        cost_breakdown = self.get_cost_breakdown()
+        
+        return {
+            'trip_id': self.id,
+            'destination': self.destination.name if self.destination else 'Unknown',
+            'dates': f"{self.start_date.strftime('%b %d, %Y')} - {self.end_date.strftime('%b %d, %Y')}",
+            'nights': nights,
+            'travelers': self.travelers,
+            'hotel': self.selected_hotel.name if self.selected_hotel else None,
+            'rooms_count': len(self.selected_rooms.get('room_ids', [])) if self.selected_rooms else 0,
+            'extra_beds_count': self.get_total_extra_beds_count(),
+            'has_extra_beds': self.has_extra_beds(),
+            'total_cost': cost_breakdown['total'],
+            'total_cost_display': f"{cost_breakdown['total']:,} MMK",
+            'status': self.status,
+            'status_display': self.get_status_display()
+        }
+    
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Trip Plan'
+        verbose_name_plural = 'Trip Plans'
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['start_date']),
+        ]
 
 # ========== TRANSPORT SCHEDULE MODEL ==========
 class TransportSchedule(models.Model):
