@@ -1004,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let routeControl = null;
     let currentRouteData = null;
     let isSubmitting = false; // Prevent double submission
+    const tripId = {{ trip.id }};
 
     // ========== INITIALIZE MAP ==========
     const map = L.map('map').setView([21.983, 96.089], 7);
@@ -1039,8 +1040,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     {% endif %}
 
-    // ========== HELPER FUNCTIONS ==========
+    // ========== SAVE ROUTE DATA TO SESSION ==========
+    async function saveRouteDataToSession() {
+        if (currentRouteData && currentRouteData.routes && currentRouteData.routes[0]) {
+            const route = currentRouteData.routes[0];
+            const routeData = {
+                total_distance: route.summary.totalDistance / 1000,
+                total_duration: route.summary.totalTime / 60,
+                segment_distances: [],
+                segment_durations: []
+            };
+            
+            // Extract segment data from legs
+            if (route.legs) {
+                route.legs.forEach(leg => {
+                    routeData.segment_distances.push(leg.distance / 1000);
+                    routeData.segment_durations.push(leg.duration / 60);
+                });
+            }
+            
+            console.log('Saving route data to session:', routeData);
+            
+            try {
+                const response = await fetch(`/planner/save-route-data/${tripId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(routeData)
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ Route data saved successfully');
+                    return true;
+                } else {
+                    console.error('❌ Failed to save route data:', data.error);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Error saving route data:', error);
+                return false;
+            }
+        } else {
+            console.log('No route data to save');
+            return true; // No route data to save, consider it success
+        }
+    }
 
+    // ========== HELPER FUNCTIONS ==========
     function showLoading() {
         document.getElementById('loading-spinner').style.display = 'block';
         document.getElementById('route-details').innerHTML = '';
@@ -1759,7 +1808,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmBtn.disabled = true;
             }
             
-            // First save attractions
+            // FIRST: Save route data to session
+            const routeSaved = await saveRouteDataToSession();
+            if (!routeSaved) {
+                console.warn('Failed to save route data, but continuing...');
+            }
+            
+            // SECOND: Save attractions
             const attractionsSaved = await saveSelectedAttractions();
             
             if (!attractionsSaved) {
@@ -1772,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            // Then submit the form
+            // THIRD: Submit the form
             confirmForm.submit();
         });
     }

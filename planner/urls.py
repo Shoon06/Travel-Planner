@@ -72,7 +72,7 @@ urlpatterns = [
     path('trip/<int:trip_id>/confirm-rooms/', 
          ConfirmRoomsOnlyView.as_view(), 
          name='confirm_rooms'),
-    
+    path('save-route-data/<int:trip_id>/', views.SaveRouteDataView.as_view(), name='save_route_data'),
     path('trip/<int:trip_id>/confirm-transport/', 
          ConfirmTransportOnlyView.as_view(), 
          name='confirm_transport'),
