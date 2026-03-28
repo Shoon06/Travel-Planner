@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\planner\itinerary_detail.html -->
 {% extends "base.html" %}
 {% load static %}
 {% load custom_filters %}
@@ -245,6 +246,8 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
     }
     
     .booking-title {
@@ -306,7 +309,7 @@
         display: inline-block;
     }
     
-    /* ===== ROUTE DETAILS SECTION - EXACTLY LIKE PLAN_SELECTION.HTML ===== */
+    /* Route Section */
     .route-section {
         margin-top: 30px;
     }
@@ -359,6 +362,8 @@
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         font-weight: 600;
         color: var(--dark);
+        flex-wrap: wrap;
+        gap: 10px;
     }
     
     .route-number {
@@ -373,6 +378,7 @@
         font-weight: bold;
         margin-right: 15px;
         font-size: 14px;
+        flex-shrink: 0;
     }
     
     .route-name {
@@ -384,7 +390,10 @@
         font-weight: 600;
         font-size: 14px;
         white-space: nowrap;
-        margin-left: 15px;
+        margin-left: auto;
+        background: #f0f0f0;
+        padding: 4px 12px;
+        border-radius: 20px;
     }
     
     .route-separator {
@@ -416,6 +425,7 @@
         gap: 15px;
         justify-content: center;
         margin-top: 30px;
+        flex-wrap: wrap;
     }
     
     .btn-download {
@@ -496,13 +506,23 @@
         color: #6c757d;
     }
     
+    /* Extra bed styling */
+    .extra-bed-badge {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    
     /* Print Styles */
     @media print {
         .hero-section {
             background: white;
             color: black;
         }
-        .btn-download, .btn-share, .btn-new-trip {
+        .btn-download, .btn-share, .btn-new-trip, .action-buttons {
             display: none;
         }
     }
@@ -520,11 +540,19 @@
             gap: 10px;
         }
         .route-main {
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .route-number {
+            margin-bottom: 5px;
         }
         .route-distance-time {
             margin-left: 43px;
             margin-top: 5px;
+        }
+        .booking-header {
+            flex-direction: column;
+            align-items: flex-start;
         }
     }
 </style>
@@ -549,7 +577,7 @@
         
         <div class="booking-badge">
             <i class="fas fa-check-circle"></i>
-            Booking Reference: <strong>#{{ trip.id }}{{ trip.confirmed_at|date:"Ymd" }}</strong>
+            Booking Reference: <strong>#{{ trip.id }}{{ trip.confirmed_at|date:"Ymd"|default:trip.created_at|date:"Ymd" }}</strong>
         </div>
         
         {% if trip.confirmed_at %}
@@ -588,7 +616,7 @@
                         </div>
                         <div class="summary-label">Dates</div>
                         <div class="summary-value">{{ trip.start_date|date:"M d" }} - {{ trip.end_date|date:"M d, Y" }}</div>
-                        <div class="small text-gray">{{ total_days }} days ({{ nights }} nights)</div>
+                        <div class="small text-gray">{{ total_days|default:2 }} days ({{ nights }} nights)</div>
                     </div>
                     
                     <div class="summary-item">
@@ -605,7 +633,7 @@
                             <i class="fas fa-tag"></i>
                         </div>
                         <div class="summary-label">Plan Type</div>
-                        <div class="summary-value">{{ plan_title }}</div>
+                        <div class="summary-value">{{ plan_title|default:"Custom Itinerary" }}</div>
                         <div class="small text-gray">
                             {% if plan_id == 'cultural' %}
                                 <i class="fas fa-landmark me-1"></i>Cultural
@@ -613,13 +641,15 @@
                                 <i class="fas fa-hiking me-1"></i>Adventure
                             {% elif plan_id == 'relaxed' %}
                                 <i class="fas fa-spa me-1"></i>Relaxed
+                            {% else %}
+                                <i class="fas fa-user-edit me-1"></i>Custom Built
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- ===== OPTIMIZED ROUTE SECTION - ADDED FROM PLAN_SELECTION.HTML ===== -->
+            <!-- Optimized Route Section -->
             {% if itinerary_attractions %}
             <div class="glass-card">
                 <h3 class="section-title">
@@ -627,7 +657,7 @@
                     Optimized Route
                 </h3>
                 
-                <!-- Stats Row - STOPS, DISTANCE, DURATION -->
+                <!-- Stats Row -->
                 <div class="route-stats">
                     <div class="stat-item">
                         <div class="stat-label">STOPS</div>
@@ -646,9 +676,9 @@
                         <div class="stat-label">DURATION</div>
                         <div class="stat-value">
                             {% if route_stats.total_duration >= 60 %}
-                                {% with hours=route_stats.total_duration|floatformat:0|divisibleby:60 %}
+                                {% with hours=route_stats.total_duration|divisibleby:60 %}
                                 {% with minutes=route_stats.total_duration|floatformat:0|add:"-60" %}
-                                    {{ hours|floatformat:0 }}h 
+                                    {{ route_stats.total_duration|floatformat:0|divisibleby:60 }}h 
                                     {% if minutes > 0 %}
                                         {{ minutes|floatformat:0 }}m
                                     {% endif %}
@@ -671,22 +701,22 @@
                             <span class="route-name">{{ attraction.name }}</span>
                             
                             {% if not forloop.last and route_stats.segment_distances %}
-                                {% with segment_index=forloop.counter0 %}
-                                    {% if route_stats.segment_distances|length > segment_index %}
+                                {% with forloop.counter0 as idx %}
+                                    {% if route_stats.segment_distances|length > idx %}
                                         <span class="route-distance-time">
-                                            {{ route_stats.segment_distances|slice:segment_index|first|floatformat:1 }} km • 
-                                            {% with duration=route_stats.segment_durations|slice:segment_index|first %}
-                                                {% if duration >= 60 %}
-                                                    {% with hours=duration|floatformat:0|divisibleby:60 %}
-                                                    {% with minutes=duration|floatformat:0|add:"-60" %}
-                                                        {{ hours|floatformat:0 }}h 
-                                                        {% if minutes > 0 %}
-                                                            {{ minutes|floatformat:0 }}m
-                                                        {% endif %}
-                                                    {% endwith %}
-                                                    {% endwith %}
+                                            {{ route_stats.segment_distances|slice:idx|first|floatformat:1|default:"0.0" }} km • 
+                                            {% with duration=route_stats.segment_durations|slice:idx|first %}
+                                                {% if duration %}
+                                                    {% if duration >= 60 %}
+                                                        {{ duration|floatformat:0|divisibleby:60 }}h 
+                                                        {% with minutes=duration|floatformat:0|add:"-60" %}
+                                                            {% if minutes > 0 %}{{ minutes|floatformat:0 }}m{% endif %}
+                                                        {% endwith %}
+                                                    {% else %}
+                                                        {{ duration|floatformat:0 }}m
+                                                    {% endif %}
                                                 {% else %}
-                                                    {{ duration|floatformat:0 }}m
+                                                    -
                                                 {% endif %}
                                             {% endwith %}
                                         </span>
@@ -695,7 +725,7 @@
                             {% endif %}
                         </div>
                         
-                        <!-- Separator line (only between items, not after last) -->
+                        <!-- Separator line (only between items) -->
                         {% if not forloop.last %}
                         <div class="route-separator">
                             <i class="fas fa-arrow-down"></i>
@@ -706,24 +736,12 @@
                     {% endfor %}
                 </div>
                 
-                <!-- Note if no route stats available -->
                 {% if not route_stats.total_distance %}
                 <div class="alert alert-info mt-3">
                     <i class="fas fa-info-circle me-2"></i>
                     Distance and duration estimates are not available for this route.
                 </div>
                 {% endif %}
-            </div>
-            {% else %}
-            <div class="glass-card">
-                <h3 class="section-title">
-                    <i class="fas fa-route"></i>
-                    Optimized Route
-                </h3>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    No attractions have been added to your itinerary yet.
-                </div>
             </div>
             {% endif %}
             
@@ -764,28 +782,35 @@
                         </div>
                         <div class="detail-item">
                             <i class="fas fa-tag"></i>
-                            <span>{{ hotel.get_category_display }}</span>
+                            <span>{{ hotel.get_category_display|default:hotel.category }}</span>
                         </div>
+                        {% if hotel.phone_number %}
                         <div class="detail-item">
                             <i class="fas fa-phone"></i>
-                            <span>{{ hotel.phone_number|default:"Not provided" }}</span>
+                            <span>{{ hotel.phone_number }}</span>
                         </div>
+                        {% endif %}
                     </div>
                     
                     <!-- Room Details -->
-                    {% if trip.selected_rooms and trip.selected_rooms.room_details %}
+                    {% if room_details %}
                     <div class="mt-4">
                         <h5 class="fw-bold mb-3">
                             <i class="fas fa-bed me-2" style="color: var(--primary);"></i>
-                            Selected Rooms ({{ trip.selected_rooms.room_details|length }})
+                            Selected Rooms ({{ room_details|length }})
                         </h5>
                         
-                        {% for room in trip.selected_rooms.room_details %}
+                        {% for room in room_details %}
                         <div class="room-card">
-                            <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                                 <div>
                                     <span class="room-number">Room {{ room.room_number }}</span>
                                     <span class="room-type ms-2">{{ room.room_type }}</span>
+                                    {% if room.extra_bed_selected %}
+                                    <span class="extra-bed-badge ms-2">
+                                        <i class="fas fa-bed me-1"></i>+ Extra Bed
+                                    </span>
+                                    {% endif %}
                                 </div>
                                 <div class="text-end">
                                     <span class="fw-bold">{{ room.price_per_night|floatformat:0 }} MMK</span>
@@ -793,19 +818,28 @@
                                 </div>
                             </div>
                             
-                            {% if room.floor or room.bed_type %}
                             <div class="mt-2 small text-gray">
                                 {% if room.floor %}Floor {{ room.floor }}{% endif %}
                                 {% if room.bed_type %} • {{ room.bed_type }} Bed{% endif %}
+                                {% if room.extra_bed_selected and room.extra_beds_total %}
+                                <div class="text-success mt-1">
+                                    <i class="fas fa-bed me-1"></i>
+                                    Extra bed: +{{ room.extra_beds_total|floatformat:0 }} MMK total
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
                         
                         <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
                             <span class="fw-bold">Total for {{ nights }} nights:</span>
-                            <span class="price-tag">{{ trip.selected_rooms.total_price|floatformat:0 }} MMK</span>
+                            <span class="price-tag">{{ room_total_cost_mmk|default:"0 MMK" }}</span>
                         </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No room details available.
                     </div>
                     {% endif %}
                 </div>
@@ -827,7 +861,7 @@
                 {% if transport %}
                 <div class="booking-card">
                     <div class="booking-header">
-                        <h4 class="booking-title">{{ transport.name }}</h4>
+                        <h4 class="booking-title">{{ transport.name|default:"Transport Service" }}</h4>
                         <span class="booking-badge-confirmed">
                             <i class="fas fa-check-circle me-1"></i>Confirmed
                         </span>
@@ -837,7 +871,7 @@
                         {% if transport.type == 'flight' %}
                             <div class="detail-item">
                                 <i class="fas fa-plane"></i>
-                                <span>Flight • {{ transport.booking_details.airline|default:"N/A" }}</span>
+                                <span>Flight • {{ transport.booking_details.airline|default:transport.name|default:"N/A" }}</span>
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-tag"></i>
@@ -845,45 +879,49 @@
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-calendar"></i>
-                                <span>{{ transport.booking_details.travel_date|default:trip.start_date }}</span>
+                                <span>{{ transport.booking_details.travel_date|default:trip.start_date|date:"M d, Y" }}</span>
                             </div>
+                            {% if transport.booking_details.departure_time %}
                             <div class="detail-item">
                                 <i class="fas fa-clock"></i>
-                                <span>{{ transport.booking_details.departure_time|default:"N/A" }}</span>
+                                <span>Departure: {{ transport.booking_details.departure_time }}</span>
                             </div>
+                            {% endif %}
                             
                         {% elif transport.type == 'bus' %}
                             <div class="detail-item">
                                 <i class="fas fa-bus"></i>
-                                <span>Bus • {{ transport.booking_details.company|default:"N/A" }}</span>
+                                <span>Bus • {{ transport.booking_details.company|default:transport.name|default:"Bus Service" }}</span>
                             </div>
+                            {% if transport.seats %}
                             <div class="detail-item">
                                 <i class="fas fa-chair"></i>
                                 <span>Seats: {{ transport.seats|join:", " }}</span>
                             </div>
+                            {% endif %}
                             <div class="detail-item">
                                 <i class="fas fa-calendar"></i>
-                                <span>{{ transport.booking_details.travel_date|default:trip.start_date }}</span>
+                                <span>{{ transport.booking_details.travel_date|default:trip.start_date|date:"M d, Y" }}</span>
                             </div>
                             
                         {% elif transport.type == 'car' %}
                             <div class="detail-item">
                                 <i class="fas fa-car"></i>
-                                <span>{{ transport.booking_details.company|default:"N/A" }}</span>
+                                <span>{{ transport.booking_details.company|default:transport.name|default:"Car Rental" }}</span>
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-car-side"></i>
-                                <span>{{ transport.booking_details.car_model|default:"N/A" }}</span>
+                                <span>{{ transport.booking_details.car_model|default:"Standard Car" }}</span>
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-map-pin"></i>
-                                <span>{{ transport.booking_details.pickup_location|default:"N/A" }}</span>
+                                <span>Pickup: {{ transport.booking_details.pickup_location|default:trip.origin.name|default:"Not specified" }}</span>
                             </div>
                         {% endif %}
                     </div>
                     
                     <!-- Selected Seats for Flight/Bus -->
-                    {% if transport.seats %}
+                    {% if transport.seats and transport.type != 'car' %}
                     <div class="mt-3 p-3 bg-light rounded">
                         <i class="fas fa-chair me-2 text-primary"></i>
                         <strong>Selected Seats:</strong> 
@@ -897,13 +935,7 @@
                         <div class="d-flex justify-content-between">
                             <span class="fw-bold">Transport Cost:</span>
                             <span class="fw-bold text-primary">
-                                {% if transport.price %}
-                                    {{ transport.price|floatformat:0 }} MMK
-                                {% elif transport.booking_details and transport.booking_details.total_price %}
-                                    {{ transport.booking_details.total_price|floatformat:0 }} MMK
-                                {% else %}
-                                    0 MMK
-                                {% endif %}
+                                {{ transport_cost_mmk|default:"0 MMK" }}
                             </span>
                         </div>
                     </div>
@@ -925,33 +957,33 @@
                     Cost Summary
                 </h4>
                 
-                <!-- Accommodation Cost -->
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-gray">Accommodation</span>
-                    <span class="fw-bold">
-                        {% if trip.selected_rooms and trip.selected_rooms.total_price %}
-                            {{ trip.selected_rooms.total_price|floatformat:0 }} MMK
-                        {% else %}
-                            0 MMK
-                        {% endif %}
-                    </span>
+                <!-- Accommodation Cost with Breakdown -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-gray">Accommodation</span>
+                        <span class="fw-bold">{{ room_total_cost_mmk|default:"0 MMK" }}</span>
+                    </div>
+                    {% if room_base_cost_numeric and room_extra_beds_cost_numeric %}
+                    <div class="small ps-3">
+                        <div class="d-flex justify-content-between text-gray">
+                            <span>Base rooms:</span>
+                            <span>{{ room_base_cost_numeric|floatformat:0 }} MMK</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-success">
+                            <span>Extra beds:</span>
+                            <span>+{{ room_extra_beds_cost_numeric|floatformat:0 }} MMK</span>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 
                 <!-- Transportation Cost -->
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-gray">Transportation</span>
-                    <span class="fw-bold">
-                        {% if transport and transport.price %}
-                            {{ transport.price|floatformat:0 }} MMK
-                        {% elif transport and transport.booking_details and transport.booking_details.total_price %}
-                            {{ transport.booking_details.total_price|floatformat:0 }} MMK
-                        {% else %}
-                            0 MMK
-                        {% endif %}
-                    </span>
+                    <span class="fw-bold">{{ transport_cost_mmk|default:"0 MMK" }}</span>
                 </div>
                 
-                <!-- Activities Cost -->
+                <!-- Activities Cost (if any) -->
                 <div class="d-flex justify-content-between mb-3">
                     <span class="text-gray">Activities</span>
                     <span class="fw-bold">0 MMK</span>
@@ -962,13 +994,7 @@
                 <!-- Total Cost -->
                 <div class="d-flex justify-content-between fw-bold h5 mb-0">
                     <span>Total Cost</span>
-                    <span class="price-tag">
-                        {% with acc_cost=trip.selected_rooms.total_price|default:0 %}
-                        {% with trans_cost=transport.price|default:0 %}
-                            {{ acc_cost|add:trans_cost|floatformat:0 }} MMK
-                        {% endwith %}
-                        {% endwith %}
-                    </span>
+                    <span class="price-tag">{{ total_cost_mmk|default:"0 MMK" }}</span>
                 </div>
                 
                 {% if travelers > 1 %}
@@ -995,21 +1021,6 @@
         </div>
     </div>
     
-    <!-- Navigation Buttons -->
-    <div class="d-flex justify-content-between mt-4">
-        <a href="{% url 'planner:plan' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Back to Plan
-        </a>
-        <div>
-            <a href="{% url 'planner:select_hotel_map' trip.id %}" class="btn btn-outline-primary me-2">
-                <i class="fas fa-hotel me-2"></i>Select Hotel
-            </a>
-            <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-outline-primary">
-                <i class="fas fa-bus me-2"></i>Select Transport
-            </a>
-        </div>
-    </div>
-    
     <!-- Action Buttons -->
     <div class="action-buttons">
         <a href="{% url 'planner:download_itinerary_pdf' trip.id plan_id %}" class="btn btn-download">
@@ -1033,7 +1044,7 @@
 function shareItinerary() {
     if (navigator.share) {
         navigator.share({
-            title: 'My {{ plan_title }} Itinerary to {{ trip.destination.name }}',
+            title: 'My {{ plan_title|default:"Travel" }} Itinerary to {{ trip.destination.name }}',
             text: 'Check out my confirmed travel itinerary to {{ trip.destination.name }}!',
             url: window.location.href,
         })
@@ -1050,15 +1061,18 @@ function printItinerary() {
     window.print();
 }
 
-// Add print button to action buttons
+// Add print button
 document.addEventListener('DOMContentLoaded', function() {
     const actionButtons = document.querySelector('.action-buttons');
     if (actionButtons) {
-        const printBtn = document.createElement('button');
-        printBtn.className = 'btn btn-download';
-        printBtn.innerHTML = '<i class="fas fa-print me-2"></i>Print Itinerary';
-        printBtn.onclick = printItinerary;
-        actionButtons.appendChild(printBtn);
+        // Check if print button already exists
+        if (!document.querySelector('.btn-print')) {
+            const printBtn = document.createElement('button');
+            printBtn.className = 'btn btn-download btn-print';
+            printBtn.innerHTML = '<i class="fas fa-print me-2"></i>Print Itinerary';
+            printBtn.onclick = printItinerary;
+            actionButtons.appendChild(printBtn);
+        }
     }
 });
 </script>
