@@ -268,7 +268,7 @@
                                 <span>Plan Base Cost</span>
                                 <span class="fw-bold">${{ cost_estimate.breakdown.plan_base }}</span>
                             </div>
-                            {% if hotel %}
+                            {% if trip.selected_hotel %}
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Hotel ({{ nights }} nights)</span>
                                 <span class="fw-bold">${{ cost_estimate.breakdown.hotel }}</span>
@@ -346,10 +346,15 @@
                             <i class="fas fa-{{ transport.type|default:'bus' }} me-2 text-success"></i>Transportation
                         </h6>
                         <div class="ps-3">
-                            <div class="fw-bold">{{ transport.name }}</div>
-                            {% if transport.booking_details %}
+                            <div class="fw-bold">{{ transport_details.name|default:"Transport selected" }}</div>
+                            {% if transport_details and transport_details.price_display %}
+                            <div class="xsmall text-success mb-2">
+                                Transportation Fee: {{ transport_details.price_display }}
+                            </div>
+                            {% endif %}
+                            {% if transport_details and transport_details.booking_id %}
                             <div class="xsmall text-muted mb-2">
-                                Booking Ref: {{ transport.booking_details.booking_id }}
+                                Booking Ref: {{ transport_details.booking_id }}
                             </div>
                             {% endif %}
                         </div>

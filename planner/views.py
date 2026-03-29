@@ -30,6 +30,7 @@ from .models import TripPlan
 
 
 import random
+import re
 from django.conf import settings
 from .models import Destination, Hotel, Flight, BusService, CarRental, TripPlan, Airline, BookedSeat,TransportSchedule, TripActivity 
 from .real_hotels_service import real_hotels_service
@@ -48,6 +49,76 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from io import BytesIO
 import os
+
+
+def _parse_float(value):
+    """Safely parse numeric values that may contain commas/currency text."""
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    cleaned = re.sub(r"[^\d.]", "", str(value))
+    if not cleaned:
+        return 0.0
+    try:
+        return float(cleaned)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _extract_transport_total_price_mmk(selected_transport, travelers=1, trip=None):
+    """
+    Normalize transport pricing across old/new JSON structures.
+    Returns total price in MMK.
+    """
+    if not isinstance(selected_transport, dict):
+        return 0.0
+
+    booking_details = selected_transport.get("booking_details") or {}
+    transport_type = selected_transport.get("type")
+
+    # Prefer explicit totals first.
+    for candidate in (
+        booking_details.get("total_price"),
+        booking_details.get("price"),
+        selected_transport.get("total_price"),
+    ):
+        total = _parse_float(candidate)
+        if total > 0:
+            return total
+
+    # Seat-based fallback when only per-seat price exists.
+    price_per_seat = _parse_float(booking_details.get("price_per_seat"))
+    if price_per_seat > 0:
+        seats = selected_transport.get("seats") or []
+        seat_count = len(seats)
+        if seat_count == 0:
+            seat_count = int(_parse_float(booking_details.get("travelers"))) or int(travelers or 1)
+        return price_per_seat * max(seat_count, 1)
+
+    # Car rental fallback for flows that only store per-day details.
+    if transport_type == "car":
+        price_per_day = _parse_float(booking_details.get("price_per_day"))
+        if price_per_day > 0:
+            duration = int(_parse_float(booking_details.get("duration_days"))) or 1
+            return price_per_day * max(duration, 1)
+
+    # Last fallback: direct "price" field.
+    direct_price = _parse_float(selected_transport.get("price"))
+    if direct_price > 0:
+        return direct_price
+
+    # Legacy fallback: old car selections without price in JSON.
+    if trip is not None and transport_type == "car" and selected_transport.get("id"):
+        car = CarRental.objects.filter(id=selected_transport.get("id")).first()
+        if car:
+            nights = trip.calculate_nights()
+            days = nights + 1 if nights > 0 else 1
+            return _parse_float(car.price_per_day) * days
+
+    return 0.0
+
+
 class DownloadItineraryPDFView(LoginRequiredMixin, View):
     """Generate and download itinerary as PDF using ReportLab"""
     def get(self, request, trip_id, plan_id):
@@ -833,11 +904,31 @@ class SelectSeatsView(LoginRequiredMixin, View):
             id=transport_id
         )
 
+        nights = trip.calculate_nights()
+        days = nights + 1 if nights > 0 else 1
+        price_per_day = _parse_float(getattr(schedule, "price", None)) or _parse_float(getattr(transport, "price_per_day", 0))
+        total_price = price_per_day * days
+
         trip.selected_transport = {
 
             "type": "car",
             "id": transport_id,
             "schedule_id": schedule.id,
+            "name": f"{transport.company} - {transport.car_model}",
+            "price": total_price,
+            "travel_date": trip.start_date.strftime("%Y-%m-%d") if trip.start_date else None,
+            "booking_details": {
+                "company": transport.company,
+                "car_model": transport.car_model,
+                "car_type": transport.get_car_type_display(),
+                "pickup_location": trip.origin.name if trip.origin else "Not specified",
+                "travel_date": trip.start_date.strftime("%Y-%m-%d") if trip.start_date else None,
+                "duration_days": days,
+                "price_per_day": price_per_day,
+                "total_price": total_price,
+                "status": "CONFIRMED",
+                "confirmed_at": timezone.now().isoformat(),
+            },
 
             "is_temporary": False,
             "needs_confirmation": False,
@@ -2880,43 +2971,39 @@ class PlanSelectionView(LoginRequiredMixin, View):
                         seats = selected_transport.get('seats', [])
                         seat_count = len(seats)
 
-                        price_per_seat = selected_transport.get('price')
+                        price_per_seat = booking_details.get('price_per_seat') or selected_transport.get('price')
 
                         if price_per_seat and seat_count > 0:
 
                             transport_cost_numeric = float(price_per_seat) * seat_count
                             transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
-                            has_pending_seats = True
+                            has_pending_seats = bool(selected_transport.get('needs_confirmation', True))
 
                             print("DEBUG: Fallback calc:", transport_cost_numeric)
 
                         else:
-                            transport_cost_mmk = "Pending confirmation"
-                            has_pending_seats = True
+                            fallback_total = _extract_transport_total_price_mmk(
+                                selected_transport,
+                                trip.travelers,
+                                trip=trip,
+                            )
+                            if fallback_total > 0:
+                                transport_cost_numeric = fallback_total
+                                transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
+                                has_pending_seats = bool(selected_transport.get('needs_confirmation', False))
+                            else:
+                                transport_cost_mmk = "Pending confirmation"
+                                has_pending_seats = True
 
 
                 # ========= CAR =========
 
                 elif transport_type == 'car':
-
-                    total_price = booking_details.get('total_price')
-
-                    if total_price:
-
-                        transport_cost_numeric = float(total_price)
-
-                    else:
-
-                        price_per_day = float(
-                            booking_details.get('price_per_day', 0)
-                        )
-
-                        duration = int(
-                            booking_details.get('duration_days', 1)
-                        )
-
-                        transport_cost_numeric = price_per_day * duration
-
+                    transport_cost_numeric = _extract_transport_total_price_mmk(
+                        selected_transport,
+                        trip.travelers,
+                        trip=trip,
+                    )
 
                     if transport_cost_numeric > 0:
                         transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
@@ -2928,11 +3015,12 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
                 else:
 
-                    price = selected_transport.get('price')
-
-                    if price:
-
-                        transport_cost_numeric = float(price)
+                    transport_cost_numeric = _extract_transport_total_price_mmk(
+                        selected_transport,
+                        trip.travelers,
+                        trip=trip,
+                    )
+                    if transport_cost_numeric > 0:
                         transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
 
                     else:
@@ -3704,16 +3792,22 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'price_display': None,
             'travel_date': data.get('travel_date') or (trip.start_date.strftime('%Y-%m-%d') if trip.start_date else None),
             'booking_details': data.get('booking_details', {}),
+            'booking_id': data.get('booking_id'),
         }
 
-        # Prefer booking_details total price if available
-        bd = details['booking_details']
-        price_val = bd.get('total_price') or bd.get('price') or details['price']
-        if price_val is not None:
-            try:
-                details['price_display'] = f"{float(price_val):,.0f} MMK"
-            except Exception:
-                details['price_display'] = str(price_val)
+        if not details['booking_id']:
+            details['booking_id'] = details['booking_details'].get('booking_id')
+
+        normalized_total = _extract_transport_total_price_mmk(data, trip.travelers, trip=trip)
+        if normalized_total > 0:
+            details['price'] = normalized_total
+            details['price_display'] = f"{normalized_total:,.0f} MMK"
+        elif details['price'] is not None:
+            raw_price = _parse_float(details['price'])
+            if raw_price > 0:
+                details['price_display'] = f"{raw_price:,.0f} MMK"
+            else:
+                details['price_display'] = str(details['price'])
 
         # Backfill name from DB if missing
         t_type = details['type']
@@ -3859,6 +3953,13 @@ class ItineraryDetailView(LoginRequiredMixin, View):
     def calculate_cost_estimate(self, trip, plan_id):
         """Calculate cost estimate based on plan"""
         nights = trip.calculate_nights()
+        normalized_plan_id = str(plan_id).lower()
+        if normalized_plan_id == "1":
+            normalized_plan_id = "cultural"
+        elif normalized_plan_id == "2":
+            normalized_plan_id = "adventure"
+        elif normalized_plan_id == "3":
+            normalized_plan_id = "relaxed"
         
         # Base costs by plan
         plan_costs = {
@@ -3867,7 +3968,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'relaxed': 1100
         }
         
-        base_cost = plan_costs.get(plan_id, 1000)
+        base_cost = plan_costs.get(normalized_plan_id, 1000)
         
         # Adjust for number of travelers
         traveler_multiplier = 1 + ((trip.travelers - 1) * 0.7)  # 70% for additional travelers
@@ -3878,21 +3979,23 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         # Add hotel cost
         hotel_cost = 0
         if trip.selected_hotel:
-            hotel_cost = float(trip.selected_hotel.price_per_night) * nights / 1300  # Convert MMK to USD approx
+            hotel_price_value = float(trip.selected_hotel.price_per_night)
+            # Most seeded hotels are MMK. Some imported/legacy rows are already USD-sized values (e.g. 120).
+            # Use a pragmatic threshold to avoid collapsing valid USD prices to 0 after MMK conversion.
+            if hotel_price_value <= 1000:
+                hotel_cost = hotel_price_value * nights
+            else:
+                hotel_cost = hotel_price_value * nights / 1300  # Convert MMK to USD approx
         
         # Add transport cost
         transport_cost = 0
-        if trip.selected_transport and 'price' in trip.selected_transport:
-            # Try to extract price, handle different formats
-            price_str = str(trip.selected_transport['price'])
-            # Remove any non-numeric characters except dots
-            import re
-            price_clean = re.sub(r'[^\d.]', '', price_str)
-            try:
-                price_value = float(price_clean) if price_clean else 0
-                transport_cost = price_value / 1300  # Convert MMK to USD approx
-            except:
-                transport_cost = 0
+        if trip.selected_transport:
+            price_value = _extract_transport_total_price_mmk(
+                trip.selected_transport,
+                trip.travelers,
+                trip=trip,
+            )
+            transport_cost = price_value / 1300 if price_value > 0 else 0  # Convert MMK to USD approx
         
         total_cost = (base_cost * duration_multiplier * traveler_multiplier) + hotel_cost + transport_cost
         

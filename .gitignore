@@ -17,10 +17,7 @@ dist/
 *.egg-info/
 
 # SQLite databases and backups
-*.sqlite3
 *.db
-*.db-journal
-*.sqlite
 
 # Local settings and secrets
 .env.local
