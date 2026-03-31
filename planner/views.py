@@ -1134,17 +1134,25 @@ from datetime import datetime, timedelta
 class PlanTripView(LoginRequiredMixin, View):
     template_name = 'planner/plan.html'
     
-    def get(self, request):
-        # Check if we need to clear ALL data (new session, first visit)
-        clear_action = request.GET.get('clear', False)
+    # ========== ADD THIS DISPATCH METHOD ==========
+    def dispatch(self, request, *args, **kwargs):
+        """Save destination parameters to session BEFORE login redirect"""
+        # If user is not authenticated, save destination parameters to session
+        if not request.user.is_authenticated:
+            destination_id = request.GET.get('destination_id')
+            destination_name = request.GET.get('destination_name')
+            
+            if destination_id and destination_name:
+                request.session['pending_destination_id'] = destination_id
+                request.session['pending_destination_name'] = destination_name
+                print(f"✅ [PlanTripView.dispatch] Saved destination to session: {destination_name} (ID: {destination_id})")
         
-        # Check if this is a first-time visit (no parameters and no clear action)
-        has_params = any([
-            request.GET.get('origin_id'),
-            request.GET.get('destination_id'),
-            request.GET.get('hotel_id'),
-            request.GET.get('transport_id')
-        ])
+        # Continue with normal dispatch (which will redirect to login if needed)
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request):
+        # Check if we need to clear ALL data
+        clear_action = request.GET.get('clear', False)
         
         # Get today's date
         today = timezone.now().date()
@@ -1170,14 +1178,13 @@ class PlanTripView(LoginRequiredMixin, View):
         
         # If clear action was performed, return empty form
         if clear_action:
-            # Clear ALL session data related to trips
+            # Clear ALL session data
             session_keys = list(request.session.keys())
             for key in session_keys:
                 if any(term in key for term in ['hotel', 'transport', 'selected', 'trip', 'room']):
                     del request.session[key]
             request.session.modified = True
             
-            # Delete ALL draft/planning trips for this user
             TripPlan.objects.filter(
                 user=request.user,
                 status__in=['draft', 'planning']
@@ -1185,102 +1192,106 @@ class PlanTripView(LoginRequiredMixin, View):
             
             return render(request, self.template_name, context)
         
-        # ONLY load existing trip if there are URL parameters
-        if has_params:
-            # Get parameters from URL
-            origin_id = request.GET.get('origin_id')
-            origin_name = request.GET.get('origin_name')
-            destination_id = request.GET.get('destination_id')
-            destination_name = request.GET.get('destination_name')
-            start_date_param = request.GET.get('start_date')
-            end_date_param = request.GET.get('end_date')
-            travelers_param = request.GET.get('travelers')
-            hotel_id = request.GET.get('hotel_id')
-            hotel_name = request.GET.get('hotel_name')
-            transport_id = request.GET.get('transport_id')
-            transport_type = request.GET.get('transport_type')
-            transport_name = request.GET.get('transport_name')
-            
-            if origin_id and origin_name:
-                context['selected_origin_id'] = origin_id
-                context['origin_input'] = origin_name
-            if destination_id and destination_name:
-                context['selected_destination_id'] = destination_id
-                context['destination_input'] = destination_name
-            if start_date_param:
-                context['today'] = start_date_param
-            if end_date_param:
-                context['tomorrow'] = end_date_param
-            if travelers_param:
-                context['travelers'] = int(travelers_param)
-            if hotel_id and hotel_name:
-                context['selected_hotel_id'] = hotel_id
-                context['selected_hotel_name'] = hotel_name
-            if transport_id and transport_name:
-                context['selected_transport_id'] = transport_id
-                context['selected_transport_type'] = transport_type
-                context['selected_transport_name'] = transport_name
-            
-            # Calculate nights if we have dates
-            if context['today'] and context['tomorrow']:
-                try:
-                    start = datetime.strptime(context['today'], '%Y-%m-%d').date()
-                    end = datetime.strptime(context['tomorrow'], '%Y-%m-%d').date()
-                    context['nights'] = max(1, (end - start).days)
-                except:
-                    context['nights'] = 1
-            
-            # Get or create trip
-            existing_trip = TripPlan.objects.filter(
-                user=request.user,
-                status__in=['draft', 'planning']
-            ).first()
-            
-            if origin_id and destination_id and start_date_param and end_date_param:
-                try:
-                    start_date_obj = datetime.strptime(start_date_param, '%Y-%m-%d').date()
-                    end_date_obj = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+        # CRITICAL: Get parameters from URL
+        origin_id = request.GET.get('origin_id')
+        origin_name = request.GET.get('origin_name')
+        destination_id = request.GET.get('destination_id')
+        destination_name = request.GET.get('destination_name')
+        start_date_param = request.GET.get('start_date')
+        end_date_param = request.GET.get('end_date')
+        travelers_param = request.GET.get('travelers')
+        hotel_id = request.GET.get('hotel_id')
+        hotel_name = request.GET.get('hotel_name')
+        transport_id = request.GET.get('transport_id')
+        transport_type = request.GET.get('transport_type')
+        transport_name = request.GET.get('transport_name')
+        
+        print(f"🔵 PlanTripView GET - destination_id: {destination_id}, destination_name: {destination_name}")
+        
+        # Populate context from URL parameters
+        if origin_id and origin_name:
+            context['selected_origin_id'] = origin_id
+            context['origin_input'] = origin_name
+        if destination_id and destination_name:
+            context['selected_destination_id'] = destination_id
+            context['destination_input'] = destination_name
+            print(f"✅ Set destination in context: {destination_name} (ID: {destination_id})")
+        if start_date_param:
+            context['today'] = start_date_param
+        if end_date_param:
+            context['tomorrow'] = end_date_param
+        if travelers_param:
+            context['travelers'] = int(travelers_param)
+        if hotel_id and hotel_name:
+            context['selected_hotel_id'] = hotel_id
+            context['selected_hotel_name'] = hotel_name
+        if transport_id and transport_name:
+            context['selected_transport_id'] = transport_id
+            context['selected_transport_type'] = transport_type
+            context['selected_transport_name'] = transport_name
+        
+        # Calculate nights if we have dates
+        if context['today'] and context['tomorrow']:
+            try:
+                start = datetime.strptime(context['today'], '%Y-%m-%d').date()
+                end = datetime.strptime(context['tomorrow'], '%Y-%m-%d').date()
+                context['nights'] = max(1, (end - start).days)
+            except:
+                context['nights'] = 1
+        
+        # Get or create trip if we have all required data
+        if origin_id and destination_id and start_date_param and end_date_param:
+            try:
+                start_date_obj = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                end_date_obj = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                
+                # Check for existing trip
+                existing_trip = TripPlan.objects.filter(
+                    user=request.user,
+                    status__in=['draft', 'planning']
+                ).first()
+                
+                if existing_trip:
+                    trip = existing_trip
+                    trip.origin_id = origin_id
+                    trip.destination_id = destination_id
+                    trip.start_date = start_date_obj
+                    trip.end_date = end_date_obj
+                    trip.travelers = int(travelers_param) if travelers_param else 2
                     
-                    if existing_trip:
-                        trip = existing_trip
-                        trip.origin_id = origin_id
-                        trip.destination_id = destination_id
-                        trip.start_date = start_date_obj
-                        trip.end_date = end_date_obj
-                        trip.travelers = int(travelers_param) if travelers_param else 2
-                        
-                        if hotel_id:
-                            trip.selected_hotel_id = hotel_id
-                        if transport_id and transport_type:
-                            if not trip.selected_transport:
-                                trip.selected_transport = {}
-                            trip.selected_transport['id'] = transport_id
-                            trip.selected_transport['type'] = transport_type
-                            trip.selected_transport['name'] = transport_name
-                        
-                        trip.status = 'planning'
-                        trip.save()
-                    else:
-                        trip = TripPlan.objects.create(
-                            user=request.user,
-                            origin_id=origin_id,
-                            destination_id=destination_id,
-                            start_date=start_date_obj,
-                            end_date=end_date_obj,
-                            travelers=int(travelers_param) if travelers_param else 2,
-                            selected_hotel_id=hotel_id if hotel_id else None,
-                            selected_transport={
-                                'id': transport_id,
-                                'type': transport_type,
-                                'name': transport_name
-                            } if transport_id else {},
-                            status='planning'
-                        )
+                    if hotel_id:
+                        trip.selected_hotel_id = hotel_id
+                    if transport_id and transport_type:
+                        if not trip.selected_transport:
+                            trip.selected_transport = {}
+                        trip.selected_transport['id'] = transport_id
+                        trip.selected_transport['type'] = transport_type
+                        trip.selected_transport['name'] = transport_name
                     
-                    context['trip'] = trip
-                    
-                except Exception as e:
-                    print(f"Error creating/updating trip: {e}")
+                    trip.status = 'planning'
+                    trip.save()
+                else:
+                    trip = TripPlan.objects.create(
+                        user=request.user,
+                        origin_id=origin_id,
+                        destination_id=destination_id,
+                        start_date=start_date_obj,
+                        end_date=end_date_obj,
+                        travelers=int(travelers_param) if travelers_param else 2,
+                        selected_hotel_id=hotel_id if hotel_id else None,
+                        selected_transport={
+                            'id': transport_id,
+                            'type': transport_type,
+                            'name': transport_name
+                        } if transport_id else {},
+                        status='planning'
+                    )
+                
+                context['trip'] = trip
+                print(f"✅ Trip created/updated: ID {trip.id}")
+                
+            except Exception as e:
+                print(f"Error creating/updating trip: {e}")
         
         return render(request, self.template_name, context)
     
@@ -1504,14 +1515,12 @@ class PlanTripView(LoginRequiredMixin, View):
             request.session.pop(f'selected_plan_{trip.id}', None)
             request.session.modified = True
             
-            # Redirect to itinerary builder (NOT plan_selection)
+            # Redirect to itinerary builder
             return redirect('planner:itinerary_builder', trip_id=trip.id)
                 
         except Exception as e:
             messages.error(request, f'Error saving trip: {str(e)}')
             return redirect('planner:plan')
-# ========== DESTINATION SEARCH (AUTO-COMPLETE) ==========
-# ========== DESTINATION SEARCH (AUTO-COMPLETE) - FIXED ==========
 class DestinationSearchView(View):
     def get(self, request):
         query = request.GET.get('q', '').strip().lower()
@@ -2968,6 +2977,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import TripPlan, BookedSeat, TransportSchedule
 
 # C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
 
 class PlanSelectionView(LoginRequiredMixin, View):
     template_name = 'planner/plan_selection.html'
@@ -2978,11 +2990,6 @@ class PlanSelectionView(LoginRequiredMixin, View):
         # ================= PERMISSION =================
         if not request.user.is_staff and trip.user != request.user:
             return HttpResponseForbidden("You do not have permission to view this trip")
-
-        # ================= CLEAR OLD SESSION =================
-        for key in list(request.session.keys()):
-            if key.startswith('selected_plan_') and key != f'selected_plan_{trip_id}':
-                del request.session[key]
 
         # ================= DAYS / NIGHTS =================
         try:
@@ -2998,255 +3005,130 @@ class PlanSelectionView(LoginRequiredMixin, View):
 
         days = nights + 1
 
-        # ================= BUDGET =================
-        budget = getattr(trip, 'budget', 500000)
-
-        # ================= AI PLANS =================
-        session_key = f'ai_plans_{trip_id}'
-        plans = request.session.get(session_key, [])
-
-        if not plans:
-            plans = self.generate_ai_plans(trip, days, budget)
-            request.session[session_key] = plans
-            request.session.modified = True
-
-        # ================= SELECTED PLAN =================
-        selected_plan_id = request.session.get(f'selected_plan_{trip_id}')
-
-        if hasattr(trip, 'selected_plan') and trip.selected_plan:
-            selected_plan_id = trip.selected_plan
-            request.session[f'selected_plan_{trip_id}'] = selected_plan_id
-
-        selected_plan = None
-
-        if selected_plan_id:
-            try:
-                selected_plan_id = int(selected_plan_id)
-                selected_plan = next(
-                    (p for p in plans if p.get('id') == selected_plan_id),
-                    None
-                )
-            except:
-                selected_plan = None
-
-            if not selected_plan:
-                request.session.pop(f'selected_plan_{trip_id}', None)
-
-        for plan in plans:
-            plan['is_selected'] = (str(plan.get('id')) == str(selected_plan_id))
-
-        # ================= HOTEL AND ROOMS WITH EXTRA BEDS =================
-        selected_hotel = getattr(trip, 'selected_hotel', None)
-
-        # Initialize room cost variables
-        room_total_cost_numeric = 0
-        room_base_cost_numeric = 0
-        room_extra_beds_cost_numeric = 0
-        room_total_cost_mmk = "No rooms selected"
-        room_details = []
-        has_extra_beds = False
-
-        # Check if rooms are selected and process them
-        if trip.selected_rooms and trip.selected_rooms.get('room_details'):
-            room_details = trip.selected_rooms.get('room_details', [])
-            
-            # Use pre-calculated totals if available (from SaveRoomSelectionView)
-            if trip.selected_rooms.get('total_price'):
-                room_total_cost_numeric = float(trip.selected_rooms.get('total_price', 0))
-                room_base_cost_numeric = float(trip.selected_rooms.get('total_base_price', 0))
-                room_extra_beds_cost_numeric = float(trip.selected_rooms.get('total_extra_beds_cost', 0))
-                has_extra_beds = room_extra_beds_cost_numeric > 0
-                
-                print(f"\n🏨 ROOM COSTS from selected_rooms:")
-                print(f"   Base: {room_base_cost_numeric:,.0f} MMK")
-                print(f"   Extra beds: {room_extra_beds_cost_numeric:,.0f} MMK")
-                print(f"   Total: {room_total_cost_numeric:,.0f} MMK")
-            else:
-                # Calculate from room details (fallback)
-                for room in room_details:
-                    # Get base total (without extra beds)
-                    room_base = float(room.get('base_total', room.get('total', 0)))
-                    # Get extra beds total
-                    extra_beds = float(room.get('extra_beds_total', 0))
-                    
-                    room_base_cost_numeric += room_base
-                    room_extra_beds_cost_numeric += extra_beds
-                    
-                    if extra_beds > 0:
-                        has_extra_beds = True
-                
-                room_total_cost_numeric = room_base_cost_numeric + room_extra_beds_cost_numeric
-                
-                print(f"\n🏨 ROOM COSTS calculated from details:")
-                print(f"   Base: {room_base_cost_numeric:,.0f} MMK")
-                print(f"   Extra beds: {room_extra_beds_cost_numeric:,.0f} MMK")
-                print(f"   Total: {room_total_cost_numeric:,.0f} MMK")
-            
-            # Format display string
-            if room_total_cost_numeric > 0:
-                room_total_cost_mmk = f"{room_total_cost_numeric:,.0f} MMK"
-        else:
-            print("🏨 No rooms selected")
-
-        # ================= TRANSPORT =================
-        selected_transport = None
-        try:
-            if isinstance(trip.selected_transport, dict):
-                selected_transport = trip.selected_transport
-        except:
-            selected_transport = None
-
-        transport_cost_numeric = 0
-        transport_cost_mmk = "Not selected"
-        has_pending_seats = False
-
-        if selected_transport:
-            try:
-                transport_type = selected_transport.get('type', '')
-                booking_details = selected_transport.get('booking_details', {})
-
-                # ========= BUS / FLIGHT =========
-                if transport_type in ['bus', 'flight']:
-                    total_price = booking_details.get('total_price')
-                    
-                    if total_price:
-                        transport_cost_numeric = float(total_price)
-                        transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
-                        has_pending_seats = False
-                    else:
-                        seats = selected_transport.get('seats', [])
-                        seat_count = len(seats)
-                        price_per_seat = selected_transport.get('price')
-
-                        if price_per_seat and seat_count > 0:
-                            transport_cost_numeric = float(price_per_seat) * seat_count
-                            transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
-                            has_pending_seats = True
-                        else:
-                            transport_cost_mmk = "Pending confirmation"
-                            has_pending_seats = True
-
-                # ========= CAR =========
-                elif transport_type == 'car':
-                    total_price = booking_details.get('total_price')
-                    
-                    if total_price:
-                        transport_cost_numeric = float(total_price)
-                    else:
-                        price_per_day = float(booking_details.get('price_per_day', 0))
-                        duration = int(booking_details.get('duration_days', 1))
-                        transport_cost_numeric = price_per_day * duration
-
-                    if transport_cost_numeric > 0:
-                        transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
-                    else:
-                        transport_cost_mmk = "Price not available"
-
-                # ========= OTHER =========
-                else:
-                    price = selected_transport.get('price')
-                    if price:
-                        transport_cost_numeric = float(price)
-                        transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
-                    else:
-                        transport_cost_mmk = "Price not available"
-
-            except Exception as e:
-                print("Transport Error:", e)
-                transport_cost_mmk = "Error calculating"
-
-        # ================= TOTAL (Rooms + Transport ONLY) =================
-        total_combined_cost_numeric = (
-            room_total_cost_numeric + 
-            transport_cost_numeric
-        )
-
-        if total_combined_cost_numeric > 0:
-            total_combined_cost_mmk = f"{total_combined_cost_numeric:,.0f} MMK"
-        else:
-            total_combined_cost_mmk = "-"
-
-        # ========== GET ATTRACTIONS FOR THIS DESTINATION ==========
-        import re
+        # ========== GET ALL AVAILABLE ATTRACTIONS ==========
         from planner.models import Destination
+        import re
         
-        attractions = Destination.objects.filter(
+        all_attractions = Destination.objects.filter(
             parent=trip.destination,
             type='attraction',
             is_active=True
         ).order_by('name')
         
-        # Parse attraction data for display
+        # Format all attractions for display
         attractions_data = []
-        for attraction in attractions:
-            rating = None
-            review_count = None
-            entry_fee = "Free entry"
-            distance = None
-            features = []
-            
-            if attraction.description:
-                # Extract rating
-                rating_match = re.search(r'Rating:\s*([\d.]+)/5', attraction.description)
-                if rating_match:
-                    rating = float(rating_match.group(1))
-                
-                # Extract review count
-                reviews_match = re.search(r'Reviews:\s*(\d+)', attraction.description)
-                if reviews_match:
-                    review_count = int(reviews_match.group(1))
-                
-                # Extract entry fee
-                fee_match = re.search(r'Entry Fee:\s*(.+?)(?:\n|$)', attraction.description)
-                if fee_match:
-                    entry_fee = fee_match.group(1).strip()
-                
-                # Extract distance
-                distance_match = re.search(r'Distance:\s*(.+?)(?:\n|$)', attraction.description)
-                if distance_match:
-                    distance = distance_match.group(1).strip()
-                
-                # Extract features
-                features_match = re.search(r'Features:\s*(.+?)(?:\n|$)', attraction.description)
-                if features_match:
-                    features = [f.strip() for f in features_match.group(1).split(',')]
-            
+        for attraction in all_attractions:
             attractions_data.append({
                 'id': attraction.id,
                 'name': attraction.name,
-                'type': attraction.type,
-                'type_display': attraction.get_type_display(),
-                'description': attraction.description.split('\n\n')[0] if attraction.description else '',
-                'rating': rating,
-                'review_count': review_count,
-                'entry_fee': entry_fee,
-                'distance': distance,
-                'features': features,
-                'image': attraction.image,
-                'has_image': bool(attraction.image),
                 'latitude': float(attraction.latitude) if attraction.latitude else None,
                 'longitude': float(attraction.longitude) if attraction.longitude else None,
+                'type': attraction.type,
+                'type_display': attraction.get_type_display(),
+                'description': attraction.description[:200] if attraction.description else '',
+                'has_coordinates': bool(attraction.latitude and attraction.longitude),
             })
 
-        # ========== GET SELECTED ATTRACTIONS FROM SESSION ==========
-        session_key = f'selected_attractions_{trip_id}'
-        selected_attractions = request.session.get(session_key, [])
+        # ========== GET SELECTED ATTRACTIONS FROM TRIP ==========
+        selected_attractions = []
+        selected_attraction_ids = set()
         
-        # Debug print
-        print(f"DEBUG - Selected attractions from session: {len(selected_attractions)}")
+        # Try to get from trip.selected_attractions_data (saved during confirmation)
+        if hasattr(trip, 'selected_attractions_data') and trip.selected_attractions_data:
+            selected_attractions = trip.selected_attractions_data
+            for attr in selected_attractions:
+                selected_attraction_ids.add(str(attr.get('id')))
+            print(f"✅ Loaded {len(selected_attractions)} attractions from trip.selected_attractions_data")
+            print(f"   IDs: {selected_attraction_ids}")
         
-        # ========== CALCULATE ROUTE IF ENOUGH ATTRACTIONS ==========
-        route_data = None
-        if len(selected_attractions) >= 2:
-            # Create an instance of ItineraryBuilderView to use its calculate_route method
-            from .views import ItineraryBuilderView
-            builder = ItineraryBuilderView()
-            route_data = builder.calculate_route_with_osrm(selected_attractions) if len(selected_attractions) >= 2 else None
-            print(f"DEBUG - Route data calculated: {route_data is not None}")
+        # If not found, try from custom_itinerary
+        elif trip.custom_itinerary and trip.custom_itinerary.get('attractions'):
+            selected_attractions = trip.custom_itinerary.get('attractions', [])
+            for attr in selected_attractions:
+                selected_attraction_ids.add(str(attr.get('id')))
+            print(f"✅ Loaded {len(selected_attractions)} attractions from custom_itinerary")
+        
+        # If still no attractions, try session (for new trips)
+        else:
+            session_key = f'selected_attractions_{trip_id}'
+            session_attractions = request.session.get(session_key, [])
+            for attr in session_attractions:
+                selected_attraction_ids.add(str(attr.get('id')))
+                selected_attractions.append(attr)
+            print(f"✅ Loaded {len(selected_attractions)} attractions from session")
+        
+        # Mark which attractions are selected in the attractions_data
+        for attraction in attractions_data:
+            attraction['is_selected'] = str(attraction['id']) in selected_attraction_ids
+        
+        # ========== GET ROUTE DATA ==========
+        route_stats = {}
+        
+        # Try to get route data from custom_itinerary
+        if trip.custom_itinerary and trip.custom_itinerary.get('route_data'):
+            route_stats = trip.custom_itinerary.get('route_data', {})
+            print(f"✅ Loaded route data from custom_itinerary: {route_stats}")
+        
+        # If no saved route data and we have selected attractions, calculate it
+        if not route_stats and len(selected_attractions) >= 2:
+            route_stats = self.calculate_route_like_plan_selection(selected_attractions)
+            print(f"✅ Calculated route data: {route_stats}")
+
+        # ================= HOTEL AND ROOMS =================
+        selected_hotel = getattr(trip, 'selected_hotel', None)
+
+        # ROOM COSTS WITH EXTRA BEDS
+        room_total_cost_numeric = 0
+        room_base_cost_numeric = 0
+        room_extra_beds_cost_numeric = 0
+        room_details = []
+        has_extra_beds = False
+
+        if trip.selected_rooms and trip.selected_rooms.get('room_details'):
+            room_details = trip.selected_rooms.get('room_details', [])
+            
+            if trip.selected_rooms.get('total_price'):
+                room_total_cost_numeric = float(trip.selected_rooms.get('total_price', 0))
+                room_base_cost_numeric = float(trip.selected_rooms.get('total_base_price', 0))
+                room_extra_beds_cost_numeric = float(trip.selected_rooms.get('total_extra_beds_cost', 0))
+                has_extra_beds = room_extra_beds_cost_numeric > 0
+            else:
+                for room in room_details:
+                    room_base = float(room.get('base_total', room.get('total', 0)))
+                    extra_beds = float(room.get('extra_beds_total', 0))
+                    room_base_cost_numeric += room_base
+                    room_extra_beds_cost_numeric += extra_beds
+                    if extra_beds > 0:
+                        has_extra_beds = True
+                room_total_cost_numeric = room_base_cost_numeric + room_extra_beds_cost_numeric
+        
+        room_total_cost_mmk = f"{room_total_cost_numeric:,.0f} MMK" if room_total_cost_numeric > 0 else "No rooms selected"
+
+        # ================= TRANSPORT =================
+        selected_transport = None
+        transport_cost_numeric = 0
+        transport_cost_mmk = "Not selected"
+        has_pending_seats = False
+
+        if isinstance(trip.selected_transport, dict):
+            selected_transport = trip.selected_transport
+            # Get transport cost
+            if 'price' in selected_transport:
+                transport_cost_numeric = float(selected_transport.get('price', 0))
+                transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
+            elif selected_transport.get('booking_details', {}).get('total_price'):
+                transport_cost_numeric = float(selected_transport.get('booking_details', {}).get('total_price', 0))
+                transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK"
+            elif selected_transport.get('is_temporary'):
+                transport_cost_mmk = "Pending confirmation"
+                has_pending_seats = True
+
+        # ================= TOTAL =================
+        total_combined_cost_numeric = room_total_cost_numeric + transport_cost_numeric
+        total_combined_cost_mmk = f"{total_combined_cost_numeric:,.0f} MMK" if total_combined_cost_numeric > 0 else "-"
 
         # ================= CONTEXT =================
         context = {
-            # Basic trip info
             'trip': trip,
             'destination': trip.destination,
             'days': days,
@@ -3254,15 +3136,6 @@ class PlanSelectionView(LoginRequiredMixin, View):
             'start_date': trip.start_date.strftime('%Y-%m-%d') if trip.start_date else '',
             'end_date': trip.end_date.strftime('%Y-%m-%d') if trip.end_date else '',
             'travelers': getattr(trip, 'travelers', 1),
-            
-            # AI Plans
-            'plans': plans,
-            'selected_plan': selected_plan,
-            'selected_plan_id': selected_plan_id,
-            'plan_selected': bool(selected_plan_id),
-            'trip_budget': budget,
-            
-            # Hotel and Rooms with extra bed details
             'selected_hotel': selected_hotel,
             'room_details': room_details,
             'room_total_cost_mmk': room_total_cost_mmk,
@@ -3270,525 +3143,18 @@ class PlanSelectionView(LoginRequiredMixin, View):
             'room_base_cost_numeric': room_base_cost_numeric,
             'room_extra_beds_cost_numeric': room_extra_beds_cost_numeric,
             'has_extra_beds': has_extra_beds,
-            
-            # Transport
             'selected_transport': selected_transport,
             'transport_cost_mmk': transport_cost_mmk,
             'transport_cost_numeric': transport_cost_numeric,
             'has_pending_seats': has_pending_seats,
-            
-            # Total Costs
             'total_combined_cost_mmk': total_combined_cost_mmk,
             'total_combined_cost_numeric': total_combined_cost_numeric,
-            
-            # Attractions and Route Data
-            'attractions': attractions_data,
-            'selected_attractions': selected_attractions,
-            'route_data': route_data,
+            'attractions': attractions_data,  # All attractions with is_selected flag
+            'selected_attractions': selected_attractions,  # Selected attractions for route
+            'route_stats': route_stats,
         }
 
         return render(request, self.template_name, context)
-
-    # ... keep all your existing methods (generate_ai_plans, get_cultural_highlights, etc.) ...
-    # ========== ALL YOUR EXISTING METHODS BELOW ==========
-    # Keep ALL your existing methods exactly as they are:
-    # generate_ai_plans, get_cultural_highlights, get_adventure_highlights,
-    # get_relaxed_highlights, generate_cultural_itinerary,
-    # generate_adventure_itinerary, generate_relaxed_itinerary,
-    # calculate_date - ALL THESE METHODS REMAIN THE SAME
-    
-    def generate_ai_plans(self, trip, days, budget):
-        """Generate AI travel plans based on trip details - WITHOUT Estimated Cost"""
-        destination = trip.destination.name
-        
-        # Generate destination-specific highlights
-        cultural_highlights = self.get_cultural_highlights(trip.destination)[:6]
-        adventure_highlights = self.get_adventure_highlights(trip.destination)[:6]
-        relaxed_highlights = self.get_relaxed_highlights(trip.destination)[:6]
-        
-        # Generate sample itineraries
-        cultural_itinerary = self.generate_cultural_itinerary(trip, days)
-        adventure_itinerary = self.generate_adventure_itinerary(trip, days)
-        relaxed_itinerary = self.generate_relaxed_itinerary(trip, days)
-        
-        plans = [
-            {
-                'id': 1,
-                'title': 'Cultural Explorer',
-                'subtitle': 'Immerse in local traditions and heritage',
-                'category': 'Cultural',
-                'color': '#3498db',
-                'icon': 'fas fa-landmark',
-                'duration': f'{days} days',
-                'budget_range': '$$$',
-                'highlights': cultural_highlights,
-                'days': cultural_itinerary,
-                'sample_day': cultural_itinerary[0]['activities'][:3] if cultural_itinerary else [],
-                'description': f'Perfect for history buffs and culture enthusiasts who want to immerse in {destination}\'s local traditions and heritage sites.',
-                'is_selected': False,
-                'popularity': 'Most Popular'
-            },
-            {
-                'id': 2,
-                'title': 'Adventure Seeker',
-                'subtitle': 'Active exploration and new experiences',
-                'category': 'Adventure',
-                'color': '#2ecc71',
-                'icon': 'fas fa-hiking',
-                'duration': f'{days} days',
-                'budget_range': '$$$$',
-                'highlights': adventure_highlights,
-                'days': adventure_itinerary,
-                'sample_day': adventure_itinerary[0]['activities'][:3] if adventure_itinerary else [],
-                'description': f'Ideal for active travelers who love outdoor activities, exploration, and trying new experiences in {destination}.',
-                'is_selected': False,
-                'popularity': 'Trending'
-            },
-            {
-                'id': 3,
-                'title': 'Relaxed Wanderer',
-                'subtitle': 'Leisurely pace with ample relaxation',
-                'category': 'Relaxation',
-                'color': '#9b59b6',
-                'icon': 'fas fa-spa',
-                'duration': f'{days} days',
-                'budget_range': '$$',
-                'highlights': relaxed_highlights,
-                'days': relaxed_itinerary,
-                'sample_day': relaxed_itinerary[0]['activities'][:3] if relaxed_itinerary else [],
-                'description': f'Best for those who prefer a leisurely pace with ample free time and relaxation activities in {destination}.',
-                'is_selected': False,
-                'popularity': 'Value'
-            }
-        ]
-        
-        return plans
-
-    def get_cultural_highlights(self, destination):
-        """Get destination-specific cultural highlights"""
-        destination_name = destination.name.lower()
-        
-        highlights_map = {
-            'yangon': [
-                'Shwedagon Pagoda at sunrise',
-                'Colonial architecture walking tour',
-                'Traditional puppet show',
-                'Local tea house experience',
-                'Bogyoke Market shopping',
-                'National Museum visit'
-            ],
-            'mandalay': [
-                'Mandalay Palace tour',
-                'Mandalay Hill sunset view',
-                'Gold leaf making workshop',
-                'Traditional marionette theater',
-                'Kuthodaw Pagoda (World\'s largest book)',
-                'U Bein Bridge at sunrise'
-            ],
-            'bagan': [
-                'Temple sunrise hot air balloon',
-                'Ancient temple exploration',
-                'Lacquerware workshop visit',
-                'Traditional horse cart ride',
-                'Local village life experience',
-                'Sunset at Buledi temple'
-            ],
-            'inle lake': [
-                'Leg-rowing fishermen demonstration',
-                'Floating village tour',
-                'Traditional weaving workshop',
-                'Phaung Daw Oo Pagoda visit',
-                'Local market experience',
-                'Stilt house village walk'
-            ],
-            'pyin oo lwin': [
-                'Botanical gardens tour',
-                'Colonial architecture walk',
-                'Candy factory visit',
-                'Local strawberry farm',
-                'Waterfall visits',
-                'Horse carriage ride'
-            ]
-        }
-        
-        # Find matching highlights
-        for key, highlights in highlights_map.items():
-            if key in destination_name or destination_name in key:
-                return highlights
-        
-        # Default highlights for other destinations
-        return [
-            'Local cultural sites visit',
-            'Traditional craft workshop',
-            'Historical landmark tour',
-            'Local market exploration',
-            'Cultural performance show',
-            'Traditional cuisine tasting'
-        ]
-
-    def get_adventure_highlights(self, destination):
-        """Get destination-specific adventure highlights"""
-        destination_name = destination.name.lower()
-        
-        highlights_map = {
-            'yangon': [
-                'Circular train ride',
-                'Kayaking on Kandawgyi Lake',
-                'Street food walking tour',
-                'Bicycle tour around city',
-                'Yangon River cruise',
-                'Night market exploration'
-            ],
-            'mandalay': [
-                'Mandalay Hill hiking',
-                'Mingun day trip by boat',
-                'Motorbike tour around city',
-                'Traditional cooking class',
-                'Irrawaddy River activities',
-                'Local market food adventure'
-            ],
-            'bagan': [
-                'Hot air balloon ride',
-                'E-bike temple exploration',
-                'Sunrise cycling tour',
-                'Irrawaddy River boat trip',
-                'Temple climbing adventure',
-                'Photography safari'
-            ],
-            'inle lake': [
-                'Boat tour on Inle Lake',
-                'Trekking to hill tribe villages',
-                'Bamboo rafting experience',
-                'Fishing with local methods',
-                'Mountain biking around lake',
-                'Sunrise boat photography'
-            ],
-            'ngapali': [
-                'Beach relaxation',
-                'Snorkeling adventure',
-                'Sunset fishing trip',
-                'Beach volleyball',
-                'Local seafood tasting',
-                'Coastal walk exploration'
-            ]
-        }
-        
-        for key, highlights in highlights_map.items():
-            if key in destination_name or destination_name in key:
-                return highlights
-        
-        # Default highlights
-        return [
-            'Local hiking trails',
-            'Outdoor exploration',
-            'Traditional activities',
-            'Nature walks',
-            'Adventure sports',
-            'Cultural adventures'
-        ]
-
-    def get_relaxed_highlights(self, destination):
-        """Get destination-specific relaxed highlights"""
-        destination_name = destination.name.lower()
-        
-        highlights_map = {
-            'yangon': [
-                'Spa and wellness sessions',
-                'Leisurely park walks',
-                'Café hopping downtown',
-                'Sunset at Shwedagon',
-                'Riverfront relaxation',
-                'Art gallery visits'
-            ],
-            'mandalay': [
-                'Spa treatments',
-                'Royal garden walks',
-                'Tea house relaxation',
-                'Sunset viewing spots',
-                'Cultural show evenings',
-                'Leisurely shopping'
-            ],
-            'bagan': [
-                'Temple view relaxation',
-                'Sunset champagne viewing',
-                'Poolside lounging',
-                'Leisurely e-bike rides',
-                'Traditional massage',
-                'Stargazing nights'
-            ],
-            'inle lake': [
-                'Lakeside relaxation',
-                'Boat ride with tea',
-                'Spa with lake view',
-                'Leisurely village walks',
-                'Sunset photography',
-                'Traditional massage'
-            ],
-            'ngapali': [
-                'Beachfront massage',
-                'Sunset beach walks',
-                'Hammock relaxation',
-                'Seafood dining',
-                'Beach yoga sessions',
-                'Poolside lounging'
-            ]
-        }
-        
-        for key, highlights in highlights_map.items():
-            if key in destination_name or destination_name in key:
-                return highlights
-        
-        # Default highlights
-        return [
-            'Spa and wellness sessions',
-            'Leisurely nature walks',
-            'Local café exploration',
-            'Sunset photography spots',
-            'Relaxation activities',
-            'Cultural appreciation'
-        ]
-
-    def generate_cultural_itinerary(self, trip, days):
-        """Generate cultural itinerary for specific destination"""
-        itinerary = []
-        destination_name = trip.destination.name.lower()
-        
-        # Define destination-specific activities
-        activities_map = {
-            'yangon': [
-                {'time': '09:00 AM', 'title': 'Shwedagon Pagoda Visit', 'location': 'Shwedagon Pagoda', 'duration': '2 hours', 'description': 'Explore Myanmar\'s most sacred Buddhist pagoda', 'type': 'cultural'},
-                {'time': '12:00 PM', 'title': 'Lunch at Feel Myanmar', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Authentic Myanmar cuisine experience', 'type': 'food'},
-                {'time': '02:00 PM', 'title': 'Bogyoke Market', 'location': 'Pabedan Township', 'duration': '2 hours', 'description': 'Shop for local crafts, jewelry and souvenirs', 'type': 'shopping'},
-                {'time': '05:00 PM', 'title': 'Colonial Architecture Tour', 'location': 'Downtown Yangon', 'duration': '1.5 hours', 'description': 'Walk through historic colonial buildings', 'type': 'cultural'}
-            ],
-            'mandalay': [
-                {'time': '08:00 AM', 'title': 'Mandalay Palace', 'location': 'Mandalay Palace', 'duration': '2 hours', 'description': 'Explore the last royal palace of Myanmar', 'type': 'cultural'},
-                {'time': '11:00 AM', 'title': 'Gold Leaf Workshop', 'location': 'Traditional Workshop', 'duration': '1.5 hours', 'description': 'See how traditional gold leaf is made', 'type': 'workshop'},
-                {'time': '02:00 PM', 'title': 'Kuthodaw Pagoda', 'location': 'Mandalay Hill', 'duration': '2 hours', 'description': 'Visit the world\'s largest book', 'type': 'cultural'},
-                {'time': '05:00 PM', 'title': 'Sunset at U Bein Bridge', 'location': 'Amarapura', 'duration': '1.5 hours', 'description': 'Watch sunset on the world\'s longest teak bridge', 'type': 'scenic'}
-            ],
-            'bagan': [
-                {'time': '05:30 AM', 'title': 'Hot Air Balloon Sunrise', 'location': 'Bagan Plains', 'duration': '1 hour', 'description': 'Spectacular sunrise view over ancient temples', 'type': 'adventure'},
-                {'time': '09:00 AM', 'title': 'Ananda Temple', 'location': 'Old Bagan', 'duration': '2 hours', 'description': 'Visit one of Bagan\'s most beautiful temples', 'type': 'cultural'},
-                {'time': '01:00 PM', 'title': 'Lacquerware Workshop', 'location': 'Myinkaba Village', 'duration': '2 hours', 'description': 'Learn about traditional lacquerware making', 'type': 'workshop'},
-                {'time': '05:00 PM', 'title': 'Sunset at Buledi', 'location': 'Bagan Archaeological Zone', 'duration': '1.5 hours', 'description': 'Climb a temple for panoramic sunset views', 'type': 'scenic'}
-            ],
-            'inle lake': [
-                {'time': '07:00 AM', 'title': 'Leg-Rowing Fishermen', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'See unique leg-rowing fishing technique', 'type': 'cultural'},
-                {'time': '10:00 AM', 'title': 'Floating Village Tour', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'Visit stilt-house villages on the lake', 'type': 'cultural'},
-                {'time': '01:00 PM', 'title': 'Traditional Weaving', 'location': 'Inn Paw Khon Village', 'duration': '2 hours', 'description': 'Watch lotus and silk weaving process', 'type': 'workshop'},
-                {'time': '04:00 PM', 'title': 'Phaung Daw Oo Pagoda', 'location': 'Inle Lake', 'duration': '1.5 hours', 'description': 'Visit the lake\'s most important pagoda', 'type': 'cultural'}
-            ]
-        }
-        
-        # Get activities for this destination
-        base_activities = activities_map.get(destination_name, [
-            {'time': '09:00 AM', 'title': 'Cultural Site Visit', 'location': 'Main Attraction', 'duration': '2 hours', 'description': f'Explore cultural sites in {trip.destination.name}', 'type': 'cultural'},
-            {'time': '12:00 PM', 'title': 'Local Cuisine Lunch', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Taste authentic local dishes', 'type': 'food'},
-            {'time': '02:00 PM', 'title': 'Market Exploration', 'location': 'Local Market', 'duration': '2 hours', 'description': 'Experience local market culture', 'type': 'shopping'},
-            {'time': '05:00 PM', 'title': 'Sunset Viewing', 'location': 'Scenic Spot', 'duration': '1.5 hours', 'description': 'Enjoy beautiful sunset views', 'type': 'scenic'}
-        ])
-        
-        # Add icons to activities
-        icon_map = {
-            'cultural': 'fas fa-landmark',
-            'food': 'fas fa-utensils',
-            'shopping': 'fas fa-shopping-bag',
-            'workshop': 'fas fa-hammer',
-            'scenic': 'fas fa-camera',
-            'adventure': 'fas fa-hiking'
-        }
-        
-        for activity in base_activities:
-            activity['icon'] = icon_map.get(activity['type'], 'fas fa-star')
-        
-        # Generate itinerary for each day
-        for day in range(1, days + 1):
-            # Vary activities slightly each day
-            day_activities = []
-            for i, activity in enumerate(base_activities):
-                # Create a copy to modify
-                activity_copy = activity.copy()
-                
-                # Vary times slightly for different days
-                if day > 1:
-                    time_parts = activity_copy['time'].split(' ')
-                    hour_part = time_parts[0]
-                    am_pm = time_parts[1] if len(time_parts) > 1 else 'AM'
-                    hour = int(hour_part.split(':')[0])
-                    
-                    # Add 30 minutes for each subsequent day
-                    hour_offset = (day - 1) * 0.5
-                    new_hour = hour + hour_offset
-                    
-                    if new_hour >= 12 and am_pm == 'AM':
-                        am_pm = 'PM'
-                        if new_hour > 12:
-                            new_hour -= 12
-                    
-                    activity_copy['time'] = f"{int(new_hour):02d}:{hour_part.split(':')[1]} {am_pm}"
-                
-                day_activities.append(activity_copy)
-            
-            itinerary.append({
-                'day_number': day,
-                'date': self.calculate_date(trip.start_date, day - 1),
-                'activities': day_activities
-            })
-        
-        return itinerary
-
-    def generate_adventure_itinerary(self, trip, days):
-        """Generate adventure itinerary for specific destination"""
-        itinerary = []
-        destination_name = trip.destination.name.lower()
-        
-        # Define destination-specific adventure activities
-        activities_map = {
-            'yangon': [
-                {'time': '07:00 AM', 'title': 'Circular Train Ride', 'location': 'Yangon Central Station', 'duration': '3 hours', 'description': 'Experience local life on the circular railway', 'type': 'adventure'},
-                {'time': '11:00 AM', 'title': 'Street Food Tour', 'location': 'Downtown Markets', 'duration': '2 hours', 'description': 'Taste authentic Yangon street food', 'type': 'food'},
-                {'time': '02:00 PM', 'title': 'Kayaking on Lake', 'location': 'Kandawgyi Lake', 'duration': '2.5 hours', 'description': 'Paddle through scenic waters', 'type': 'water_sports'},
-                {'time': '06:00 PM', 'title': 'Sunset Walking Tour', 'location': 'Downtown Area', 'duration': '2 hours', 'description': 'Explore the city at sunset', 'type': 'walking'}
-            ],
-            'mandalay': [
-                {'time': '06:00 AM', 'title': 'Mandalay Hill Hike', 'location': 'Mandalay Hill', 'duration': '2 hours', 'description': 'Hike to the top for panoramic views', 'type': 'hiking'},
-                {'time': '10:00 AM', 'title': 'Motorbike City Tour', 'location': 'Mandalay City', 'duration': '3 hours', 'description': 'Explore Mandalay on motorbike', 'type': 'adventure'},
-                {'time': '02:00 PM', 'title': 'Mingun Boat Trip', 'location': 'Irrawaddy River', 'duration': '3 hours', 'description': 'Boat trip to Mingun ancient sites', 'type': 'boat'},
-                {'time': '06:00 PM', 'title': 'Traditional Cooking Class', 'location': 'Local Kitchen', 'duration': '2 hours', 'description': 'Learn to cook Mandalay dishes', 'type': 'food'}
-            ],
-            'bagan': [
-                {'time': '05:00 AM', 'title': 'Sunrise E-Bike Tour', 'location': 'Bagan Plains', 'duration': '3 hours', 'description': 'Explore temples by e-bike at sunrise', 'type': 'cycling'},
-                {'time': '09:00 AM', 'title': 'Horse Cart Adventure', 'location': 'Ancient Temples', 'duration': '2 hours', 'description': 'Traditional horse cart temple tour', 'type': 'cultural'},
-                {'time': '02:00 PM', 'title': 'Irrawaddy River Cruise', 'location': 'Irrawaddy River', 'duration': '2.5 hours', 'description': 'Boat trip on the mighty river', 'type': 'boat'},
-                {'time': '06:00 PM', 'title': 'Sunset Temple Climb', 'location': 'Selected Temple', 'duration': '1.5 hours', 'description': 'Climb a temple for sunset views', 'type': 'hiking'}
-            ],
-            'inle lake': [
-                {'time': '06:00 AM', 'title': 'Sunrise Boat Tour', 'location': 'Inle Lake', 'duration': '3 hours', 'description': 'Early morning boat tour of the lake', 'type': 'boat'},
-                {'time': '10:00 AM', 'title': 'Trekking to Villages', 'location': 'Shan Hills', 'duration': '3 hours', 'description': 'Trek to remote hill tribe villages', 'type': 'hiking'},
-                {'time': '02:00 PM', 'title': 'Bamboo Rafting', 'location': 'Streams near Lake', 'duration': '2 hours', 'description': 'Traditional bamboo raft experience', 'type': 'water_sports'},
-                {'time': '05:00 PM', 'title': 'Bicycle Lake Tour', 'location': 'Lakeside Roads', 'duration': '2 hours', 'description': 'Cycle around the lake perimeter', 'type': 'cycling'}
-            ]
-        }
-        
-        base_activities = activities_map.get(destination_name, [
-            {'time': '08:00 AM', 'title': 'Morning Exploration', 'location': 'Main Area', 'duration': '3 hours', 'description': f'Active exploration of {trip.destination.name}', 'type': 'adventure'},
-            {'time': '12:00 PM', 'title': 'Local Food Experience', 'location': 'Traditional Restaurant', 'duration': '1.5 hours', 'description': 'Try local adventure foods', 'type': 'food'},
-            {'time': '02:00 PM', 'title': 'Outdoor Activity', 'location': 'Natural Site', 'duration': '2.5 hours', 'description': 'Participate in local outdoor activities', 'type': 'adventure'},
-            {'time': '05:00 PM', 'title': 'Evening Adventure', 'location': 'Scenic Location', 'duration': '2 hours', 'description': 'Evening adventure activities', 'type': 'adventure'}
-        ])
-        
-        # Add icons
-        icon_map = {
-            'adventure': 'fas fa-hiking',
-            'food': 'fas fa-utensils',
-            'hiking': 'fas fa-mountain',
-            'cycling': 'fas fa-bicycle',
-            'boat': 'fas fa-ship',
-            'water_sports': 'fas fa-water',
-            'walking': 'fas fa-walking'
-        }
-        
-        for activity in base_activities:
-            activity['icon'] = icon_map.get(activity['type'], 'fas fa-compass')
-        
-        # Generate itinerary for each day
-        for day in range(1, days + 1):
-            day_activities = []
-            for i, activity in enumerate(base_activities):
-                activity_copy = activity.copy()
-                
-                # Vary activities for different days
-                if day > 1:
-                    # Change some activities for variety
-                    if i == 2:  # Third activity
-                        if 'hiking' in activity_copy['type']:
-                            activity_copy['title'] = 'Nature Walk Exploration'
-                        elif 'boat' in activity_copy['type']:
-                            activity_copy['title'] = 'River/Lake Exploration'
-                
-                day_activities.append(activity_copy)
-            
-            itinerary.append({
-                'day_number': day,
-                'date': self.calculate_date(trip.start_date, day - 1),
-                'activities': day_activities
-            })
-        
-        return itinerary
-
-    def generate_relaxed_itinerary(self, trip, days):
-        """Generate relaxed itinerary for specific destination"""
-        itinerary = []
-        destination_name = trip.destination.name.lower()
-        
-        # Define destination-specific relaxed activities
-        activities_map = {
-            'yangon': [
-                {'time': '10:00 AM', 'title': 'Late Breakfast', 'location': 'Hotel Restaurant', 'duration': '1.5 hours', 'description': 'Leisurely morning meal', 'type': 'food'},
-                {'time': '12:00 PM', 'title': 'Spa & Wellness', 'location': 'City Spa', 'duration': '2 hours', 'description': 'Relaxing massage and treatments', 'type': 'wellness'},
-                {'time': '03:00 PM', 'title': 'Park Walk', 'location': 'Kandawgyi Park', 'duration': '1.5 hours', 'description': 'Gentle walk in beautiful park', 'type': 'walking'},
-                {'time': '05:00 PM', 'title': 'Sunset Photography', 'location': 'Shwedagon Pagoda', 'duration': '1 hour', 'description': 'Capture beautiful sunset moments', 'type': 'photography'}
-            ],
-            'mandalay': [
-                {'time': '10:00 AM', 'title': 'Royal Garden Visit', 'location': 'Mandalay Palace Gardens', 'duration': '2 hours', 'description': 'Leisurely walk in royal gardens', 'type': 'walking'},
-                {'time': '01:00 PM', 'title': 'Traditional Spa', 'location': 'Local Wellness Center', 'duration': '2 hours', 'description': 'Traditional Myanmar spa treatments', 'type': 'wellness'},
-                {'time': '04:00 PM', 'title': 'Tea House Relaxation', 'location': 'Local Tea House', 'duration': '1.5 hours', 'description': 'Relax with local tea culture', 'type': 'food'},
-                {'time': '06:00 PM', 'title': 'Sunset River View', 'location': 'Irrawaddy Riverfront', 'duration': '1 hour', 'description': 'Peaceful sunset by the river', 'type': 'scenic'}
-            ],
-            'bagan': [
-                {'time': '09:00 AM', 'title': 'Poolside Breakfast', 'location': 'Hotel Pool', 'duration': '1.5 hours', 'description': 'Relaxed breakfast with temple views', 'type': 'food'},
-                {'time': '11:00 AM', 'title': 'Temple View Massage', 'location': 'Spa with View', 'duration': '2 hours', 'description': 'Massage with ancient temple views', 'type': 'wellness'},
-                {'time': '03:00 PM', 'title': 'Leisurely E-Bike Ride', 'location': 'Quiet Temple Area', 'duration': '1.5 hours', 'description': 'Gentle e-bike ride to quiet temples', 'type': 'cycling'},
-                {'time': '05:00 PM', 'title': 'Sunset Champagne', 'location': 'Sunset Viewpoint', 'duration': '1.5 hours', 'description': 'Champagne while watching sunset', 'type': 'scenic'}
-            ],
-            'inle lake': [
-                {'time': '09:30 AM', 'title': 'Lakeside Breakfast', 'location': 'Lake View Restaurant', 'duration': '1.5 hours', 'description': 'Breakfast overlooking the lake', 'type': 'food'},
-                {'time': '11:30 AM', 'title': 'Floating Spa Treatment', 'location': 'Lake Spa', 'duration': '2 hours', 'description': 'Spa treatments on the water', 'type': 'wellness'},
-                {'time': '03:00 PM', 'title': 'Gentle Boat Ride', 'location': 'Inle Lake', 'duration': '2 hours', 'description': 'Leisurely boat tour of the lake', 'type': 'boat'},
-                {'time': '05:30 PM', 'title': 'Lakeside Sunset', 'location': 'Lake Shore', 'duration': '1 hour', 'description': 'Peaceful sunset by the lake', 'type': 'scenic'}
-            ]
-        }
-        
-        base_activities = activities_map.get(destination_name, [
-            {'time': '10:00 AM', 'title': 'Leisurely Breakfast', 'location': 'Hotel Restaurant', 'duration': '1.5 hours', 'description': 'Relaxed morning meal', 'type': 'food'},
-            {'time': '12:00 PM', 'title': 'Wellness Session', 'location': 'Local Spa', 'duration': '2 hours', 'description': 'Relaxation and wellness treatments', 'type': 'wellness'},
-            {'time': '03:00 PM', 'title': 'Gentle Exploration', 'location': 'Scenic Area', 'duration': '1.5 hours', 'description': f'Leisurely exploration of {trip.destination.name}', 'type': 'walking'},
-            {'time': '05:00 PM', 'title': 'Sunset Viewing', 'location': 'Best View Spot', 'duration': '1 hour', 'description': 'Enjoy beautiful sunset views', 'type': 'scenic'}
-        ])
-        
-        # Add icons
-        icon_map = {
-            'food': 'fas fa-utensils',
-            'wellness': 'fas fa-spa',
-            'walking': 'fas fa-walking',
-            'photography': 'fas fa-camera',
-            'scenic': 'fas fa-eye',
-            'cycling': 'fas fa-bicycle',
-            'boat': 'fas fa-ship'
-        }
-        
-        for activity in base_activities:
-            activity['icon'] = icon_map.get(activity['type'], 'fas fa-star')
-        
-        # Generate itinerary for each day
-        for day in range(1, days + 1):
-            itinerary.append({
-                'day_number': day,
-                'date': self.calculate_date(trip.start_date, day - 1),
-                'activities': base_activities.copy()  # Same relaxed schedule each day
-            })
-        
-        return itinerary
-
-    def calculate_date(self, start_date, day_offset):
-        """Calculate date for a specific day"""
-        if start_date:
-            return (start_date + timedelta(days=day_offset)).strftime('%Y-%m-%d')
-        return f"Day {day_offset + 1}"
-# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
-
-
 class SelectPlanView(LoginRequiredMixin, View):
     """Handle plan selection"""
     
@@ -3932,7 +3298,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             # Get saved route data
             if trip.custom_itinerary.get('route_data'):
                 route_stats = trip.custom_itinerary.get('route_data', {})
-                print(f"✅ Using saved route data: {route_stats}")
+                print(f"✅ Using saved route data from custom_itinerary: {route_stats}")
             
             # Get attractions
             if trip.custom_itinerary.get('attractions'):
@@ -3983,26 +3349,44 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 }
                 itinerary_attractions.append(formatted_attr)
         
-        # If we have attractions but no route stats, calculate them
-        if len(itinerary_attractions) >= 2 and not route_stats:
-            print("📊 No saved route data, calculating route...")
-            route_stats = self.calculate_route_like_plan_selection(itinerary_attractions)
+        # ========== CRITICAL: FORCE RECALCULATE ROUTE IF NEEDED ==========
+        # If we have attractions but route_stats is empty or has mismatched segments, recalculate
+        if len(itinerary_attractions) >= 2:
+            # Check if we have proper segment data
+            has_proper_segments = (
+                route_stats and 
+                route_stats.get('segment_distances') and 
+                len(route_stats.get('segment_distances', [])) == len(itinerary_attractions) - 1
+            )
+            
+            if not has_proper_segments:
+                print("📊 Route data missing or incomplete, recalculating...")
+                route_stats = self.calculate_route_like_plan_selection(itinerary_attractions)
+                print(f"✅ Recalculated route stats: {route_stats}")
+            else:
+                print(f"✅ Using existing route stats with {len(route_stats.get('segment_distances', []))} segments")
         elif len(itinerary_attractions) == 1:
-            # Single attraction - no route needed
             route_stats = {
                 'total_distance': 0,
                 'total_duration': 0,
                 'segment_distances': [],
                 'segment_durations': []
             }
+            print("✅ Single attraction - no route needed")
+        else:
+            print("⚠️ No attractions found")
         
         # Format route stats for display (ensure segment arrays have correct length)
         route_stats = self.format_route_stats_for_display(route_stats, len(itinerary_attractions))
         
         print(f"📍 Final attractions count: {len(itinerary_attractions)}")
         print(f"📊 Final route stats: total_distance={route_stats.get('total_distance', 0)}, segments={len(route_stats.get('segment_distances', []))}")
+        
+        # Print each segment for debugging
+        for i, (dist, dur) in enumerate(zip(route_stats.get('segment_distances', []), route_stats.get('segment_durations', []))):
+            print(f"   Segment {i+1}: {dist:.1f} km, {dur:.0f} min")
 
-        # Calculate cost breakdown
+        # ========== COST CALCULATIONS ==========
         nights = trip.calculate_nights()
         
         # Room cost calculation with extra beds
@@ -4014,14 +3398,12 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         if trip.selected_rooms and trip.selected_rooms.get('room_details'):
             room_details = trip.selected_rooms.get('room_details', [])
             
-            # Use pre-calculated totals if available
             if trip.selected_rooms.get('total_price'):
                 room_total_cost_numeric = float(trip.selected_rooms.get('total_price', 0))
                 room_base_cost_numeric = float(trip.selected_rooms.get('total_base_price', 0))
                 room_extra_beds_cost_numeric = float(trip.selected_rooms.get('total_extra_beds_cost', 0))
                 print(f"🏨 Room costs from pre-calculated: base={room_base_cost_numeric}, extra={room_extra_beds_cost_numeric}, total={room_total_cost_numeric}")
             else:
-                # Calculate from room details
                 for room in room_details:
                     room_base = float(room.get('base_total', room.get('total', 0)))
                     extra_beds = float(room.get('extra_beds_total', 0))
@@ -4043,7 +3425,6 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         if trip.selected_transport:
             transport_data = trip.selected_transport
             if isinstance(transport_data, dict):
-                # Try to get price from various locations
                 if 'price' in transport_data:
                     transport_cost_numeric = float(transport_data.get('price', 0))
                 elif transport_data.get('booking_details', {}).get('total_price'):
@@ -4051,7 +3432,6 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 elif transport_data.get('seats') and transport_data.get('price_per_seat'):
                     transport_cost_numeric = float(transport_data.get('price_per_seat', 0)) * len(transport_data.get('seats', []))
                 
-                # Format transport data for template
                 transport_type = transport_data.get('type', '')
                 transport_data_formatted = {
                     'type': transport_type,
@@ -4063,7 +3443,6 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                     'is_temporary': transport_data.get('is_temporary', False),
                 }
                 
-                # Add type-specific details
                 if transport_type == 'flight':
                     transport_data_formatted['icon'] = 'fas fa-plane'
                     if transport_data_formatted['booking_details']:
@@ -4087,8 +3466,6 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 print(f"🚗 Transport: {transport_data_formatted['name']} - {transport_cost_numeric} MMK")
 
         transport_cost_mmk = f"{transport_cost_numeric:,.0f} MMK" if transport_cost_numeric > 0 else "0 MMK"
-
-        # Total cost
         total_cost_numeric = room_total_cost_numeric + transport_cost_numeric
         total_cost_mmk = f"{total_cost_numeric:,.0f} MMK" if total_cost_numeric > 0 else "0 MMK"
 
@@ -4111,27 +3488,18 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             }
 
         context = {
-            # Trip basic info
             'trip': trip,
             'plan_id': plan_id,
             'plan_title': plan_title,
-            
-            # Route data - CRITICAL: Use the saved route data
             'itinerary_attractions': itinerary_attractions,
             'route_stats': route_stats,
-            
-            # Destination info
             'destination_name': trip.destination.name,
             'start_date': trip.start_date,
             'end_date': trip.end_date,
             'travelers': trip.travelers,
             'nights': nights,
             'total_days': nights + 1,
-            
-            # Hotel details
             'hotel': hotel_data,
-            
-            # Room details with extra beds
             'room_details': room_details,
             'room_total_cost_mmk': room_total_cost_mmk,
             'room_total_cost_numeric': room_total_cost_numeric,
@@ -4140,13 +3508,9 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'room_base_cost_mmk': room_base_cost_mmk,
             'room_extra_beds_cost_mmk': room_extra_beds_cost_mmk,
             'has_extra_beds': room_extra_beds_cost_numeric > 0,
-            
-            # Transport details
             'transport': transport_data_formatted,
             'transport_cost_mmk': transport_cost_mmk,
             'transport_cost_numeric': transport_cost_numeric,
-            
-            # Total cost
             'total_cost_mmk': total_cost_mmk,
             'total_cost_numeric': total_cost_numeric,
         }
@@ -4158,7 +3522,12 @@ class ItineraryDetailView(LoginRequiredMixin, View):
     def format_route_stats_for_display(self, route_stats, num_attractions):
         """Ensure route_stats has correct number of segments (n-1)"""
         if not route_stats:
-            return route_stats
+            return {
+                'total_distance': 0,
+                'total_duration': 0,
+                'segment_distances': [],
+                'segment_durations': []
+            }
         
         # Make a copy to avoid modifying original
         formatted = {
@@ -4178,6 +3547,8 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         expected_segments = max(0, num_attractions - 1)
         current_segments = len(formatted['segment_distances'])
         
+        print(f"🔍 Format Route Stats - Attractions: {num_attractions}, Expected segments: {expected_segments}, Current: {current_segments}")
+        
         if current_segments != expected_segments:
             print(f"⚠️ Segment count mismatch: {current_segments} vs {expected_segments}")
             
@@ -4187,7 +3558,8 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 formatted['segment_durations'] = formatted['segment_durations'][:expected_segments]
                 print(f"   ✅ Trimmed to {expected_segments} segments")
             elif current_segments < expected_segments:
-                # Pad with zeros (fallback)
+                # Pad with calculated values
+                print(f"   ⚠️ Missing {expected_segments - current_segments} segments")
                 while len(formatted['segment_distances']) < expected_segments:
                     formatted['segment_distances'].append(0)
                     formatted['segment_durations'].append(0)
@@ -4198,7 +3570,12 @@ class ItineraryDetailView(LoginRequiredMixin, View):
     def calculate_route_like_plan_selection(self, attractions):
         """Calculate route using EXACT logic from plan_selection.html"""
         if len(attractions) < 2:
-            return {}
+            return {
+                'total_distance': 0,
+                'total_duration': 0,
+                'segment_distances': [],
+                'segment_durations': []
+            }
         
         import requests
         import math
@@ -4219,9 +3596,15 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 })
         
         if len(valid_attractions) < 2:
-            return {}
+            return {
+                'total_distance': 0,
+                'total_duration': 0,
+                'segment_distances': [],
+                'segment_durations': []
+            }
         
         print(f"📍 Calculating route for {len(valid_attractions)} attractions")
+        print(f"📍 Attractions: {[a['name'] for a in valid_attractions]}")
         
         # Step 1: Optimize route using nearest neighbor
         optimized = self.optimize_route_nearest_neighbor(valid_attractions)
@@ -4241,6 +3624,9 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             lat2 = a2['lat']
             lng2 = a2['lng']
             
+            print(f"  Segment {i+1}: {a1['name']} → {a2['name']}")
+            print(f"    Coordinates: ({lat1}, {lng1}) → ({lat2}, {lng2})")
+            
             # Try to get accurate route from OSRM
             route_data = self.get_accurate_route_osrm(lat1, lng1, lat2, lng2, a1.get('name'), a2.get('name'))
             
@@ -4249,18 +3635,20 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 segment_durations.append(route_data['duration'])
                 total_distance += route_data['distance']
                 total_duration += route_data['duration']
-                print(f"  Segment {i+1}: {a1['name']} → {a2['name']} = {route_data['distance']:.1f} km, {route_data['duration']:.0f} min")
+                print(f"    ✅ OSRM: {route_data['distance']:.1f} km, {route_data['duration']:.0f} min")
             else:
-                # Fallback to Haversine with 1.3x factor
+                # Fallback to Haversine with 1.3x factor (road distance factor)
                 straight_distance = self.haversine_distance(lat1, lng1, lat2, lng2)
-                road_distance = straight_distance * 1.3
-                duration = road_distance / 40 * 60  # 40 km/h average speed
+                # Use more realistic factor for Myanmar roads
+                road_distance = straight_distance * 1.4
+                # Average speed in Myanmar: 35 km/h average
+                duration = road_distance / 35 * 60
                 
                 segment_distances.append(road_distance)
                 segment_durations.append(duration)
                 total_distance += road_distance
                 total_duration += duration
-                print(f"  Segment {i+1} (fallback): {a1['name']} → {a2['name']} = {road_distance:.1f} km, {duration:.0f} min")
+                print(f"    ⚠️ Fallback: {road_distance:.1f} km (straight: {straight_distance:.1f} km), {duration:.0f} min")
         
         result = {
             'total_distance': total_distance,
@@ -4270,47 +3658,61 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         }
         
         print(f"✅ Route calculation complete: {total_distance:.1f} km, {total_duration:.0f} min")
+        print(f"✅ Segments: {len(segment_distances)}")
+        
         return result
 
     def get_accurate_route_osrm(self, lat1, lng1, lat2, lng2, name1="", name2=""):
         """Get accurate route from OSRM"""
         import requests
         
-        url = f"https://router.project-osrm.org/route/v1/driving/{lng2},{lat2};{lng1},{lat1}?overview=false&steps=false&alternatives=false"
+        # OSRM expects coordinates as lng,lat
+        url = f"https://router.project-osrm.org/route/v1/driving/{lng1},{lat1};{lng2},{lat2}?overview=false&steps=false&alternatives=false"
         
         try:
-            response = requests.get(url, timeout=5)
+            print(f"    🌐 Calling OSRM API...")
+            response = requests.get(url, timeout=10)
             data = response.json()
             
             if data.get('code') == 'Ok' and data.get('routes') and len(data['routes']) > 0:
                 route = data['routes'][0]
-                distance = route['distance'] / 1000
-                duration = route['duration'] / 60
+                distance = route['distance'] / 1000  # Convert to km
+                duration = route['duration'] / 60    # Convert to minutes
                 
+                # Validate the result is reasonable
                 straight_distance = self.haversine_distance(lat1, lng1, lat2, lng2)
                 min_reasonable = straight_distance * 1.1
                 max_reasonable = straight_distance * 3
                 
+                print(f"      OSRM result: distance={distance:.1f}km, straight={straight_distance:.1f}km, ratio={distance/straight_distance:.1f}")
+                
                 if distance < min_reasonable or distance > max_reasonable or distance < 0.5:
-                    distance = straight_distance * 1.3
-                    duration = distance / 40 * 60
+                    print(f"      ⚠️ OSRM result seems unreasonable, using fallback")
+                    return None
                 
                 return {'distance': distance, 'duration': duration}
                 
+        except requests.exceptions.Timeout:
+            print(f"    ⚠️ OSRM timeout for {name1} to {name2}")
         except Exception as e:
-            print(f"OSRM error for {name1} to {name2}: {e}")
+            print(f"    ⚠️ OSRM error for {name1} to {name2}: {e}")
         
         return None
 
     def haversine_distance(self, lat1, lon1, lat2, lon2):
-        """Haversine formula for straight-line distance between two points"""
+        """Haversine formula for straight-line distance between two points in km"""
         import math
         
         R = 6371  # Earth's radius in km
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+        
+        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
         return R * c
 
     def optimize_route_nearest_neighbor(self, points):
@@ -4330,11 +3732,13 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             
             dlat = lat2 - lat1
             dlon = lon2 - lon1
-            x = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-            c = 2 * math.atan2(math.sqrt(x), math.sqrt(1-x))
+            a_val = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.atan2(math.sqrt(a_val), math.sqrt(1-a_val))
             return R * c
         
         print(f"🔄 Optimizing route with {len(points)} points")
+        for i, p in enumerate(points):
+            print(f"  Point {i+1}: {p.get('name')} at ({p.get('lat', p.get('latitude', 0))}, {p.get('lng', p.get('longitude', 0))})")
         
         # Start with the first point
         route = [points[0]]
@@ -4343,9 +3747,12 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         while remaining:
             last = route[-1]
             # Find nearest remaining point
-            nearest = min(remaining, key=lambda p: distance_between(last, p))
+            distances = [(p, distance_between(last, p)) for p in remaining]
+            distances.sort(key=lambda x: x[1])
+            nearest = distances[0][0]
             route.append(nearest)
             remaining.remove(nearest)
+            print(f"  Added {nearest.get('name')} (distance: {distances[0][1]:.1f} km)")
         
         print(f"✅ Optimized route order:")
         for i, p in enumerate(route):
@@ -5710,6 +5117,7 @@ class SaveItineraryView(LoginRequiredMixin, View):
                 'error': str(e)
             }, status=500)
 
+
 class SaveRouteDataView(LoginRequiredMixin, View):
     """Save route data to session"""
     
@@ -5720,7 +5128,6 @@ class SaveRouteDataView(LoginRequiredMixin, View):
             
             # Ensure segment data is properly formatted
             if 'segment_distances' in data and 'segment_durations' in data:
-                # Convert to list of floats
                 data['segment_distances'] = [float(d) for d in data['segment_distances']]
                 data['segment_durations'] = [float(d) for d in data['segment_durations']]
             
@@ -5736,10 +5143,13 @@ class SaveRouteDataView(LoginRequiredMixin, View):
             import traceback
             traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)})
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
 class ConfirmBookingView(LoginRequiredMixin, View):
     """
     Final booking confirmation view for custom user-built itineraries.
-    This version saves both attractions and route data.
+    This saves attractions, route data, confirms transport and rooms.
     """
     
     def post(self, request, trip_id):
@@ -5750,7 +5160,7 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
         
         print(f"\n{'='*60}")
-        print(f"🔵 CONFIRM BOOKING VIEW (Custom Itinerary) - Trip ID: {trip_id}")
+        print(f"🔵 CONFIRM BOOKING VIEW - Trip ID: {trip_id}")
         print(f"🔵 User: {request.user.username}")
         print(f"{'='*60}\n")
 
@@ -5772,7 +5182,7 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             print("❌ Validation failed: No transport selected")
             return redirect('planner:plan_selection', trip_id=trip.id)
 
-        # ========== STEP 1: SAVE CUSTOM ITINERARY WITH ROUTE DATA ==========
+        # ========== STEP 1: SAVE SELECTED ATTRACTIONS AND ROUTE DATA ==========
         # Get selected attractions from session
         session_key = f'selected_attractions_{trip_id}'
         selected_attractions = request.session.get(session_key, [])
@@ -5796,20 +5206,21 @@ class ConfirmBookingView(LoginRequiredMixin, View):
                     'longitude': float(attr.get('lng', attr.get('longitude', 0)))
                 })
             
-            # Save to trip with route data
+            # Save to trip.selected_attractions_data
+            trip.selected_attractions_data = formatted_attractions
+            
+            # Also save to custom_itinerary with route data
             trip.custom_itinerary = {
                 'attractions': formatted_attractions,
-                'route_data': route_data,  # Save the calculated route data
+                'route_data': route_data,
                 'created_at': timezone.now().isoformat(),
                 'type': 'user_built',
                 'count': len(formatted_attractions)
             }
-            
-            # Also save to selected_attractions_data field
-            trip.selected_attractions_data = formatted_attractions
-            print(f"✅ Saved {len(formatted_attractions)} attractions with route data to custom_itinerary")
+            print(f"✅ Saved {len(formatted_attractions)} attractions to trip")
         else:
             print("⚠️ No attractions selected for custom itinerary")
+            trip.selected_attractions_data = []
             trip.custom_itinerary = {
                 'attractions': [],
                 'route_data': {},
@@ -5817,7 +5228,6 @@ class ConfirmBookingView(LoginRequiredMixin, View):
                 'type': 'user_built',
                 'count': 0
             }
-            trip.selected_attractions_data = []
 
         # ========== STEP 2: CONFIRM TRANSPORT SEATS ==========
         transport = trip.selected_transport
@@ -5856,7 +5266,7 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         
         # If no AI plan was selected, set a default plan type for display purposes
         if not trip.selected_plan:
-            trip.selected_plan = 'custom'  # Use 'custom' as a plan identifier
+            trip.selected_plan = 'custom'
             print("✅ Set default plan type to 'custom'")
         
         trip.save()
@@ -5878,14 +5288,13 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         print(f"✨ {success_message}")
         print(f"{'='*60}\n")
 
-        # ========== STEP 7: REDIRECT TO FINAL PAGE ==========
-        # For custom itineraries, use a special plan_id like 'custom'
-        plan_id = 'custom'
-        
-        return redirect("planner:itinerary_detail", trip_id=trip.id, plan_id=plan_id)
+        # ========== STEP 7: REDIRECT TO PLAN SELECTION PAGE ==========
+        return redirect("planner:plan_selection", trip_id=trip.id)
 
     def confirm_transport_seats(self, trip, request):
-        """Confirm transport seats (convert temporary to permanent)."""
+        """
+        Confirm transport seats (convert temporary to permanent).
+        """
         try:
             from .models import BookedSeat, TransportSchedule
             
@@ -5964,7 +5373,9 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             return False
 
     def confirm_rooms(self, trip, request):
-        """Confirm room bookings (convert temporary to permanent)."""
+        """
+        Confirm room bookings (convert temporary to permanent).
+        """
         try:
             from .models_room import RoomBooking, RoomAvailability
             from datetime import timedelta
@@ -6047,7 +5458,9 @@ class ConfirmBookingView(LoginRequiredMixin, View):
             return False
 
     def clear_trip_session_data(self, request, trip_id):
-        """Clear all session data related to this trip."""
+        """
+        Clear all session data related to this trip.
+        """
         session_keys_to_clear = [
             f'ai_plans_{trip_id}',
             f'selected_plan_{trip_id}',
@@ -6058,6 +5471,8 @@ class ConfirmBookingView(LoginRequiredMixin, View):
         ]
         
         session_keys = list(request.session.keys())
+        cleared_count = 0
+        
         for key in session_keys:
             if (key.startswith('ai_plans_') or 
                 key.startswith('selected_plan_') or
@@ -6067,6 +5482,283 @@ class ConfirmBookingView(LoginRequiredMixin, View):
                 key in session_keys_to_clear):
                 
                 del request.session[key]
+                cleared_count += 1
         
         request.session.modified = True
-        print(f"🧹 Cleared {len([k for k in session_keys if any(k.startswith(prefix) for prefix in ['ai_plans_', 'selected_plan_', 'selected_attractions_', 'selected_rooms_', 'route_data_'])])} session keys")
+        print(f"🧹 Cleared {cleared_count} session keys")
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+# C:\Users\ASUS\MyanmarTravelPlanner\planner\views.py
+
+class DownloadPlanSelectionPDFView(LoginRequiredMixin, View):
+    """Download plan_selection.html content as PDF"""
+    
+    def get(self, request, trip_id):
+        trip = get_object_or_404(TripPlan, id=trip_id, user=request.user)
+        
+        # Import PDF libraries
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm, inch
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from datetime import datetime
+        
+        # Create PDF buffer
+        buffer = BytesIO()
+        
+        # Create PDF document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            topMargin=1.5*cm,
+            bottomMargin=1.5*cm,
+            leftMargin=2*cm,
+            rightMargin=2*cm,
+            title=f"Itinerary - {trip.destination.name}"
+        )
+        
+        # Build story (content)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'TitleStyle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceAfter=0.4*inch,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'SubtitleStyle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#6c63ff'),
+            spaceAfter=0.3*inch,
+            alignment=TA_CENTER
+        )
+        
+        section_style = ParagraphStyle(
+            'SectionStyle',
+            parent=styles['Heading3'],
+            fontSize=16,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceBefore=0.2*inch,
+            spaceAfter=0.1*inch,
+            fontName='Helvetica-Bold'
+        )
+        
+        # ========== HEADER ==========
+        story.append(Paragraph("GoMyanmar Travel Itinerary", title_style))
+        story.append(Paragraph(f"{trip.destination.name}, Myanmar", subtitle_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # ========== TRIP SUMMARY ==========
+        story.append(Paragraph("Trip Summary", section_style))
+        
+        nights = trip.calculate_nights()
+        days = nights + 1
+        
+        summary_data = [
+            ["From:", trip.origin.name if trip.origin else "Not specified"],
+            ["To:", trip.destination.name],
+            ["Dates:", f"{trip.start_date.strftime('%B %d, %Y')} to {trip.end_date.strftime('%B %d, %Y')}"],
+            ["Duration:", f"{days} days, {nights} nights"],
+            ["Travelers:", f"{trip.travelers} person(s)"],
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*cm, 10*cm])
+        summary_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (0, -1), 5),
+            ('LEFTPADDING', (1, 0), (1, -1), 5),
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+        ]))
+        story.append(summary_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # ========== ACCOMMODATION ==========
+        if trip.selected_hotel:
+            story.append(Paragraph("Accommodation", section_style))
+            story.append(Paragraph(f"<b>{trip.selected_hotel.name}</b>", styles['Normal']))
+            story.append(Paragraph(trip.selected_hotel.address, styles['Normal']))
+            story.append(Spacer(1, 0.1*inch))
+            
+            # Rooms
+            if trip.selected_rooms and trip.selected_rooms.get('room_details'):
+                story.append(Paragraph("Selected Rooms:", styles['Heading4']))
+                for room in trip.selected_rooms.get('room_details', []):
+                    room_text = f"Room {room.get('room_number')} ({room.get('room_type')})"
+                    if room.get('extra_bed_selected'):
+                        room_text += f" + Extra Bed ({room.get('extra_beds_count')})"
+                    story.append(Paragraph(f"• {room_text} - {room.get('price_per_night', 0):,.0f} MMK/night", styles['Normal']))
+                
+                total_price = trip.selected_rooms.get('total_price', 0)
+                story.append(Spacer(1, 0.1*inch))
+                story.append(Paragraph(f"<b>Total for {nights} nights: {total_price:,.0f} MMK</b>", styles['Normal']))
+            
+            story.append(Spacer(1, 0.2*inch))
+        
+        # ========== TRANSPORTATION ==========
+        if trip.selected_transport:
+            story.append(Paragraph("Transportation", section_style))
+            transport = trip.selected_transport
+            transport_name = transport.get('name', 'Transport Service')
+            story.append(Paragraph(f"<b>{transport_name}</b>", styles['Normal']))
+            
+            # Add transport type
+            transport_type = transport.get('type', '')
+            if transport_type:
+                type_display = {'flight': 'Flight', 'bus': 'Bus', 'car': 'Car Rental'}.get(transport_type, 'Transport')
+                story.append(Paragraph(f"Type: {type_display}", styles['Normal']))
+            
+            if transport.get('seats'):
+                seats = transport.get('seats', [])
+                story.append(Paragraph(f"Seats: {', '.join(seats)}", styles['Normal']))
+            
+            # Get transport cost
+            transport_cost = 0
+            if 'price' in transport:
+                transport_cost = transport.get('price', 0)
+            elif transport.get('booking_details', {}).get('total_price'):
+                transport_cost = transport.get('booking_details', {}).get('total_price', 0)
+            
+            if transport_cost > 0:
+                story.append(Paragraph(f"Cost: {transport_cost:,.0f} MMK", styles['Normal']))
+            
+            story.append(Spacer(1, 0.2*inch))
+        
+        # ========== ATTRACTIONS & ROUTE ==========
+        # Get attractions from trip
+        attractions = []
+        if hasattr(trip, 'selected_attractions_data') and trip.selected_attractions_data:
+            attractions = trip.selected_attractions_data
+        elif trip.custom_itinerary and trip.custom_itinerary.get('attractions'):
+            attractions = trip.custom_itinerary.get('attractions', [])
+        
+        if attractions:
+            story.append(Paragraph("Your Itinerary", section_style))
+            story.append(PageBreak())
+            
+            for i, attraction in enumerate(attractions):
+                attraction_name = attraction.get('name', f'Attraction {i+1}')
+                story.append(Paragraph(f"<b>{i+1}. {attraction_name}</b>", styles['Heading4']))
+                
+                # Add description if available
+                if attraction.get('description'):
+                    story.append(Paragraph(attraction.get('description', '')[:200], styles['Normal']))
+                
+                story.append(Spacer(1, 0.1*inch))
+                
+                # Add route data between attractions
+                if i < len(attractions) - 1:
+                    # Get segment data if available
+                    route_data = trip.custom_itinerary.get('route_data', {}) if trip.custom_itinerary else {}
+                    segment_distances = route_data.get('segment_distances', [])
+                    segment_durations = route_data.get('segment_durations', [])
+                    
+                    if i < len(segment_distances):
+                        distance = segment_distances[i]
+                        duration = segment_durations[i]
+                        
+                        # Format duration
+                        if duration >= 60:
+                            hours = int(duration // 60)
+                            mins = int(duration % 60)
+                            duration_text = f"{hours}h {mins}m" if mins > 0 else f"{hours}h"
+                        else:
+                            duration_text = f"{int(duration)}m"
+                        
+                        story.append(Paragraph(f"<i>→ {distance:.1f} km • {duration_text}</i>", 
+                                               ParagraphStyle('RouteStyle', parent=styles['Normal'], textColor=colors.HexColor('#6c63ff'))))
+                    else:
+                        story.append(Paragraph("<i>→ Next attraction</i>", 
+                                               ParagraphStyle('RouteStyle', parent=styles['Normal'], textColor=colors.HexColor('#6c63ff'))))
+                    
+                    story.append(Spacer(1, 0.1*inch))
+        
+        # ========== COST SUMMARY ==========
+        story.append(Paragraph("Cost Summary", section_style))
+        
+        # Calculate costs
+        room_cost = 0
+        room_base = 0
+        room_extra = 0
+        
+        if trip.selected_rooms and trip.selected_rooms.get('total_price'):
+            room_cost = trip.selected_rooms.get('total_price', 0)
+            room_base = trip.selected_rooms.get('total_base_price', 0)
+            room_extra = trip.selected_rooms.get('total_extra_beds_cost', 0)
+        
+        # Get transport cost
+        transport_cost = 0
+        if trip.selected_transport:
+            if 'price' in trip.selected_transport:
+                transport_cost = trip.selected_transport.get('price', 0)
+            elif trip.selected_transport.get('booking_details', {}).get('total_price'):
+                transport_cost = trip.selected_transport.get('booking_details', {}).get('total_price', 0)
+        
+        total_cost = room_cost + transport_cost
+        
+        cost_data = [
+            ["Accommodation:", f"{room_cost:,.0f} MMK"],
+        ]
+        
+        if room_base > 0:
+            cost_data.append(["  Base rooms:", f"{room_base:,.0f} MMK"])
+        if room_extra > 0:
+            cost_data.append(["  Extra beds:", f"+{room_extra:,.0f} MMK"])
+        
+        # Add transport cost
+        if transport_cost > 0:
+            cost_data.append(["Transportation:", f"{transport_cost:,.0f} MMK"])
+        else:
+            cost_data.append(["Transportation:", "0 MMK"])
+        
+        cost_data.append(["Activities:", "0 MMK"])
+        cost_data.append(["", ""])
+        cost_data.append(["TOTAL:", f"{total_cost:,.0f} MMK"])
+        
+        cost_table = Table(cost_data, colWidths=[6*cm, 6*cm])
+        cost_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#2ecc71')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        story.append(cost_table)
+        
+        # ========== FOOTER ==========
+        story.append(Spacer(1, 0.5*inch))
+        footer_text = '''<font size="8" color="#6c757d">Generated by GoMyanmar Travel Planner<br/>
+        Thank you for choosing Myanmar for your adventure!</font>'''
+        story.append(Paragraph(footer_text, styles['Normal']))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF value from buffer
+        pdf = buffer.getvalue()
+        buffer.close()
+        
+        # Create HTTP response with PDF
+        response = HttpResponse(pdf, content_type='application/pdf')
+        filename = f"gomyanmar_itinerary_{trip.destination.name}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response

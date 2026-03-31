@@ -2,15 +2,18 @@
 {% block title %}GoMyanmar - Discover Myanmar The Smart Way{% endblock %}
 {% block content %}
 
-<!-- Hero Section -->
- <!-- In your base.html head section -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <section class="py-5 mt-5">
     <div class="container py-5">
         <div class="row align-items-center">
             <div class="col-lg-6">
-                <h1 class="hero-title mb-4">Discover Myanmar<br>The Smart Way</h1>
-                <p class="lead mb-4 text-gray">GoMyanmar: AI-powered travel planning. Generate personalized itineraries, discover hidden gems, and explore with confidence.</p>
+                <h1 class="hero-title mb-4">
+                    Discover Myanmar<br>The Easy Way
+                </h1>
+
+                <p class="lead mb-4 text-gray">
+                    Explore destinations, plan your trips, and manage your journey in one place.
+                </p>
+
                 <div class="d-flex flex-wrap gap-3">
                     {% if user.is_authenticated %}
                     <a href="{% url 'planner:plan' %}" class="btn btn-primary">
@@ -26,12 +29,11 @@
                     {% endif %}
                 </div>
             </div>
+
             <div class="col-lg-6 text-center">
                 <div class="position-relative">
-                    <!-- Myanmar Map outline as background -->
                     <i class="fas fa-map fa-10x" style="color: rgba(139, 92, 246, 0.1);"></i>
                     <div class="position-absolute top-50 start-50 translate-middle">
-                        <!-- Pagoda icon in foreground -->
                         <i class="fas fa-place-of-worship fa-4x" style="color: #DEB56D;"></i>
                     </div>
                 </div>
@@ -40,270 +42,150 @@
     </div>
 </section>
 
-<!-- Why Choose Section - UPDATED WITH MYANMAR THEMED ICONS -->
+<!-- WHY CHOOSE -->
 <section class="why-choose-section py-5">
     <div class="container py-5 position-relative">
         <div class="text-center mb-5">
-            <h2 class="section-title">Why Choose Myanmar Travel Planner?</h2>
-            <p class="text-white opacity-90">Experience the best of Myanmar with AI-powered planning</p>
+            <h2 class="section-title">Why Choose GoMyanmar?</h2>
+            <p class="text-white opacity-90">Simple tools to explore and plan your trip</p>
         </div>
-        
+
         <div class="row g-4">
             <div class="col-md-4">
                 <div class="card-glass p-4 h-100 text-center">
                     <div class="feature-icon mx-auto">
-                        <i class="fas fa-map"></i>  <!-- Myanmar map icon -->
+                        <i class="fas fa-map"></i>
                     </div>
-                    <h4 class="mb-3 text-purple">Explore Myanmar</h4>
-                    <p class="text-gray">Discover the rich cultural heritage, ancient pagodas, and stunning landscapes from Yangon to Bagan.</p>
+                    <h4 class="mb-3 text-purple">Explore Destinations</h4>
+                    <p class="text-gray">
+                        Discover cities and towns across Myanmar with detailed information.
+                    </p>
                 </div>
             </div>
-            
+
             <div class="col-md-4">
                 <div class="card-glass p-4 h-100 text-center">
                     <div class="feature-icon mx-auto">
-                        <i class="fas fa-place-of-worship"></i>  <!-- Pagoda icon -->
+                        <i class="fas fa-suitcase"></i>
                     </div>
-                    <h4 class="mb-3 text-purple">Sacred Sites</h4>
-                    <p class="text-gray">Visit iconic landmarks like Shwedagon Pagoda, Mandalay Hill, and the ancient temples of Bagan.</p>
+                    <h4 class="mb-3 text-purple">Plan Your Trip</h4>
+                    <p class="text-gray">
+                        Create your own travel plan based on your preferences.
+                    </p>
                 </div>
             </div>
-            
+
             <div class="col-md-4">
                 <div class="card-glass p-4 h-100 text-center">
                     <div class="feature-icon mx-auto">
-                        <i class="fas fa-umbrella-beach"></i>  <!-- Beach/umbrella icon for Ngapali -->
+                        <i class="fas fa-hotel"></i>
                     </div>
-                    <h4 class="mb-3 text-purple">Tropical Beaches</h4>
-                    <p class="text-gray">Relax on the pristine shores of Ngapali Beach and explore the Myeik Archipelago.</p>
+                    <h4 class="mb-3 text-purple">Book Services</h4>
+                    <p class="text-gray">
+                        Choose hotels and transport options easily.
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Features Grid - UPDATED WITH MYANMAR THEMED ICONS -->
+<!-- FEATURES -->
 <section class="py-5">
     <div class="container py-5">
         <div class="text-center mb-5">
-            <h2 class="section-title light-section">Everything You Need to Plan Your Myanmar Journey</h2>
+            <h2 class="section-title light-section">Everything You Need</h2>
         </div>
-        
+
         <div class="row g-4">
+
             <div class="col-md-6 col-lg-4">
                 <div class="card-glass p-4 h-100">
                     <div class="d-flex align-items-center mb-3">
                         <div class="rounded-circle gradient-bg p-3 me-3">
-                            <i class="fas fa-mountain fa-lg text-white"></i>  <!-- Mountain icon for hill stations -->
+                            <i class="fas fa-map-marker-alt fa-lg text-white"></i>
                         </div>
-                        <h5 class="mb-0 text-black">Hill Stations</h5>
+                        <h5 class="mb-0 text-black">Destinations</h5>
                     </div>
-                    <p class="text-gray mb-0">Escape to Pyin Oo Lwin, Kalaw, and other cool mountain retreats.</p>
+                    <p class="text-gray mb-0">Browse places across Myanmar.</p>
                 </div>
             </div>
-            
+
             <div class="col-md-6 col-lg-4">
                 <div class="card-glass p-4 h-100">
                     <div class="d-flex align-items-center mb-3">
                         <div class="rounded-circle gradient-teal p-3 me-3">
                             <i class="fas fa-hotel fa-lg text-white"></i>
                         </div>
-                        <h5 class="mb-0 text-black">Hotel Recommendations</h5>
+                        <h5 class="mb-0 text-black">Hotels</h5>
                     </div>
-                    <p class="text-gray mb-0">Curated accommodations from budget hostels to luxury resorts.</p>
+                    <p class="text-gray mb-0">Select accommodation based on your budget.</p>
                 </div>
             </div>
-            
+
             <div class="col-md-6 col-lg-4">
                 <div class="card-glass p-4 h-100">
                     <div class="d-flex align-items-center mb-3">
                         <div class="rounded-circle gradient-gold p-3 me-3">
-                            <i class="fas fa-hot-air-balloon fa-lg text-white"></i>  <!-- Hot air balloon for Bagan -->
+                            <i class="fas fa-bus fa-lg text-white"></i>
                         </div>
-                        <h5 class="mb-0 text-black">Bagan Sunrises</h5>
+                        <h5 class="mb-0 text-black">Transport</h5>
                     </div>
-                    <p class="text-gray mb-0">Experience breathtaking hot air balloon rides over ancient temples.</p>
+                    <p class="text-gray mb-0">Choose flights, buses, or cars.</p>
                 </div>
             </div>
-            
-            <div class="col-md-6 col-lg-4">
-                <div class="card-glass p-4 h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="rounded-circle gradient-bg p-3 me-3">
-                            <i class="fas fa-ship fa-lg text-white"></i>  <!-- Ship icon for river cruises -->
-                        </div>
-                        <h5 class="mb-0 text-black">River Cruises</h5>
-                    </div>
-                    <p class="text-gray mb-0">Sail the Irrawaddy River and explore riverside villages.</p>
-                </div>
-            </div>
-            
-            <div class="col-md-6 col-lg-4">
-                <div class="card-glass p-4 h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="rounded-circle gradient-teal p-3 me-3">
-                            <i class="fas fa-calculator fa-lg text-white"></i>
-                        </div>
-                        <h5 class="mb-0 text-black">Budget Planning</h5>
-                    </div>
-                    <p class="text-gray mb-0">Detailed cost breakdown in Myanmar Kyat (MMK) for all expenses.</p>
-                </div>
-            </div>
-            
-            <div class="col-md-6 col-lg-4">
-                <div class="card-glass p-4 h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="rounded-circle gradient-gold p-3 me-3">
-                            <i class="fas fa-cloud-sun fa-lg text-white"></i>
-                        </div>
-                        <h5 class="mb-0 text-black">Weather Forecast</h5>
-                    </div>
-                    <p class="text-gray mb-0">Plan ahead with accurate weather predictions for your trip.</p>
-                </div>
-            </div>
+
         </div>
     </div>
 </section>
 
-<!-- How It Works - UPDATED WITH MYANMAR THEMED ICONS -->
+<!-- HOW IT WORKS -->
 <section class="home-features-bg py-5">
     <div class="container py-5">
         <div class="text-center mb-5">
             <h2 class="section-title light-section">How It Works</h2>
-            <p class="text-gray">Plan your perfect Myanmar adventure in 3 easy steps</p>
+            <p class="text-gray">Plan your trip in 3 simple steps</p>
         </div>
-        
+
         <div class="row g-4">
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="number-circle mb-4">1</div>
-                    <div class="feature-icon mx-auto mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-map-marked-alt fa-2x" style="color: #DEB56D;"></i>  <!-- Map marker icon -->
-                    </div>
-                    <h4 class="fw-bold mb-3 text-black">Choose Destination</h4>
-                    <p class="text-gray">Select from Yangon, Mandalay, Bagan, Inle Lake, or hidden gems across Myanmar.</p>
-                </div>
+
+            <div class="col-md-4 text-center">
+                <div class="number-circle mb-4">1</div>
+                <h4 class="fw-bold text-black">Choose Destination</h4>
+                <p class="text-gray">Pick where you want to go.</p>
             </div>
-            
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="number-circle mb-4">2</div>
-                    <div class="feature-icon mx-auto mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-robot fa-2x" style="color: #8B5CF6;"></i>  <!-- AI icon (keeping this one) -->
-                    </div>
-                    <h4 class="fw-bold mb-3 text-black">AI Generates Plan</h4>
-                    <p class="text-gray">Our AI creates a complete itinerary with cultural sites, activities, and hotels.</p>
-                </div>
+
+            <div class="col-md-4 text-center">
+                <div class="number-circle mb-4">2</div>
+                <h4 class="fw-bold text-black">Plan Trip</h4>
+                <p class="text-gray">Enter your travel details.</p>
             </div>
-            
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="number-circle mb-4">3</div>
-                    <div class="feature-icon mx-auto mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-umbrella-beach fa-2x" style="color: #06B6D4;"></i>  <!-- Beach/umbrella icon -->
-                    </div>
-                    <h4 class="fw-bold mb-3 text-black">Enjoy Your Journey</h4>
-                    <p class="text-gray">Book accommodations and embark on your unforgettable Myanmar adventure.</p>
-                </div>
+
+            <div class="col-md-4 text-center">
+                <div class="number-circle mb-4">3</div>
+                <h4 class="fw-bold text-black">Confirm Booking</h4>
+                <p class="text-gray">Select hotel and transport.</p>
             </div>
+
         </div>
     </div>
 </section>
 
-<!-- CTA Section -->
+<!-- CTA -->
 <section class="home-cta-bg py-5">
     <div class="container py-5 text-center">
         <h2 class="display-5 fw-bold mb-4 text-white">Ready to Explore Myanmar?</h2>
-        <p class="lead mb-4 text-white opacity-90">Join thousands of travelers who trust GoMyanmar for their perfect journey</p>
+
         {% if user.is_authenticated %}
         <a href="{% url 'planner:plan' %}" class="btn btn-gold btn-lg px-5">
-            <i class="fas fa-plus me-2"></i>Create New Trip
+            Create Trip
         </a>
         {% else %}
         <a href="{% url 'users:signup' %}" class="btn btn-gold btn-lg px-5">
-            <i class="fas fa-user-plus me-2"></i>Get Started Free
+            Get Started
         </a>
         {% endif %}
     </div>
 </section>
-
-<!-- Add custom CSS for better icon styling -->
-<style>
-    .feature-icon {
-        width: 80px;
-        height: 80px;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(107, 71, 164, 0.1));
-        margin-bottom: 1rem;
-    }
-    
-    .feature-icon i {
-        font-size: 2rem;
-        background: linear-gradient(135deg, #8B5CF6, #6B47A4);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    
-    .number-circle {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #DEB56D, #C44D56);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin: 0 auto;
-    }
-    
-    .gradient-bg {
-        background: linear-gradient(135deg, #8B5CF6, #6B47A4);
-    }
-    
-    .gradient-teal {
-        background: linear-gradient(135deg, #06B6D4, #0891B2);
-    }
-    
-    .gradient-gold {
-        background: linear-gradient(135deg, #DEB56D, #C44D56);
-    }
-    
-    .text-purple {
-        color: #8B5CF6 !important;
-    }
-    
-    .btn-gold {
-        background: linear-gradient(135deg, #DEB56D, #C44D56);
-        border: none;
-        color: white;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-gold:hover {
-        background: linear-gradient(135deg, #C44D56, #DEB56D);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(222, 181, 109, 0.3);
-    }
-    
-    .card-glass {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 15px;
-        transition: all 0.3s ease;
-    }
-    
-    .card-glass:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-</style>
 
 {% endblock %}

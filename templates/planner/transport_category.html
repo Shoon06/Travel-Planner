@@ -42,8 +42,8 @@
                 </div>
             </div>
             
-            <!-- Transport Options -->
-            <div class="row g-4">
+            <!-- Transport Options - CENTERED MODIFICATION -->
+            <div class="row g-4 justify-content-center">
                 <!-- Flight Option -->
                 <div class="col-md-4">
                     <a href="{% url 'planner:select_transport' trip.id %}?type=flight" class="card-transport">
@@ -113,40 +113,8 @@
                 </div>
                 
                 <!-- Car Rental Option -->
-                <div class="col-md-4">
-                    <a href="{% url 'planner:select_transport' trip.id %}?type=car" class="card-transport">
-                        <div class="card-glass p-4 text-center h-100">
-                            <div class="feature-icon gradient-purple mb-4">
-                                <i class="fas fa-car fa-3x text-white"></i>
-                            </div>
-                            <h4 class="mb-3">Car Rental</h4>
-                            <p class="text-gray mb-4">Freedom to explore at your own pace</p>
-                            <div class="transport-details">
-                                <div class="mb-2">
-                                    <small class="text-gray">Price Range:</small>
-                                    <div class="price-range">40,000 - 200,000 MMK/day</div>
-                                </div>
-                                <div class="mb-2">
-                                    <small class="text-gray">Flexibility:</small>
-                                    <div>Complete Freedom</div>
-                                </div>
-                                <div>
-                                    <small class="text-gray">Classes:</small>
-                                    <div class="classes-tags">
-                                        <span class="badge bg-economy">Economy</span>
-                                        <span class="badge bg-suv">SUV</span>
-                                        <span class="badge bg-luxury">Luxury</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-4">
-                                <span class="btn btn-primary">View Cars</span>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-            </div>
             
+            </div>
             <!-- Additional Info -->
             <div class="card-glass p-4 mt-4">
                 <h5 class="mb-3"><i class="fas fa-info-circle me-2"></i>Need Help Choosing?</h5>

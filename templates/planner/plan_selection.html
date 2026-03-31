@@ -412,7 +412,7 @@ body {
 
 /* Trip Details Section Styles */
 .trip-details-section {
-    margin-top: 40px;
+    margin-top: 0 !important;
     background: white;
     border-radius: 20px;
     padding: 30px;
@@ -532,41 +532,133 @@ body {
 .room-detail-item:hover {
     background: #f0f4ff !important;
 }
+
+/* PDF Download Button Style */
+.btn-download {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-new-trip {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-new-trip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+    flex-wrap: wrap;
+}
+
+/* Confirmed itinerary styles */
+.confirmed-itinerary-list {
+    margin-top: 20px;
+}
+
+.confirmed-route-item {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 4px solid #6c63ff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.confirmed-route-number {
+    width: 30px;
+    height: 30px;
+    background: #6c63ff;
+    color: white;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 12px;
+}
+
+.confirmed-route-name {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.confirmed-route-distance {
+    font-size: 13px;
+    color: #6c63ff;
+    margin-top: 8px;
+    margin-left: 42px;
+}
+
+.glass-card {
+    margin-bottom: 0 !important;
+}
 </style>
 
 <div class="main-container">
 
     <!-- Messages Display -->
-    {% if messages %}
-    <div class="mb-4">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+  
 
     <!-- Header -->
-    <div class="text-center mb-5">
-        <h1 class="display-5 fw-bold mb-3">Build Your Custom Itinerary</h1>
-        <p class="lead text-gray mb-4">Select attractions to add to your trip and see the route on the map</p>
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
+    <div class="text-center mb-3">
+        <h2 class="fw-bold mb-2">
+            {% if trip.status == 'booked' %}
+                Your Confirmed Itinerary
+            {% else %}
+                Build Your Custom Itinerary
+            {% endif %}
+        </h2>
+        <p class="lead text-gray mb-2">
+            {% if trip.status == 'booked' %}
+                Your trip to Myanmar has been successfully booked. Review your itinerary below.
+            {% else %}
+                Select attractions to add to your trip and see the route on the map
+            {% endif %}
+        </p>
+        <div class="alert alert-info alert-dismissible fade show mb-0" role="alert">
             <i class="fas fa-info-circle me-2"></i>
             Your trip to <strong>{{ trip.destination.name }}</strong> from {{ trip.start_date|date:"M d, Y" }} to {{ trip.end_date|date:"M d, Y" }} ({{ days }} days, {{ nights }} nights)
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     </div>
 
-    <!-- ===== ITINERARY BUILDER SECTION ===== -->
+    <!-- ===== FOR UNCONFIRMED TRIPS - FULL BUILDER MODE ===== -->
+    {% if trip.status != 'booked' %}
     <div class="title">
         Build Your Itinerary – {{ trip.destination.name }}
     </div>
 
     <div class="layout">
-
         <!-- LEFT ATTRACTIONS -->
         <div class="left-panel">
             <h4 style="margin-bottom: 15px; color: #2c3e50;">
@@ -604,10 +696,6 @@ body {
             
             <div class="route-box">
                 <div class="route-header">
-                    <h4>
-                        <i class="fas fa-route" style="color: #6c63ff; margin-right: 8px;"></i>
-                        Optimized Route
-                    </h4>
                     <button id="clear-all" class="clear-btn" disabled>Clear All</button>
                 </div>
                 
@@ -632,7 +720,6 @@ body {
                     <p>Calculating optimal route...</p>
                 </div>
                 
-                <!-- Step by Step Directions Container -->
                 <div id="directions-container" class="directions-container" style="display: none;">
                     <div class="directions-title">
                         <i class="fas fa-list-ol"></i>
@@ -642,7 +729,6 @@ body {
                 </div>
             </div>
         </div>
-
     </div>
 
     <!-- Navigation Buttons -->
@@ -659,8 +745,87 @@ body {
             </a>
         </div>
     </div>
+    {% endif %}
 
-    <!-- ===== TRIP DETAILS & BOOKING SECTION ===== -->
+    <!-- ===== FOR CONFIRMED TRIPS - VIEW-ONLY MODE (NO MAP) ===== -->
+    {% if trip.status == 'booked' %}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="glass-card">
+                <!-- Route Stats -->
+                <div class="route-stats mt-2">
+                    <div class="stat-item">
+                        <div class="stat-label">STOPS</div>
+                        <div class="stat-value">{{ selected_attractions|length }}</div>
+                    </div>
+                    {% if route_stats.total_distance %}
+                    <div class="stat-item">
+                        <div class="stat-label">DISTANCE</div>
+                        <div class="stat-value">{{ route_stats.total_distance|floatformat:1 }} km</div>
+                    </div>
+                    {% endif %}
+                    {% if route_stats.total_duration %}
+                    <div class="stat-item">
+                        <div class="stat-label">DURATION</div>
+                        <div class="stat-value">
+                            {% if route_stats.total_duration >= 60 %}
+                                {{ route_stats.total_duration|floatformat:0|divisibleby:60 }}h 
+                                {% with minutes=route_stats.total_duration|floatformat:0|add:"-60" %}
+                                    {% if minutes > 0 %}{{ minutes|floatformat:0 }}m{% endif %}
+                                {% endwith %}
+                            {% else %}
+                                {{ route_stats.total_duration|floatformat:0 }}m
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Route List -->
+                <div class="confirmed-itinerary-list">
+                    <h5 class="mb-2">Your Itinerary</h5>
+                    {% for attraction in selected_attractions %}
+                    <div class="confirmed-route-item">
+                        <div>
+                            <span class="confirmed-route-number">{{ forloop.counter }}</span>
+                            <span class="confirmed-route-name">{{ attraction.name }}</span>
+                        </div>
+                        {% if not forloop.last and route_stats.segment_distances %}
+                            {% with forloop.counter0 as idx %}
+                                {% if idx < route_stats.segment_distances|length %}
+                                <div class="confirmed-route-distance">
+                                    <i class="fas fa-arrow-right me-1"></i>
+                                    {{ route_stats.segment_distances|slice:idx|first|floatformat:1 }} km • 
+                                    {% with duration=route_stats.segment_durations|slice:idx|first %}
+                                        {% if duration %}
+                                            {% if duration >= 60 %}
+                                                {{ duration|floatformat:0|divisibleby:60 }}h 
+                                                {% with minutes=duration|floatformat:0|add:"-60" %}
+                                                    {% if minutes > 0 %}{{ minutes|floatformat:0 }}m{% endif %}
+                                                {% endwith %}
+                                            {% else %}
+                                                {{ duration|floatformat:0 }}m
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No attractions were added to this itinerary.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== TRIP DETAILS & BOOKING SECTION (Common for both) ===== -->
     <div class="trip-details-section">
         <h4 class="mb-4"><i class="fas fa-suitcase me-2" style="color: #6c63ff;"></i>Trip Details & Booking</h4>
         
@@ -696,6 +861,7 @@ body {
                     <div class="mt-4 pt-3 border-top">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="mb-0"><i class="fas fa-hotel me-2" style="color: #6c63ff;"></i>Accommodation</h5>
+                            {% if trip.status != 'booked' %}
                             <div>
                                 <a href="{% url 'planner:select_hotel_map' trip.id %}" class="btn btn-sm btn-outline-primary me-2">
                                     <i class="fas fa-edit me-1"></i>Change Hotel
@@ -706,6 +872,7 @@ body {
                                 </a>
                                 {% endif %}
                             </div>
+                            {% endif %}
                         </div>
                         
                         {% if selected_hotel %}
@@ -776,7 +943,7 @@ body {
                                     </div>
                                 </div>
                                 
-                                {% if trip.selected_rooms.is_temporary %}
+                                {% if trip.selected_rooms.is_temporary and trip.status != 'booked' %}
                                 <div class="alert alert-warning mt-3 mb-0 small">
                                     <i class="fas fa-clock me-2"></i>
                                     Room selection pending confirmation. Click "Confirm & Book Entire Trip" to finalize.
@@ -786,9 +953,11 @@ body {
                                 <div class="text-center py-3 bg-light rounded">
                                     <i class="fas fa-bed fa-2x text-gray mb-2"></i>
                                     <p class="mb-1">No rooms selected yet</p>
+                                    {% if trip.status != 'booked' %}
                                     <a href="{% url 'planner:select_rooms' trip.id %}" class="btn btn-sm btn-outline-primary mt-2">
                                         <i class="fas fa-plus me-1"></i>Select Rooms
                                     </a>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </div>
@@ -804,9 +973,11 @@ body {
                     <div class="mt-4 pt-3 border-top">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="mb-0"><i class="fas fa-bus me-2" style="color: #6c63ff;"></i>Transportation</h5>
+                            {% if trip.status != 'booked' %}
                             <a href="{% url 'planner:select_transport_category' trip.id %}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-edit me-1"></i>{% if selected_transport %}Change Transport{% else %}Select Transport{% endif %}
                             </a>
+                            {% endif %}
                         </div>
                         
                         {% if selected_transport %}
@@ -831,7 +1002,7 @@ body {
                                         </div>
                                         {% endif %}
                                         
-                                        {% if selected_transport.is_temporary %}
+                                        {% if selected_transport.is_temporary and trip.status != 'booked' %}
                                         <span class="badge bg-warning text-dark">Pending Confirmation</span>
                                         {% endif %}
                                     </div>
@@ -938,22 +1109,8 @@ body {
                         {% endif %}
                     </div>
                     
-                    <!-- Status Alerts -->
-                    {% if has_pending_seats %}
-                    <div class="alert alert-warning mb-3">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Your transport seats are pending confirmation
-                    </div>
-                    {% endif %}
-                    
-                    {% if trip.selected_rooms and trip.selected_rooms.is_temporary %}
-                    <div class="alert alert-warning mb-3">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Room selection pending confirmation
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Confirm Button -->
+                    <!-- Confirm Button (only show if not booked) -->
+                    {% if trip.status != 'booked' %}
                     <form method="post" action="{% url 'planner:confirm_booking' trip.id %}" id="confirmTripForm">
                         {% csrf_token %}
                         
@@ -966,22 +1123,20 @@ body {
                                 This will confirm your hotel rooms (including extra beds) and transport seats
                             </p>
                         {% else %}
-                            <button type="button" class="btn btn-secondary btn-lg w-100 mb-2" disabled
-                                    title="{% if not selected_hotel %}Select a hotel first{% elif not trip.selected_rooms %}Select rooms first{% elif not selected_transport %}Select transport first{% endif %}">
+                            <button type="button" class="btn btn-secondary btn-lg w-100 mb-2" disabled>
                                 <i class="fas fa-check-circle me-2"></i>
                                 Complete All Selections First
                             </button>
-                            <p class="text-gray small text-center mb-0">
-                                {% if not selected_hotel %}
-                                    ✓ Select a hotel
-                                {% elif not trip.selected_rooms %}
-                                    ✓ Select your rooms
-                                {% elif not selected_transport %}
-                                    ✓ Select transport
-                                {% endif %}
-                            </p>
                         {% endif %}
                     </form>
+                    {% else %}
+                    <!-- Show confirmation badge for booked trips -->
+                    <div class="alert alert-success text-center mb-2">
+                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                        <h6 class="mb-0">Booking Confirmed!</h6>
+                        <small>Reference: #{{ trip.id }}{{ trip.created_at|date:"YmdHis" }}</small>
+                    </div>
+                    {% endif %}
                     
                     <!-- Edit Link -->
                     <div class="mt-3">
@@ -993,17 +1148,41 @@ body {
             </div>
         </div>
     </div>
+    
+    <!-- ===== PDF DOWNLOAD BUTTON - ONLY FOR CONFIRMED BOOKINGS ===== -->
+    {% if trip.status == 'booked' %}
+    <div class="action-buttons">
+        <a href="{% url 'planner:download_plan_selection_pdf' trip.id %}" class="btn-download">
+            <i class="fas fa-download me-2"></i>
+            Download Itinerary PDF
+        </a>
+        <a href="{% url 'planner:plan' %}?clear=true" class="btn-new-trip">
+            <i class="fas fa-plus-circle me-2"></i>
+            Plan New Trip
+        </a>
+    </div>
+    {% endif %}
+    
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const isBooked = {% if trip.status == 'booked' %}true{% else %}false{% endif %};
+    
+    // ===== FOR CONFIRMED TRIPS - No map needed =====
+    {% if trip.status == 'booked' %}
+    // Nothing to initialize for confirmed trips
+    {% endif %}
+    
+    // ===== FOR UNCONFIRMED TRIPS - Full interactive builder =====
+    {% if trip.status != 'booked' %}
     // ========== STATE VARIABLES ==========
     let selected = [];
     let markers = [];
     let segmentLabels = [];
     let routeControl = null;
     let currentRouteData = null;
-    let isSubmitting = false; // Prevent double submission
+    let isSubmitting = false;
     const tripId = {{ trip.id }};
 
     // ========== INITIALIZE MAP ==========
@@ -1017,10 +1196,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load saved attractions from server if any
     {% if selected_attractions %}
         selected = {{ selected_attractions|safe }};
-        // Re-add markers for saved attractions
         selected.forEach(point => {
             addMarkerToMap(point);
-            // Mark corresponding button as added
             document.querySelectorAll(`.attraction-card[data-id="${point.id}"]`).forEach(card => {
                 const btn = card.querySelector('.add-btn');
                 if (btn) {
@@ -1031,7 +1208,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.classList.add('selected');
             });
         });
-        // Update route if we have at least 2 points
         if (selected.length >= 2) {
             updateRoute();
         } else if (selected.length === 1) {
@@ -1051,15 +1227,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 segment_durations: []
             };
             
-            // Extract segment data from legs
             if (route.legs) {
                 route.legs.forEach(leg => {
                     routeData.segment_distances.push(leg.distance / 1000);
                     routeData.segment_durations.push(leg.duration / 60);
                 });
             }
-            
-            console.log('Saving route data to session:', routeData);
             
             try {
                 const response = await fetch(`/planner/save-route-data/${tripId}/`, {
@@ -1070,23 +1243,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     body: JSON.stringify(routeData)
                 });
-                
                 const data = await response.json();
-                if (data.success) {
-                    console.log('✅ Route data saved successfully');
-                    return true;
-                } else {
-                    console.error('❌ Failed to save route data:', data.error);
-                    return false;
-                }
+                return data.success;
             } catch (error) {
-                console.error('❌ Error saving route data:', error);
+                console.error('Error saving route data:', error);
                 return false;
             }
-        } else {
-            console.log('No route data to save');
-            return true; // No route data to save, consider it success
         }
+        return true;
     }
 
     // ========== HELPER FUNCTIONS ==========
@@ -1106,16 +1270,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('directions-container').style.display = 'none';
     }
 
-    function showSuccess(message) {
-        const container = document.getElementById('route-details');
-        container.innerHTML = `<div class="success-message"><i class="fas fa-check-circle"></i> ${message}</div>`;
-        setTimeout(() => {
-            if (container.innerHTML.includes('success-message')) {
-                container.innerHTML = '';
-            }
-        }, 3000);
-    }
-
     function formatTime(minutes) {
         if (minutes < 60) {
             return Math.round(minutes) + ' min';
@@ -1132,10 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const stopDiv = document.createElement("div");
         stopDiv.className = "route-item";
-        stopDiv.innerHTML = `
-            <i class="fas fa-map-pin" style="color: #6c63ff; margin-right: 8px;"></i>
-            <strong>1. ${point.name}</strong>
-        `;
+        stopDiv.innerHTML = `<i class="fas fa-map-pin" style="color: #6c63ff; margin-right: 8px;"></i><strong>1. ${point.name}</strong>`;
         container.appendChild(stopDiv);
         
         document.getElementById('stop-count').textContent = "1";
@@ -1145,20 +1296,17 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('directions-container').style.display = 'none';
     }
 
-    /* HAVERSINE FORMULA FOR ACCURATE STRAIGHT-LINE DISTANCE */
     function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Earth's radius in km
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         return R * c;
     }
 
-    /* GET ACCURATE ROAD DISTANCE FROM OSRM WITH VALIDATION */
     async function getAccurateRoute(point1, point2) {
         const url = `https://router.project-osrm.org/route/v1/driving/${point1.lng},${point1.lat};${point2.lng},${point2.lat}?overview=full&geometries=geojson&steps=true&alternatives=false`;
         
@@ -1168,73 +1316,31 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
                 const route = data.routes[0];
-                let distance = route.distance / 1000; // km
-                let duration = route.duration / 60; // minutes
+                let distance = route.distance / 1000;
+                let duration = route.duration / 60;
                 
-                // Calculate straight-line distance for validation
-                const straightDistance = haversineDistance(
-                    point1.lat, point1.lng,
-                    point2.lat, point2.lng
-                );
+                const straightDistance = haversineDistance(point1.lat, point1.lng, point2.lat, point2.lng);
+                const minReasonable = straightDistance * 1.1;
+                const maxReasonable = straightDistance * 3;
                 
-                // Road distance should be at least as long as straight-line distance
-                // and not more than 3x longer (reasonable for city routes)
-                const minReasonable = straightDistance * 1.1; // At least 10% longer than straight line
-                const maxReasonable = straightDistance * 3; // At most 3x longer
-                
-                console.log(`Distance check:`, {
-                    from: point1.name,
-                    to: point2.name,
-                    straight: straightDistance.toFixed(1),
-                    road: distance.toFixed(1),
-                    min: minReasonable.toFixed(1),
-                    max: maxReasonable.toFixed(1)
-                });
-                
-                // Validate the distance
                 if (distance < minReasonable || distance > maxReasonable || distance < 0.5) {
-                    console.warn('Unreasonable distance detected, using adjusted value');
-                    
-                    // Use a more realistic factor (1.3x straight line for city routes)
                     distance = straightDistance * 1.3;
-                    duration = distance / 40 * 60; // 40 km/h average speed
-                    
-                    return {
-                        distance: distance,
-                        duration: duration,
-                        geometry: route.geometry,
-                        isEstimated: true
-                    };
+                    duration = distance / 40 * 60;
                 }
                 
-                return {
-                    distance: distance,
-                    duration: duration,
-                    geometry: route.geometry,
-                    isEstimated: false
-                };
+                return { distance, duration, geometry: route.geometry, isEstimated: false };
             }
         } catch (error) {
             console.error('Error fetching route:', error);
         }
         
-        // Fallback to straight-line estimate
-        const straightDistance = haversineDistance(
-            point1.lat, point1.lng,
-            point2.lat, point2.lng
-        );
-        const estimatedDistance = straightDistance * 1.3; // 30% longer for roads
-        const estimatedDuration = estimatedDistance / 40 * 60; // 40 km/h
+        const straightDistance = haversineDistance(point1.lat, point1.lng, point2.lat, point2.lng);
+        const estimatedDistance = straightDistance * 1.3;
+        const estimatedDuration = estimatedDistance / 40 * 60;
         
-        return {
-            distance: estimatedDistance,
-            duration: estimatedDuration,
-            geometry: null,
-            isEstimated: true
-        };
+        return { distance: estimatedDistance, duration: estimatedDuration, geometry: null, isEstimated: true };
     }
 
-    /* GET ROAD DISTANCE MATRIX FROM OSRM */
     async function getDistanceMatrix(points) {
         const coordinates = points.map(p => `${p.lng},${p.lat}`).join(';');
         const url = `https://router.project-osrm.org/table/v1/driving/${coordinates}?annotations=distance,duration`;
@@ -1245,24 +1351,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.code === 'Ok') {
                 return {
-                    distances: data.distances.map(row => row.map(d => d / 1000)), // Convert to km
-                    durations: data.durations.map(row => row.map(d => d / 60))    // Convert to minutes
+                    distances: data.distances.map(row => row.map(d => d / 1000)),
+                    durations: data.durations.map(row => row.map(d => d / 60))
                 };
             }
         } catch (error) {
             console.error('Error fetching distance matrix:', error);
         }
-        
         return null;
     }
 
-    /* FIND OPTIMAL ROUTE USING NEAREST NEIGHBOR WITH ROAD DISTANCES */
     async function findOptimalRoute(points) {
         if (points.length <= 2) return points;
         
         showLoading();
         
-        // Get distance matrix from OSRM
         const matrix = await getDistanceMatrix(points);
         
         if (!matrix) {
@@ -1277,24 +1380,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const route = [0];
         visited[0] = true;
         
-        // Validate and fix any unreasonable distances in the matrix
         for (let i = 0; i < n; i++) {
             for (let j = 0; j < n; j++) {
                 if (i !== j) {
-                    const straightDist = haversineDistance(
-                        points[i].lat, points[i].lng,
-                        points[j].lat, points[j].lng
-                    );
-                    
-                    // If matrix distance is unreasonable, replace with estimate
+                    const straightDist = haversineDistance(points[i].lat, points[i].lng, points[j].lat, points[j].lng);
                     if (distances[i][j] < straightDist * 0.8 || distances[i][j] > straightDist * 4) {
-                        distances[i][j] = straightDist * 1.3; // 30% longer than straight line
+                        distances[i][j] = straightDist * 1.3;
                     }
                 }
             }
         }
         
-        // Nearest neighbor algorithm
         for (let i = 1; i < n; i++) {
             const last = route[route.length - 1];
             let nearest = -1;
@@ -1317,133 +1413,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return route.map(index => points[index]);
     }
 
-    /* PARSE OSRM STEP INSTRUCTIONS */
-    function parseStep(step, index) {
-        const type = step.maneuver.type;
-        const modifier = step.maneuver.modifier || '';
-        const name = step.name || 'unnamed road';
-        const distance = (step.distance / 1000).toFixed(1);
-        
-        let icon = '';
-        let instruction = '';
-        
-        switch(type) {
-            case 'depart':
-                icon = '🚗';
-                instruction = 'Head';
-                break;
-            case 'arrive':
-                icon = '🏁';
-                instruction = 'Arrive at destination';
-                break;
-            case 'turn':
-                switch(modifier) {
-                    case 'left': icon = '↰'; instruction = 'Turn left'; break;
-                    case 'right': icon = '↱'; instruction = 'Turn right'; break;
-                    case 'slight left': icon = '↖'; instruction = 'Slight left'; break;
-                    case 'slight right': icon = '↗'; instruction = 'Slight right'; break;
-                    case 'sharp left': icon = '⬅'; instruction = 'Sharp left'; break;
-                    case 'sharp right': icon = '➡'; instruction = 'Sharp right'; break;
-                    default: icon = '↩'; instruction = 'Turn';
-                }
-                break;
-            case 'continue':
-                icon = '⬆️';
-                instruction = 'Continue';
-                break;
-            case 'merge':
-                icon = '🔀';
-                instruction = 'Merge';
-                break;
-            case 'fork':
-                icon = '🔀';
-                instruction = 'Keep';
-                break;
-            case 'end of road':
-                icon = '🛑';
-                instruction = 'End of road';
-                break;
-            case 'roundabout':
-            case 'rotary':
-                icon = '🔄';
-                instruction = 'Enter roundabout';
-                break;
-            default:
-                icon = '➡️';
-                instruction = 'Proceed';
-        }
-        
-        if (type === 'depart' && step.maneuver.initial_direction) {
-            const dir = step.maneuver.initial_direction;
-            instruction = `Head ${dir}`;
-        }
-        
-        return {
-            icon,
-            text: instruction,
-            street: name,
-            distance: distance,
-            full: step
-        };
-    }
-
-    /* DISPLAY STEP BY STEP DIRECTIONS */
-    function displayDirections(routeData) {
-        const container = document.getElementById('directions-content');
-        const directionsContainer = document.getElementById('directions-container');
-        
-        if (!routeData || !routeData.routes || routeData.routes.length === 0) {
-            directionsContainer.style.display = 'none';
-            return;
-        }
-        
-        let html = '';
-        const route = routeData.routes[0];
-        
-        if (route.legs) {
-            route.legs.forEach((leg, legIndex) => {
-                if (leg.steps && leg.steps.length > 0) {
-                    const legDistance = (leg.distance / 1000).toFixed(1);
-                    const legDuration = Math.round(leg.duration / 60);
-                    
-                    html += `<div class="segment-directions">`;
-                    html += `<div class="segment-header">
-                        Segment ${legIndex + 1} 
-                        <span>${legDistance} km • ${formatTime(legDuration)}</span>
-                    </div>`;
-                    html += `<div class="segment-steps">`;
-                    
-                    leg.steps.forEach((step, stepIndex) => {
-                        const parsed = parseStep(step, stepIndex);
-                        
-                        let instructionText = parsed.text;
-                        if (parsed.street && parsed.street !== 'unnamed road' && parsed.text !== 'Arrive at destination') {
-                            instructionText += ` onto <span class="instruction-street">${parsed.street}</span>`;
-                        }
-                        
-                        html += `
-                            <div class="step-item">
-                                <span class="step-icon">${parsed.icon}</span>
-                                <span><span class="instruction-turn">${instructionText}</span></span>
-                                <span class="step-distance">${parsed.distance} km</span>
-                            </div>
-                        `;
-                    });
-                    
-                    html += `</div></div>`;
-                }
-            });
-        }
-        
-        if (html) {
-            directionsContainer.style.display = 'block';
-            container.innerHTML = html;
-        } else {
-            directionsContainer.style.display = 'none';
-        }
-    }
-
-    /* ADD SEGMENT LABEL ON MAP */
     function addSegmentLabel(coords, distance, time, index) {
         if (!coords || coords.length === 0) return;
         
@@ -1455,18 +1424,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const marker = L.marker([lat, lng], {
             icon: L.divIcon({
                 className: "route-label",
-                html: `<div style="
-                    background: #6c63ff;
-                    color: white;
-                    padding: 4px 12px;
-                    border-radius: 20px;
-                    border: 2px solid white;
-                    font-size: 12px;
-                    font-weight: bold;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    white-space: nowrap;">
-                    ${distance} km • ${formatTime(time)}
-                </div>`,
+                html: `<div style="background: #6c63ff; color: white; padding: 4px 12px; border-radius: 20px; border: 2px solid white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); white-space: nowrap;">${distance} km • ${formatTime(time)}</div>`,
                 iconSize: [80, 30]
             })
         }).addTo(map);
@@ -1474,7 +1432,6 @@ document.addEventListener('DOMContentLoaded', function() {
         segmentLabels.push(marker);
     }
 
-    /* UPDATE ROUTE WITH ROAD NETWORK */
     async function updateRoute() {
         segmentLabels.forEach(m => map.removeLayer(m));
         segmentLabels = [];
@@ -1500,27 +1457,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         routeControl = L.Routing.control({
             waypoints: waypoints,
-            router: L.Routing.osrmv1({
-                serviceUrl: "https://router.project-osrm.org/route/v1",
-                profile: 'driving'
-            }),
+            router: L.Routing.osrmv1({ serviceUrl: "https://router.project-osrm.org/route/v1", profile: 'driving' }),
             addWaypoints: false,
             draggableWaypoints: false,
-            lineOptions: {
-                styles: [{ color: "#6c63ff", weight: 5, opacity: 0.8 }]
-            },
+            lineOptions: { styles: [{ color: "#6c63ff", weight: 5, opacity: 0.8 }] },
             showAlternatives: false,
             fitSelectedRoutes: true,
             show: true,
-            // IMPORTANT: Prevent routing machine from creating its own markers
-            createMarker: function() {
-                return null;
-            }
+            createMarker: function() { return null; }
         }).addTo(map);
         
         routeControl.on('routesfound', function(e) {
             currentRouteData = e;
-            
             let route = e.routes[0];
             let distance = (route.summary.totalDistance / 1000).toFixed(1);
             let duration = (route.summary.totalTime / 60);
@@ -1528,14 +1476,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('stop-count').textContent = selected.length;
             document.getElementById('total-distance').textContent = distance + " km";
             document.getElementById('total-duration').textContent = formatTime(duration);
-            
-            displayDirections(e);
         });
         
         await buildItinerary(ordered);
     }
 
-    /* BUILD ITINERARY DISPLAY - WITH ACCURATE DISTANCES */
     async function buildItinerary(orderedPoints) {
         const container = document.getElementById("route-details");
         container.innerHTML = "";
@@ -1556,14 +1501,10 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 0; i < uniqueStops.length; i++) {
             const stopDiv = document.createElement("div");
             stopDiv.className = "route-item";
-            stopDiv.innerHTML = `
-                <i class="fas fa-map-pin" style="color: #6c63ff; margin-right: 8px;"></i>
-                <strong>${i+1}. ${uniqueStops[i].name}</strong>
-            `;
+            stopDiv.innerHTML = `<i class="fas fa-map-pin" style="color: #6c63ff; margin-right: 8px;"></i><strong>${i+1}. ${uniqueStops[i].name}</strong>`;
             container.appendChild(stopDiv);
             
             if (i < uniqueStops.length - 1) {
-                // Get accurate route data
                 const routeData = await getAccurateRoute(uniqueStops[i], uniqueStops[i+1]);
                 
                 totalDistance += routeData.distance;
@@ -1574,11 +1515,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const segDiv = document.createElement("div");
                 segDiv.className = "route-seg";
-                segDiv.innerHTML = `
-                    <i class="fas fa-arrow-down" style="color: #6c63ff; margin-right: 5px;"></i>
-                    ${distanceFixed} km • ${formatTime(durationRounded)}
-                    ${routeData.isEstimated ? ' (est)' : ''}
-                `;
+                segDiv.innerHTML = `<i class="fas fa-arrow-down" style="color: #6c63ff; margin-right: 5px;"></i>${distanceFixed} km • ${formatTime(durationRounded)}${routeData.isEstimated ? ' (est)' : ''}`;
                 container.appendChild(segDiv);
                 
                 if (routeData.geometry && routeData.geometry.coordinates) {
@@ -1592,45 +1529,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('total-duration').textContent = formatTime(Math.round(totalDuration));
     }
 
-    /* Function to create marker and add to map immediately */
     function addMarkerToMap(point) {
-        // Create marker and add to map immediately
         let marker = L.marker([point.lat, point.lng]).addTo(map);
-        
-        // Bind tooltip that appears ONLY on hover
-        marker.bindTooltip(point.name, {
-            permanent: false,
-            direction: 'top',
-            offset: [0, -15],
-            className: 'hover-tooltip'
-        });
-        
-        // Bind popup for clicking
-        marker.bindPopup("<b>" + point.name + "</b>", {
-            className: 'custom-popup',
-            closeButton: true
-        });
-        
-        // Ensure tooltip works properly
-        marker.on('mouseover', function() {
-            this.openTooltip();
-        });
-        
-        marker.on('mouseout', function() {
-            this.closeTooltip();
-        });
-        
-        // Force map to update and show the marker
+        marker.bindTooltip(point.name, { permanent: false, direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
+        marker.bindPopup("<b>" + point.name + "</b>", { className: 'custom-popup', closeButton: true });
+        marker.on('mouseover', function() { this.openTooltip(); });
+        marker.on('mouseout', function() { this.closeTooltip(); });
         map.invalidateSize();
-        
         return marker;
     }
 
-    /* ADD BUTTON - FIXED VERSION WITH HOVER-ONLY TOOLTIPS */
+    // Add button handlers
     document.querySelectorAll(".add-btn").forEach(btn => {
         btn.onclick = async function() {
             const card = this.closest(".attraction-card");
-            
             const point = {
                 id: card.dataset.id,
                 name: card.dataset.name,
@@ -1653,16 +1565,12 @@ document.addEventListener('DOMContentLoaded', function() {
             this.disabled = true;
             
             selected.push(point);
-            
-            // Add marker to map immediately
             let marker = addMarkerToMap(point);
             markers.push(marker);
             
-            // Update route if we have at least 2 points
             if (selected.length >= 2) {
                 await updateRoute();
             } else {
-                // Just show the marker and update UI for single selection
                 document.getElementById('clear-all').disabled = false;
                 updateSingleStopDisplay(point);
             }
@@ -1671,51 +1579,33 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     });
 
-    /* CLEAR ROUTE */
+    // Clear all button
     document.getElementById("clear-all").onclick = async function() {
         selected = [];
-        
-        markers.forEach(m => {
-            m.closeTooltip();
-            m.closePopup();
-            map.removeLayer(m);
-        });
+        markers.forEach(m => map.removeLayer(m));
         markers = [];
-        
         segmentLabels.forEach(m => map.removeLayer(m));
         segmentLabels = [];
-        
-        if (routeControl) {
-            map.removeControl(routeControl);
-            routeControl = null;
-        }
+        if (routeControl) map.removeControl(routeControl);
+        routeControl = null;
         
         document.getElementById("route-details").innerHTML = "";
         document.getElementById('route-stats').style.display = 'none';
         document.getElementById('directions-container').style.display = 'none';
         document.getElementById('clear-all').disabled = true;
-        currentRouteData = null;
         
         document.querySelectorAll(".add-btn").forEach(btn => {
             btn.textContent = 'Add';
             btn.classList.remove('added');
             btn.disabled = false;
         });
-        
-        document.querySelectorAll(".attraction-card").forEach(card => {
-            card.classList.remove('selected');
-        });
-        
+        document.querySelectorAll(".attraction-card").forEach(card => card.classList.remove('selected'));
         map.setView([21.983, 96.089], 7);
     };
 
-    document.getElementById('clear-all').disabled = (selected.length === 0);
-
-    // ========== SAVE SELECTED ATTRACTIONS FUNCTION ==========
+    // Save attractions function
     async function saveSelectedAttractions() {
-        if (selected.length === 0) {
-            return true; // No attractions to save, consider it success
-        }
+        if (selected.length === 0) return true;
         
         try {
             const response = await fetch("{% url 'planner:save_itinerary' trip.id %}", {
@@ -1724,101 +1614,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                 },
-                body: JSON.stringify({
-                    attractions: selected
-                })
+                body: JSON.stringify({ attractions: selected })
             });
-            
             const data = await response.json();
-            
-            if (data.success) {
-                console.log('✅ Attractions saved successfully:', data);
-                return true;
-            } else {
-                console.error('❌ Error saving attractions:', data.error);
-                showError('Failed to save attractions: ' + (data.error || 'Unknown error'));
-                return false;
-            }
+            return data.success;
         } catch (error) {
-            console.error('❌ Network error saving attractions:', error);
-            showError('Network error while saving attractions');
+            console.error('Error saving attractions:', error);
             return false;
         }
     }
 
-    // ========== HANDLE CONFIRM FORM SUBMISSION ==========
+    // Confirm form submission
     const confirmForm = document.getElementById('confirmTripForm');
     if (confirmForm) {
         confirmForm.addEventListener('submit', async function(e) {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
             
-            const confirmBtn = document.getElementById('confirmTripBtn');
-            
-            // Check if all selections are made
             {% if not selected_hotel or not selected_transport or not trip.selected_rooms %}
-            let message = 'Please complete all selections before confirming:\n';
-            {% if not selected_hotel %}message += '- Select a hotel\n';{% endif %}
-            {% if not trip.selected_rooms %}message += '- Select your rooms\n';{% endif %}
-            {% if not selected_transport %}message += '- Select transport\n';{% endif %}
-            alert(message);
+            alert('Please complete all selections before confirming.');
             return false;
             {% endif %}
             
-            // Check if any attractions are selected
-            if (selected.length === 0) {
-                if (!confirm('No attractions selected. Are you sure you want to continue without adding any attractions to your itinerary?')) {
-                    return false;
-                }
-            }
-            
-            const hasPending = {% if has_pending_seats or trip.selected_rooms.is_temporary %}true{% else %}false{% endif %};
-            
-            let confirmMessage = 'Are you sure you want to confirm and book this trip?\n\nThis will:\n';
-            
-            if (hasPending) {
-                confirmMessage += '• Confirm your room selection (permanent)\n';
-                confirmMessage += '• Confirm your transport seats (permanent)\n';
-            } else {
-                confirmMessage += '• Book your selected rooms\n';
-                confirmMessage += '• Book your transport\n';
-            }
-            
-            if (selected.length > 0) {
-                confirmMessage += `• Save your ${selected.length} selected attractions\n`;
-            }
-            
-            confirmMessage += '• Generate your complete itinerary\n\n';
-            confirmMessage += 'Total cost: {{ total_combined_cost_mmk }}\n\n';
-            confirmMessage += 'You will not be able to change your selections after confirmation.';
-            
-            if (!confirm(confirmMessage)) {
+            if (selected.length === 0 && !confirm('No attractions selected. Continue?')) {
                 return false;
             }
             
-            // Prevent double submission
-            if (isSubmitting) {
-                return false;
-            }
-            
+            if (isSubmitting) return false;
             isSubmitting = true;
             
-            // Show loading state
+            const confirmBtn = document.getElementById('confirmTripBtn');
             if (confirmBtn) {
                 confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
                 confirmBtn.disabled = true;
             }
             
-            // FIRST: Save route data to session
-            const routeSaved = await saveRouteDataToSession();
-            if (!routeSaved) {
-                console.warn('Failed to save route data, but continuing...');
-            }
-            
-            // SECOND: Save attractions
+            await saveRouteDataToSession();
             const attractionsSaved = await saveSelectedAttractions();
             
             if (!attractionsSaved) {
-                // Re-enable button if save failed
                 if (confirmBtn) {
                     confirmBtn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Confirm & Book Entire Trip';
                     confirmBtn.disabled = false;
@@ -1827,15 +1660,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            // THIRD: Submit the form
             confirmForm.submit();
         });
     }
-
-    // ========== INITIAL DISPLAY IF SINGLE SELECTION ==========
+    
     if (selected.length === 1) {
         updateSingleStopDisplay(selected[0]);
     }
+    {% endif %}
 });
 </script>
 

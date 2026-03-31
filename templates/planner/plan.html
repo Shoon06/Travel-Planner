@@ -316,6 +316,84 @@ select.form-select option:checked {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ========== STEP 1: GET URL PARAMETERS ==========
+    function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            destination_id: params.get('destination_id'),
+            destination_name: params.get('destination_name'),
+            origin_id: params.get('origin_id'),
+            origin_name: params.get('origin_name'),
+            hotel_id: params.get('hotel_id'),
+            hotel_name: params.get('hotel_name'),
+            start_date: params.get('start_date'),
+            end_date: params.get('end_date'),
+            travelers: params.get('travelers')
+        };
+    }
+    
+    const urlParams = getUrlParams();
+    console.log('🔵 URL Parameters:', urlParams);
+    
+    // ========== STEP 2: POPULATE FROM URL PARAMETERS ==========
+    // CRITICAL: This must run BEFORE the autocomplete setup
+    
+    // Populate destination from URL
+    if (urlParams.destination_id && urlParams.destination_name) {
+        const destInput = document.getElementById('destination');
+        const destIdInput = document.getElementById('destination_id');
+        
+        if (destInput && destIdInput) {
+            const decodedName = decodeURIComponent(urlParams.destination_name);
+            destInput.value = decodedName;
+            destIdInput.value = urlParams.destination_id;
+            destInput.classList.add('is-valid');
+            console.log('✅ Destination loaded from URL:', decodedName);
+        }
+    }
+    
+    // Populate origin from URL if available
+    if (urlParams.origin_id && urlParams.origin_name) {
+        const originInput = document.getElementById('origin');
+        const originIdInput = document.getElementById('origin_id');
+        
+        if (originInput && originIdInput) {
+            const decodedName = decodeURIComponent(urlParams.origin_name);
+            originInput.value = decodedName;
+            originIdInput.value = urlParams.origin_id;
+            originInput.classList.add('is-valid');
+            console.log('✅ Origin loaded from URL:', decodedName);
+        }
+    }
+    
+    // Populate dates from URL if available
+    if (urlParams.start_date) {
+        const startDateInput = document.getElementById('start_date');
+        if (startDateInput) startDateInput.value = urlParams.start_date;
+    }
+    
+    if (urlParams.end_date) {
+        const endDateInput = document.getElementById('end_date');
+        if (endDateInput) endDateInput.value = urlParams.end_date;
+    }
+    
+    // Populate travelers from URL if available
+    if (urlParams.travelers) {
+        const travelersSelect = document.getElementById('travelers');
+        if (travelersSelect) travelersSelect.value = urlParams.travelers;
+    }
+    
+    // Populate hotel from URL if available
+    if (urlParams.hotel_id && urlParams.hotel_name) {
+        const selectedHotelId = document.getElementById('selected_hotel_id');
+        const selectedHotelName = document.getElementById('selectedHotelName');
+        if (selectedHotelId) selectedHotelId.value = urlParams.hotel_id;
+        if (selectedHotelName) selectedHotelName.innerText = decodeURIComponent(urlParams.hotel_name);
+        console.log('✅ Hotel loaded from URL:', urlParams.hotel_name);
+    }
+    
+    // ========== STEP 3: YOUR EXISTING CODE ==========
+    // Get all DOM elements
     const originInput = document.getElementById('origin');
     const originIdInput = document.getElementById('origin_id');
     const originSuggestions = document.getElementById('originSuggestions');
@@ -339,7 +417,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearFormBtn = document.getElementById('clearFormBtn');
     const tripForm = document.getElementById('tripForm');
     
-    // Current trip ID from context
     const currentTripId = '{{ trip.id }}';
     
     function calculateNights() {
@@ -353,34 +430,35 @@ document.addEventListener('DOMContentLoaded', function() {
         return 1;
     }
     
-    // ========== RESTORE FORM VALUES ==========
-    if ('{{ origin_input|escapejs }}' && '{{ origin_input|escapejs }}' !== '') {
+    // ========== RESTORE FORM VALUES FROM DJANGO CONTEXT ==========
+    // Only for values not already set by URL
+    if (!urlParams.origin_name && '{{ origin_input|escapejs }}' && '{{ origin_input|escapejs }}' !== '') {
         originInput.value = '{{ origin_input|escapejs }}';
         originInput.classList.add('is-valid');
     }
     
-    if ('{{ selected_origin_id }}' && '{{ selected_origin_id }}' !== '') {
+    if (!urlParams.origin_id && '{{ selected_origin_id }}' && '{{ selected_origin_id }}' !== '') {
         originIdInput.value = '{{ selected_origin_id }}';
     }
     
-    if ('{{ destination_input|escapejs }}' && '{{ destination_input|escapejs }}' !== '') {
+    if (!urlParams.destination_name && '{{ destination_input|escapejs }}' && '{{ destination_input|escapejs }}' !== '') {
         destinationInput.value = '{{ destination_input|escapejs }}';
         destinationInput.classList.add('is-valid');
     }
     
-    if ('{{ selected_destination_id }}' && '{{ selected_destination_id }}' !== '') {
+    if (!urlParams.destination_id && '{{ selected_destination_id }}' && '{{ selected_destination_id }}' !== '') {
         destinationIdInput.value = '{{ selected_destination_id }}';
     }
     
-    if ('{{ travelers }}' && '{{ travelers }}' !== '') {
+    if (!urlParams.travelers && '{{ travelers }}' && '{{ travelers }}' !== '') {
         travelersSelect.value = '{{ travelers }}';
     }
     
-    if ('{{ today }}' && '{{ today }}' !== '') {
+    if (!urlParams.start_date && '{{ today }}' && '{{ today }}' !== '') {
         startDate.value = '{{ today }}';
     }
     
-    if ('{{ tomorrow }}' && '{{ tomorrow }}' !== '') {
+    if (!urlParams.end_date && '{{ tomorrow }}' && '{{ tomorrow }}' !== '') {
         endDate.value = '{{ tomorrow }}';
     }
     
@@ -610,7 +688,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== BUTTON EVENT HANDLERS ==========
     
-    // Select Hotel button
     if (selectHotelBtn) {
         selectHotelBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -632,7 +709,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Rooms button
     if (selectRoomsBtn) {
         selectRoomsBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -659,7 +735,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Select Transport button
     if (selectTransportBtn) {
         selectTransportBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -681,7 +756,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Change Hotel button
     if (changeHotelBtn) {
         changeHotelBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -692,7 +766,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     tripId = await saveTripInfo();
                 }
                 if (tripId) {
-                    // Clear current hotel selection in UI (optional)
                     if (selectedHotelId) selectedHotelId.value = '';
                     window.location.href = `/planner/select-hotel-map/${tripId}/`;
                 } else {
@@ -705,7 +778,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Change Transport button
     if (changeTransportBtn) {
         changeTransportBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -716,7 +788,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     tripId = await saveTripInfo();
                 }
                 if (tripId) {
-                    // Clear current transport selection in UI (optional)
                     if (selectedTransportId) selectedTransportId.value = '';
                     if (selectedTransportType) selectedTransportType.value = '';
                     window.location.href = `/planner/select-transport-category/${tripId}/`;
@@ -730,7 +801,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Clear Form button
     if (clearFormBtn) {
         clearFormBtn.addEventListener('click', function() {
             if (confirm('Are you sure you want to clear all trip data?\n\nThis will:\n• Clear all form fields\n• Remove selected hotel\n• Remove selected rooms\n• Remove selected transport\n• Clear all saved trip data')) {
@@ -779,7 +849,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // ========== FORM SUBMISSION - TO ITINERARY BUILDER ==========
+    // ========== FORM SUBMISSION ==========
     tripForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -846,9 +916,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return false;
     });
     
+    // Initial validation and button update
     validateLocations();
     updateContinueButton();
     setTimeout(updateContinueButton, 100);
+    
+    // Additional check: If destination is loaded from URL, trigger a small delay to ensure everything is set
+    if (urlParams.destination_id && urlParams.destination_name) {
+        setTimeout(function() {
+            updateContinueButton();
+            console.log('🔄 Re-checked continue button after destination load');
+        }, 200);
+    }
 });
 </script>
 {% endblock %}

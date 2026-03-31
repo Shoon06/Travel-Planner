@@ -99,9 +99,9 @@
                                            type="checkbox" 
                                            value="{{ room_data.room.id }}" 
                                            id="room_{{ room_data.room.id }}"
-                                           data-price="{{ room_data.room.get_price_per_night }}"
+                                           data-price="{{ room_data.room.get_price_per_night|stringformat:'f' }}"
                                            data-extra-bed-available="{{ room_data.room.extra_bed_available|yesno:'true,false' }}"
-                                           data-extra-bed-cost="{{ room_data.room.extra_bed_cost }}"
+                                           data-extra-bed-cost="{{ room_data.room.extra_bed_cost|stringformat:'f' }}"
                                            data-max-extra-beds="{{ room_data.room.max_extra_beds }}"
                                            {% if not room_data.is_available %}disabled{% endif %}>
                                     <label class="form-check-label fw-bold" for="room_{{ room_data.room.id }}">
@@ -123,7 +123,7 @@
                                     {% endif %}
                                 </div>
                                 
-                                <!-- EXTRA BED OPTION - FIXED VISIBILITY WITH MATCHING COLORS -->
+                                <!-- EXTRA BED OPTION -->
                                 {% if room_data.room.extra_bed_available and room_data.is_available %}
                                 <div class="extra-bed-option mt-2 p-2 rounded">
                                     <div class="d-flex align-items-center">
@@ -131,7 +131,7 @@
                                                class="extra-bed-checkbox me-2" 
                                                id="extra_bed_{{ room_data.room.id }}"
                                                data-room-id="{{ room_data.room.id }}"
-                                               data-cost="{{ room_data.room.extra_bed_cost }}"
+                                               data-cost="{{ room_data.room.extra_bed_cost|stringformat:'f' }}"
                                                {% if not room_data.is_available %}disabled{% endif %}>
                                         <label for="extra_bed_{{ room_data.room.id }}" class="small mb-0 fw-bold extra-bed-label">
                                             <i class="fas fa-bed me-1"></i>
@@ -214,7 +214,6 @@
                     <div class="col-md-7">
                         <h6 class="mb-1 text-light">Selected Rooms: <span id="selectedCount">0</span></h6>
                         <div class="small text-gray" id="selectedRoomsList"></div>
-                        <!-- Extra bed summary -->
                         <div class="small text-info mt-1" id="extraBedsSummary"></div>
                     </div>
                     <div class="col-md-5 text-end">
@@ -222,7 +221,6 @@
                             <div class="me-3">
                                 <span class="text-gray small">Total for {{ nights }} nights:</span>
                                 <h5 class="mb-0 price-tag" id="totalPrice">0 MMK</h5>
-                                <!-- Breakdown -->
                                 <small class="text-gray" id="priceBreakdown"></small>
                             </div>
                             <button type="button" class="btn btn-primary" id="confirmRoomsBtn">
@@ -250,7 +248,6 @@
         border-color: #06B6D4 !important;
     }
     
-    /* Room status styles */
     .room-card.room-booked {
         background: rgba(239, 68, 68, 0.05);
         border-color: #ef4444 !important;
@@ -286,7 +283,6 @@
         color: #6b7280;
     }
     
-    /* Extra bed styles - FIXED VISIBILITY WITH MATCHING COLORS */
     .extra-bed-option {
         background: rgba(6, 182, 212, 0.08);
         border-left: 3px solid #06B6D4;
@@ -294,7 +290,7 @@
     }
     
     .extra-bed-label {
-        color: #06B6D4 !important;  /* Bright teal color matching the price */
+        color: #06B6D4 !important;
         cursor: pointer;
         font-weight: 600;
     }
@@ -307,7 +303,7 @@
         width: 16px;
         height: 16px;
         cursor: pointer;
-        accent-color: #06B6D4;  /* Makes the checkbox teal when checked */
+        accent-color: #06B6D4;
     }
     
     .extra-bed-checkbox:disabled {
@@ -316,10 +312,9 @@
     }
     
     .extra-bed-option .text-muted {
-        color: #94a3b8 !important;  /* Light slate for helper text */
+        color: #94a3b8 !important;
     }
     
-    /* Tooltip styles */
     [title] {
         position: relative;
         cursor: help;
@@ -342,7 +337,6 @@
         pointer-events: none;
     }
     
-    /* Disabled checkbox styling */
     .room-checkbox:disabled + .form-check-label {
         color: #9ca3af;
         text-decoration: line-through;
@@ -366,7 +360,7 @@
         position: sticky;
         bottom: 20px;
         z-index: 1000;
-        background: rgba(15, 23, 42, 0.95) !important;  /* Darker background */
+        background: rgba(15, 23, 42, 0.95) !important;
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         margin-top: 20px;
@@ -417,12 +411,10 @@
         }
     }
     
-    /* Form check label color fix */
     .form-check-label {
         color: #e2e8f0;
     }
     
-    /* Text colors for better visibility */
     .text-gray {
         color: #94a3b8 !important;
     }
@@ -509,16 +501,30 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cb.checked) {
                 var roomCard = cb.closest('.room-card');
                 var roomNumber = roomCard ? roomCard.querySelector('.form-check-label').textContent.trim() : 'Room';
-                var price = parseFloat(cb.dataset.price) || 0;
+                
+                // Convert price to number properly
+                var price = parseFloat(cb.dataset.price);
+                if (isNaN(price)) price = 0;
+                
                 var roomId = cb.value;
                 
                 // Check if extra bed is selected for this room
                 var extraBedCheckbox = document.getElementById('extra_bed_' + roomId);
                 var extraBedSelected = extraBedCheckbox ? extraBedCheckbox.checked : false;
-                var extraBedCost = extraBedCheckbox ? parseFloat(extraBedCheckbox.dataset.cost) || 0 : 0;
                 
-                var roomBaseTotal = price * nights;
-                var extraBedTotal = extraBedSelected ? extraBedCost * nights : 0;
+                // Convert extra bed cost to number properly
+                var extraBedCost = 0;
+                if (extraBedCheckbox && extraBedCheckbox.dataset.cost) {
+                    extraBedCost = parseFloat(extraBedCheckbox.dataset.cost);
+                    if (isNaN(extraBedCost)) extraBedCost = 0;
+                }
+                
+                // Ensure nights is a number
+                var nightsNum = parseInt(nights);
+                if (isNaN(nightsNum)) nightsNum = 1;
+                
+                var roomBaseTotal = price * nightsNum;
+                var extraBedTotal = extraBedSelected ? extraBedCost * nightsNum : 0;
                 
                 selected.push({
                     number: roomNumber, 
@@ -592,13 +598,11 @@ document.addEventListener('DOMContentLoaded', function() {
     roomCards.forEach(function(card) {
         if (card.dataset.status === 'available') {
             card.addEventListener('click', function(e) {
-                // Don't toggle if clicking on checkbox or extra bed checkbox
                 if (e.target.type !== 'checkbox' && !e.target.classList.contains('extra-bed-checkbox') && !e.target.classList.contains('extra-bed-label')) {
                     var checkbox = this.querySelector('.room-checkbox');
                     if (checkbox && !checkbox.disabled) {
                         checkbox.checked = !checkbox.checked;
                         
-                        // If unchecking room, also uncheck extra bed
                         if (!checkbox.checked) {
                             var roomId = checkbox.value;
                             var extraBedCheckbox = document.getElementById('extra_bed_' + roomId);
@@ -620,7 +624,6 @@ document.addEventListener('DOMContentLoaded', function() {
         cb.addEventListener('change', function(e) {
             var roomId = this.value;
             
-            // If unchecking room, also uncheck extra bed
             if (!this.checked) {
                 var extraBedCheckbox = document.getElementById('extra_bed_' + roomId);
                 if (extraBedCheckbox) {
@@ -640,14 +643,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.querySelectorAll('.room-checkbox:checked').forEach(function(cb) {
             var roomId = cb.value;
-            selected.push(roomId);
+            selected.push(parseInt(roomId));
             
-            // Check if extra bed is selected for this room
             var extraBedCheckbox = document.getElementById('extra_bed_' + roomId);
             if (extraBedCheckbox && extraBedCheckbox.checked) {
+                var cost = parseFloat(extraBedCheckbox.dataset.cost);
+                if (isNaN(cost)) cost = 0;
+                
                 extraBedsData[roomId] = {
-                    count: 1,  // For now just 1 extra bed
-                    cost: parseFloat(extraBedCheckbox.dataset.cost) || 0
+                    count: 1,
+                    cost: cost
                 };
             }
         });
@@ -657,12 +662,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Show loading state
         var originalText = confirmBtn.innerHTML;
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
         confirmBtn.disabled = true;
         
-        // Save room selection via AJAX
+        var nightsNum = parseInt(nights);
+        if (isNaN(nightsNum)) nightsNum = 1;
+        
         fetch('/planner/save-room-selection/' + tripId + '/', {
             method: 'POST',
             headers: {
@@ -673,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
                 room_ids: selected,
                 extra_beds: extraBedsData,
-                nights: nights
+                nights: nightsNum
             })
         })
         .then(function(response) {
@@ -686,10 +692,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Save rooms response:', data);
             
             if (data.success) {
-                // Show success toast
                 showToast('success', data.message, 'fas fa-check-circle');
                 
-                // Redirect back to plan page
                 setTimeout(function() {
                     window.location.href = data.redirect_url;
                 }, 1000);
@@ -707,15 +711,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Toast notification function
     function showToast(type, message, icon) {
-        // Remove any existing toasts
         var existingToasts = document.querySelectorAll('.custom-toast');
         existingToasts.forEach(function(toast) {
             toast.remove();
         });
         
-        // Create toast element
         var toast = document.createElement('div');
         toast.className = 'custom-toast rounded-3 shadow-lg border-0 text-white';
         if (type === 'success') {
@@ -737,7 +738,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.body.appendChild(toast);
         
-        // Auto remove after 5 seconds
         setTimeout(function() {
             if (toast.parentElement) {
                 toast.remove();
@@ -745,7 +745,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
     
-    // Initialize selection summary
     updateSelection();
 });
 </script>

@@ -1,3 +1,4 @@
+<!-- C:\Users\ASUS\MyanmarTravelPlanner\templates\users\login.html -->
 {% extends 'base.html' %}
 {% block title %}Login - GoMyanmar{% endblock %}
 
@@ -14,7 +15,7 @@
                     <p class="text-gray">Login to your GoMyanmar account</p>
                 </div>
                 
-                <form method="post" action="{% url 'users:login' %}">
+                <form method="post" action="{% url 'users:login' %}?{{ request.GET.urlencode }}">
                     {% csrf_token %}
                     
                     <div class="mb-4">
@@ -67,7 +68,7 @@
                     
                     <div class="text-center">
                         <p class="mb-0 text-gray">Don't have an account? 
-                            <a href="{% url 'users:signup' %}" class="text-decoration-none fw-bold" style="color: #00D2FF;">
+                            <a href="{% url 'users:signup' %}?{{ request.GET.urlencode }}" class="text-decoration-none fw-bold" style="color: #00D2FF;">
                                 Sign up here
                             </a>
                         </p>

@@ -67,6 +67,11 @@ urlpatterns = [
     path('trip/<int:trip_id>/confirm-booking/', 
          ConfirmBookingView.as_view(), 
          name='confirm_booking'),
+    path('trip/<int:trip_id>/download-plan-pdf/', 
+         views.DownloadPlanSelectionPDFView.as_view(), 
+         name='download_plan_selection_pdf'),
+     # In urls.py
+    path('save-route-data/<int:trip_id>/', views.SaveRouteDataView.as_view(), name='save_route_data'),
     
     # Optional: Separate confirmation endpoints if needed
     path('trip/<int:trip_id>/confirm-rooms/', 

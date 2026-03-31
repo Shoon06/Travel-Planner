@@ -225,21 +225,7 @@
                     {% endif %}
                     
                     <!-- 7. HOW IT WORKS -->
-                    <li class="nav-item">
-                        {% if user.is_authenticated and user.is_admin_user %}
-                            <!-- Admin users see admin version -->
-                            <a class="nav-link {% if 'admin/how-it-works' in request.path %}active{% endif %}" 
-                               href="{% url 'users:admin_how_it_works' %}">
-                               <i class="fas fa-question-circle me-1"></i>How It Works
-                            </a>
-                        {% else %}
-                            <!-- Regular users see regular version -->
-                           <a class="nav-link {% if 'how-it-works' in request.path %}active{% endif %}" 
-                              href="{% url 'planner:how_it_works' %}">
-                               <i class="fas fa-question-circle me-1"></i>How It Works
-                           </a>
-                       {% endif %}
-                   </li>
+                    
                 </ul>
                 
                 <!-- User dropdown / Login/Signup -->
